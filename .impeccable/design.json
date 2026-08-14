@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-15T00:00:00+08:00",
+  "title": "Design System: DriveAlert",
+  "extensions": {
+    "colorMeta": {
+      "signal-red": { "role": "primary", "displayName": "Signal Red", "canonical": "#EF3340", "tonalRamp": ["#2A1114", "#4B2025", "#71242D", "#9D2934", "#C91F2D", "#EF3340", "#F57A82", "#FBD0D3"] },
+      "road-ink": { "role": "neutral", "displayName": "Road Ink", "canonical": "#121011", "tonalRamp": ["#121011", "#1B1819", "#242021", "#2D2729", "#4B4144", "#756A6D", "#C9BFC1", "#F5EFF0"] },
+      "success": { "role": "success", "displayName": "Ready Green", "canonical": "#55D68B", "tonalRamp": ["#10281C", "#163C2A", "#20593D", "#2D7A53", "#3EA86F", "#55D68B", "#91E8B5", "#D2F7E1"] },
+      "warning": { "role": "warning", "displayName": "Attention Amber", "canonical": "#F2BE4D", "tonalRamp": ["#271F0E", "#443719", "#6B5622", "#99772D", "#C99C3A", "#F2BE4D", "#F8D98D", "#FDF1D1"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Primary screen moments and setup steps." },
+      "title": { "displayName": "Title", "purpose": "Sections, records, and grouped status." },
+      "body": { "displayName": "Body", "purpose": "Explanations and record details." },
+      "label": { "displayName": "Label", "purpose": "Metadata, badges, and controls." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "state-standard", "value": "200ms ease-out", "purpose": "Short state transitions only; disabled for reduced motion." }
+    ],
+    "breakpoints": [
+      { "name": "compact-phone", "value": "320dp" },
+      { "name": "standard-phone", "value": "360dp" },
+      { "name": "large-phone", "value": "412dp" }
+    ]
+  },
+  "components": [
+    { "name": "Primary Button", "kind": "button", "refersTo": "button-primary", "description": "Full-width primary action with restrained signal color.", "html": "<button class=\"ds-btn-primary\">CONTINUE</button>", "css": ".ds-btn-primary{height:52px;padding:0 20px;border:0;border-radius:12px;background:#EF3340;color:#F5EFF0;font:600 14px sans-serif}.ds-btn-primary:hover{background:#C91F2D}.ds-btn-primary:focus-visible{outline:3px solid #74B7FF;outline-offset:2px}" },
+    { "name": "Status Card", "kind": "card", "refersTo": "card-status", "description": "Tonal grouping surface for related readiness or record information.", "html": "<section class=\"ds-card\">Device ready</section>", "css": ".ds-card{padding:16px;border:1px solid #4B4144;border-radius:16px;background:#242021;color:#F5EFF0;font:400 14px sans-serif}" },
+    { "name": "Status Pill", "kind": "chip", "description": "Semantic status with dot, text, and tinted background.", "html": "<span class=\"ds-pill\"><i></i>Connected</span>", "css": ".ds-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:999px;background:#163C2A;color:#55D68B;font:500 11px sans-serif}.ds-pill i{width:7px;height:7px;border-radius:50%;background:#55D68B}" },
+    { "name": "Outlined Field", "kind": "input", "refersTo": "input", "description": "Labeled local-demo form control.", "html": "<label class=\"ds-field\">Email<input /></label>", "css": ".ds-field{display:grid;gap:6px;color:#C9BFC1;font:500 12px sans-serif}.ds-field input{height:52px;padding:0 14px;border:1px solid #4B4144;border-radius:12px;background:#121011;color:#F5EFF0}.ds-field input:focus{outline:2px solid #EF3340;outline-offset:1px}" },
+    { "name": "Bottom Navigation", "kind": "nav", "description": "Role-specific navigation with clear active state.", "html": "<nav class=\"ds-nav\"><button class=\"active\">Home</button><button>Alerts</button><button>Settings</button></nav>", "css": ".ds-nav{display:flex;justify-content:space-around;padding:10px;background:#1B1819}.ds-nav button{min-height:48px;border:0;background:transparent;color:#9E9295}.ds-nav button.active{color:#EF3340}.ds-nav button:focus-visible{outline:2px solid #74B7FF}" }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Co-Pilot",
+    "overview": "A restrained dark product interface for fast comprehension before and after a drive. Charcoal surfaces reduce glare while scarce red identifies the next primary action and true escalation.",
+    "keyCharacteristics": ["Compact but readable", "Tonal layering", "Three-cue status", "Consistent role-aware navigation"],
+    "rules": [
+      { "name": "The Signal Rule", "body": "Signal Red is reserved for primary action, active navigation, and Escalated status.", "section": "colors" },
+      { "name": "The Three-Cue Rule", "body": "Status color is paired with readable text and an icon or shape.", "section": "colors" },
+      { "name": "The Tonal Layer Rule", "body": "A container earns a new surface tone only when it groups information or interaction.", "section": "elevation" }
+    ],
+    "dos": ["Do keep targets at least 48dp.", "Do provide honest empty and failure states."],
+    "donts": ["Don't create an alarm-heavy dashboard.", "Don't present recurrence as a diagnosis.", "Don't use glass, gradients, or colored side stripes."]
+  }
+}
