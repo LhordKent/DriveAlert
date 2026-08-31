@@ -1,6 +1,8 @@
 *.iml
-.gradle
+.gradle/
+.kotlin/
 /local.properties
+**/build/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -8,10 +10,29 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 /.idea/deploymentTargetSelector.xml
+/.idea/deploymentTargetDropDown.xml
 /.idea/deviceManager.xml
+/.idea/kotlinc.xml
+/.idea/migrations.xml
+/.idea/vcs.xml
 .DS_Store
-/build
+Thumbs.db
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local experiments are not part of the Android application.
+/drivealert-ai-prototype/
+
+# Local signing and environment configuration.
+*.jks
+*.keystore
+keystore.properties
+.env
+.env.*
+!.env.example
+*.log
+
+# app/google-services.json is intentionally versioned so the school Firebase
+# Authentication configuration works immediately after cloning.

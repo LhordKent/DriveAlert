@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "454098058487",
+    "project_id": "drivealert-lhordkent",
+    "storage_bucket": "drivealert-lhordkent.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:454098058487:android:9bed22c62935a0da77a7f2",
+        "android_client_info": {
+          "package_name": "com.lhordkent.drivealert"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPsxGlzAET0a64rZu8-Qk1w5gdynLOucg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

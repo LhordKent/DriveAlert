@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
     <style name="Theme.DriveAlert" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowBackground">@color/road_ink</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">@color/road_ink</item>
         <item name="android:statusBarColor">@color/road_ink</item>
+        <item name="android:windowSplashScreenBackground">@color/road_ink</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/road_ink</item>
     </style>
 </resources>

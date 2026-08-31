@@ -1,4 +1,4 @@
-package com.example.drivealert.ui.theme
+package com.lhordkent.drivealert.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
