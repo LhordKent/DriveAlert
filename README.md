@@ -23,9 +23,14 @@ Firebase Authentication is preconfigured for package `com.lhordkent.drivealert` 
 
 ## Command-line verification
 
-On Windows with JDK 17 selected:
+Android Studio creates the machine-specific `local.properties` file automatically. When running Gradle from a terminal before opening the project, set `ANDROID_HOME` to the Android SDK installed on that computer. Do not commit `local.properties` because its path is different for every developer.
+
+On Windows with JDK 17 and the Android SDK selected:
 
 ```powershell
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 .\gradlew.bat testDebugUnitTest assembleDebug compileDebugAndroidTestSources
 ```
 
