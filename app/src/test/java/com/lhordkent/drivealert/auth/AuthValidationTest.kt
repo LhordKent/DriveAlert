@@ -34,10 +34,7 @@ class AuthValidationTest {
 
     @Test
     fun optionalFieldsMayBeBlankAndValidateWhenPresent() {
-        assertNull(AuthValidation.middleInitialError(""))
         assertNull(AuthValidation.phoneError(""))
-        assertNull(AuthValidation.middleInitialError("K"))
-        assertEquals("Use one character", AuthValidation.middleInitialError("KE"))
         assertNull(AuthValidation.phoneError("+63 917 123 4567"))
         assertEquals("Enter a valid phone number", AuthValidation.phoneError("call-me"))
     }

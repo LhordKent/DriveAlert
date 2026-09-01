@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,14 +30,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.lhordkent.drivealert.R
+import com.lhordkent.drivealert.DriveAlertApplication
 import com.lhordkent.drivealert.auth.AuthCallbacks
 import com.lhordkent.drivealert.auth.AuthOperationState
 import com.lhordkent.drivealert.auth.AuthRoutes
 import com.lhordkent.drivealert.auth.AuthSessionState
 import com.lhordkent.drivealert.auth.AuthViewModel
+import com.lhordkent.drivealert.auth.AuthViewModelFactory
 import com.lhordkent.drivealert.auth.AuthenticationEntry
 import com.lhordkent.drivealert.postauth.PostAuthUiState
 import com.lhordkent.drivealert.postauth.PostAuthViewModel
+import com.lhordkent.drivealert.postauth.PostAuthViewModelFactory
 import com.lhordkent.drivealert.postauth.UserView
 import com.lhordkent.drivealert.ui.auth.CreateAccountScreen
 import com.lhordkent.drivealert.ui.auth.ForgotPasswordScreen
@@ -105,8 +109,28 @@ private val driverNavItems = listOf(
 
 @Composable
 fun DriveAlertApp() {
-    val authViewModel: AuthViewModel = viewModel()
-    val postAuthViewModel: PostAuthViewModel = viewModel()
+    val application = LocalContext.current.applicationContext as DriveAlertApplication
+    val authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(application.container.userProfileRepository),
+    )
+    val postAuthViewModel: PostAuthViewModel = viewModel(
+        factory = PostAuthViewModelFactory(
+            application.container.alertRepository,
+            application.container.monitoringSessionRepository,
+            application.container.userProfileRepository,
+            application.container.driverPreferenceRepository,
+            application.container.trustedContactRepository,
+            application.container.stageSyncRepository,
+            application.container.sharedStage3Repository,
+        ),
+    )
+    LaunchedEffect(authViewModel.sessionState.user?.uid) {
+        authViewModel.sessionState.user?.uid?.let(postAuthViewModel::bindLocalData)
+        authViewModel.sessionState.user?.uid?.let(postAuthViewModel::bindCloudProfile)
+        authViewModel.sessionState.user?.uid?.let(postAuthViewModel::bindPreferences)
+        authViewModel.sessionState.user?.uid?.let(postAuthViewModel::bindConnections)
+        authViewModel.sessionState.user?.uid?.let(postAuthViewModel::bindStageSyncRecords)
+    }
     DriveAlertApp(
         callbacks = authViewModel.callbacks,
         operationState = authViewModel.state,
@@ -115,7 +139,6 @@ fun DriveAlertApp() {
         onNavigate = authViewModel::clearMessages,
         onSetAccountEmail = postAuthViewModel::setAccountEmail,
         onSetProfileName = postAuthViewModel::setProfileDisplayName,
-        onUpdateProfileName = postAuthViewModel::updateProfileDisplayName,
         onChooseView = postAuthViewModel::chooseView,
         onCompleteSetup = postAuthViewModel::completeDriverSetup,
         onReconnectDevice = postAuthViewModel::reconnectDevice,
@@ -143,7 +166,6 @@ fun DriveAlertApp(
     onNavigate: () -> Unit = {},
     onSetAccountEmail: (String) -> Unit = {},
     onSetProfileName: (String) -> Unit = {},
-    onUpdateProfileName: (String) -> Unit = {},
     onChooseView: (UserView) -> Unit = {},
     onCompleteSetup: () -> Unit = {},
     onReconnectDevice: () -> Unit = {},
@@ -178,8 +200,8 @@ fun DriveAlertApp(
             onSetAccountEmail(user.email)
             onSetProfileName(user.displayName)
             val destination = when (sessionState.entry) {
-                AuthenticationEntry.FRESH -> PostAuthRoutes.ROLE_CHOICE
-                AuthenticationEntry.RESTORED, AuthenticationEntry.NONE ->
+                AuthenticationEntry.ACCOUNT_CREATED -> PostAuthRoutes.ROLE_CHOICE
+                AuthenticationEntry.FRESH, AuthenticationEntry.RESTORED, AuthenticationEntry.NONE ->
                     if (postAuthState.driverSetupComplete) PostAuthRoutes.DRIVER_HOME else PostAuthRoutes.DRIVER_SETUP
             }
             navController.navigate(destination) {
@@ -250,7 +272,13 @@ fun DriveAlertApp(
             }
             composable(PostAuthRoutes.DRIVER_ALERTS) {
                 DriverRoot(navController, PostAuthRoutes.DRIVER_ALERTS, "Alert History") {
-                    AlertHistoryScreen(postAuthState.driverAlerts, postAuthState.driverSyncRecords, postAuthState.alertFilter, onFilterChange) {
+                    AlertHistoryScreen(
+                        postAuthState.driverAlerts,
+                        postAuthState.driverSyncRecords,
+                        postAuthState.alertFilter,
+                        onFilterChange,
+                        isLoading = postAuthState.isLocalDataLoading,
+                    ) {
                         navController.navigate(PostAuthRoutes.driverAlert(it))
                     }
                 }
@@ -274,6 +302,7 @@ fun DriveAlertApp(
                         onDecline = { onDeclineRequest(UserView.DRIVER, it) },
                         onCancel = { onCancelRequest(UserView.DRIVER, it) },
                         onRemove = { onRemoveConnection(UserView.DRIVER, it) },
+                        cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,
                     )
                 }
             }
@@ -306,6 +335,7 @@ fun DriveAlertApp(
                         onDriverSelected = { navController.navigate(PostAuthRoutes.trustedDriver(it)) },
                         onInvite = { navController.navigate(PostAuthRoutes.TRUSTED_INVITE) },
                         onRemove = { onRemoveConnection(UserView.TRUSTED_CONTACT, it) },
+                        cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,
                     )
                 }
             }
@@ -340,6 +370,7 @@ fun DriveAlertApp(
                         onAccept = { onAcceptRequest(UserView.TRUSTED_CONTACT, it) },
                         onDecline = { onDeclineRequest(UserView.TRUSTED_CONTACT, it) },
                         onCancel = { onCancelRequest(UserView.TRUSTED_CONTACT, it) },
+                        cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,
                     )
                 }
             }
@@ -369,7 +400,6 @@ fun DriveAlertApp(
                 AccountScreen(
                     displayName = postAuthState.profileDisplayName.ifBlank { user?.displayName.orEmpty() },
                     email = user?.email.orEmpty(),
-                    onSaveDisplayName = onUpdateProfileName,
                     onBack = navController::popBackStack,
                 )
             }

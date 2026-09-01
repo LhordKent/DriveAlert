@@ -3,7 +3,12 @@
 .kotlin/
 /local.properties
 **/build/
+**/node_modules/
+**/coverage/
 /.idea/caches
+/.idea/shelf/
+/.idea/httpRequests/
+/.idea/dataSources/
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
@@ -15,12 +20,20 @@
 /.idea/kotlinc.xml
 /.idea/migrations.xml
 /.idea/vcs.xml
+/.vscode/
 .DS_Store
 Thumbs.db
 /captures
 .externalNativeBuild
 .cxx
-local.properties
+*.hprof
+
+# Local Room/SQLite files and sidecars.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
 
 # Local experiments are not part of the Android application.
 /drivealert-ai-prototype/
@@ -33,6 +46,26 @@ keystore.properties
 .env.*
 !.env.example
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Firebase Emulator Suite state and generated Cloud Functions dependencies.
+/.firebase/
+/firebase-debug.log
+/firestore-debug.log
+/ui-debug.log
+/functions/node_modules/
+/functions/.secret.local
+/functions/.runtimeconfig.json
+/firebase-export-*/
+/tmp/
+
+# Never version server credentials. app/google-services.json remains allowed
+# because it is Firebase Android client configuration, not an Admin key.
+*firebase-adminsdk*.json
+service-account*.json
+application_default_credentials.json
 
 # app/google-services.json is intentionally versioned so the school Firebase
 # Authentication configuration works immediately after cloning.

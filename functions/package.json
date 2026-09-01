@@ -1,0 +1,23 @@
+{
+  "name": "drivealert-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "node --check index.js",
+    "test": "mocha --timeout 30000 test/helpers.test.js",
+    "test:integration": "mocha --timeout 60000 test/emulator.test.js",
+    "test:emulator": "cd .. && firebase emulators:exec --project drivealert-lhordkent --only auth,firestore,functions \"npm --prefix functions run test:integration\""
+  },
+  "dependencies": {
+    "firebase-admin": "^14.3.0",
+    "firebase-functions": "^7.3.2"
+  },
+  "devDependencies": {
+    "firebase": "^12.1.0",
+    "firebase-tools": "^15.28.2",
+    "mocha": "^12.0.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "stageSyncRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "driverUserId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "periodStartedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

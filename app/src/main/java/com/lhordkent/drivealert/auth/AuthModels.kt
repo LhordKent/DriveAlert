@@ -9,7 +9,7 @@ object AuthRoutes {
 
 data class SignUpInput(
     val firstName: String,
-    val middleInitial: String,
+    val middleName: String,
     val lastName: String,
     val phoneNumber: String,
     val email: String,
@@ -30,7 +30,7 @@ data class AuthOperationState(
     val successMessage: String? = null,
 )
 
-enum class AuthenticationEntry { NONE, FRESH, RESTORED }
+enum class AuthenticationEntry { NONE, FRESH, ACCOUNT_CREATED, RESTORED }
 
 data class AuthenticatedUser(
     val uid: String,
@@ -71,9 +71,6 @@ object AuthValidation {
         password != confirmation -> "Passwords do not match"
         else -> null
     }
-
-    fun middleInitialError(value: String): String? =
-        if (value.trim().length > 1) "Use one character" else null
 
     fun phoneError(value: String): String? = when {
         value.isBlank() -> null

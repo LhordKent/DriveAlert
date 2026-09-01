@@ -66,7 +66,7 @@ object AuthTestTags {
     const val PASSWORD = "auth_password"
     const val CONFIRM_PASSWORD = "auth_confirm_password"
     const val FIRST_NAME = "auth_first_name"
-    const val MIDDLE_INITIAL = "auth_middle_initial"
+    const val MIDDLE_NAME = "auth_middle_name"
     const val LAST_NAME = "auth_last_name"
     const val PHONE = "auth_phone"
     const val PRIMARY_ACTION = "auth_primary_action"

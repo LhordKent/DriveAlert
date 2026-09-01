@@ -106,7 +106,7 @@ class AuthFlowTest {
 
         composeRule.runOnIdle {
             assertEquals("Lhord", received?.firstName)
-            assertEquals("", received?.middleInitial)
+            assertEquals("", received?.middleName)
             assertEquals("", received?.phoneNumber)
         }
     }

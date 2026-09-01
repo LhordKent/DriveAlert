@@ -54,9 +54,11 @@ fun DriverContactsScreen(
     onDecline: (String) -> Unit,
     onCancel: (String) -> Unit,
     onRemove: (String) -> Unit,
+    cloudErrorMessage: String? = null,
 ) {
     var pendingRemove by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingAccept by rememberSaveable { mutableStateOf<String?>(null) }
+    CloudErrorMessage(cloudErrorMessage)
     PrimaryButton("Invite a Trusted Contact", onInvite)
     Spacer(Modifier.height(26.dp))
     SectionTitle("Approved")
@@ -113,8 +115,10 @@ fun TrustedDriversScreen(
     onDriverSelected: (String) -> Unit,
     onInvite: () -> Unit,
     onRemove: (String) -> Unit,
+    cloudErrorMessage: String? = null,
 ) {
     var pendingRemove by rememberSaveable { mutableStateOf<String?>(null) }
+    CloudErrorMessage(cloudErrorMessage)
     Text(
         "Review Stage 3 transition and persistence records shared by connected Drivers.",
         style = MaterialTheme.typography.bodyLarge,
@@ -124,7 +128,7 @@ fun TrustedDriversScreen(
     SecondaryButton("Invite a Driver", onInvite)
     Spacer(Modifier.height(24.dp))
     if (drivers.isEmpty()) {
-        EmptyState("No connected Drivers", "Invite a Driver or accept a request to begin reviewing shared Stage 3 transition and persistence records.")
+        EmptyState("No connected Drivers", "Invite a Driver or accept a request to begin reviewing shared Stage 3 transition or persistence records.")
     } else drivers.forEach { driver ->
         Column(
             modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) { onDriverSelected(driver.id) }.padding(vertical = 15.dp),
@@ -143,7 +147,7 @@ fun TrustedDriversScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMuted,
                 )
-                TextButton(onClick = { pendingRemove = driver.id }) { Text("Disconnect", color = DriveRed) }
+                TextButton(onClick = { pendingRemove = driver.connectionId }) { Text("Disconnect", color = DriveRed) }
             }
             HorizontalDivider(color = Border)
         }
@@ -168,7 +172,9 @@ fun RequestsScreen(
     onAccept: (String) -> Unit,
     onDecline: (String) -> Unit,
     onCancel: (String) -> Unit,
+    cloudErrorMessage: String? = null,
 ) {
+    CloudErrorMessage(cloudErrorMessage)
     SectionTitle("Requests to you")
     Text(
         "Accepting a Driver connects the accounts and allows future eligible Stage 3 transition or persistence records to be shared.",
@@ -189,6 +195,13 @@ fun RequestsScreen(
         RequestRow(request, onCancel = { onCancel(request.id) })
     }
     Spacer(Modifier.height(24.dp))
+}
+
+@Composable
+private fun CloudErrorMessage(message: String?) {
+    if (message == null) return
+    Text(message, style = MaterialTheme.typography.bodyMedium, color = DriveRed)
+    Spacer(Modifier.height(16.dp))
 }
 
 @Composable

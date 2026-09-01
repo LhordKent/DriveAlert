@@ -58,7 +58,7 @@ class PostAuthViewModelTest {
     }
 
     @Test
-    fun disconnectAndResetPreserveDriverHistoryAndActiveView() {
+    fun disconnectPreservesDriverHistory() {
         val viewModel = PostAuthViewModel()
         val originalAlerts = viewModel.state.driverAlerts
         viewModel.chooseView(UserView.TRUSTED_CONTACT)
@@ -67,15 +67,8 @@ class PostAuthViewModelTest {
         assertFalse(viewModel.state.connectedDrivers.any { it.id == "adrian" })
         assertEquals(originalAlerts, viewModel.state.driverAlerts)
 
-        viewModel.selectWarningSound(WarningSound.BELL_CHIME)
-        viewModel.selectPreferredVolume(PreferredVolume.HIGH)
-        viewModel.resetDemoData()
-
         assertEquals(UserView.TRUSTED_CONTACT, viewModel.state.activeView)
         assertTrue(viewModel.state.driverSetupComplete)
-        assertEquals(WarningSound.DIGITAL_BEEP, viewModel.state.warningSound)
-        assertEquals(PreferredVolume.MEDIUM, viewModel.state.preferredVolume)
-        assertTrue(viewModel.state.connectedDrivers.any { it.id == "adrian" })
     }
 
     @Test
@@ -104,14 +97,12 @@ class PostAuthViewModelTest {
     }
 
     @Test
-    fun mockSetupAndProfileReducersStayInMemory() {
+    fun mockSetupReducersStayInMemory() {
         val viewModel = PostAuthViewModel()
-        viewModel.updateProfileDisplayName("Updated Driver")
         viewModel.reconnectDevice()
         viewModel.completeAlignmentCheck()
         viewModel.completeCalibration()
 
-        assertEquals("Updated Driver", viewModel.state.profileDisplayName)
         assertEquals(DeviceConnectionState.RECONNECTING, viewModel.state.deviceConnection)
         assertFalse(viewModel.state.alignmentReady)
         assertEquals(CalibrationState.IN_PROGRESS, viewModel.state.calibrationState)

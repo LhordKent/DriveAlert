@@ -26,7 +26,7 @@ class PostAuthFlowTest {
 
     @Test
     fun freshAuthenticationConnectsDriverSetupHomeAndMonitoring() {
-        launchSignedIn(AuthenticationEntry.FRESH)
+        launchSignedIn(AuthenticationEntry.ACCOUNT_CREATED)
 
         composeRule.onNodeWithText("Choose your view").assertIsDisplayed()
         composeRule.onNodeWithText("Continue as Driver").performScrollTo().performClick()
@@ -48,7 +48,7 @@ class PostAuthFlowTest {
 
     @Test
     fun freshAuthenticationConnectsTrustedContactNavigation() {
-        launchSignedIn(AuthenticationEntry.FRESH)
+        launchSignedIn(AuthenticationEntry.ACCOUNT_CREATED)
 
         composeRule.onNodeWithText("Continue as Trusted Contact").performScrollTo().performClick()
         composeRule.onNodeWithText("Connected Drivers").assertIsDisplayed()
@@ -156,7 +156,6 @@ class PostAuthFlowTest {
                     postAuthState = postAuthViewModel.state,
                     onSetAccountEmail = postAuthViewModel::setAccountEmail,
                     onSetProfileName = postAuthViewModel::setProfileDisplayName,
-                    onUpdateProfileName = postAuthViewModel::updateProfileDisplayName,
                     onChooseView = postAuthViewModel::chooseView,
                     onCompleteSetup = postAuthViewModel::completeDriverSetup,
                     onReconnectDevice = postAuthViewModel::reconnectDevice,

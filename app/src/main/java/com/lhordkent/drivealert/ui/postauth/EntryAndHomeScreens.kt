@@ -247,8 +247,12 @@ fun DriverHomeScreen(
             androidx.compose.material3.TextButton(onClick = onOpenAlerts) { Text("View alerts") }
         }
         Spacer(Modifier.height(4.dp))
-        KeyValueRow("Alerts today", todayCount.toString())
-        KeyValueRow("Latest alert", latest?.occurredAt?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "None")
+        KeyValueRow("Alerts today", if (state.isLocalDataLoading) "Loading" else todayCount.toString())
+        KeyValueRow("Latest alert", if (state.isLocalDataLoading) "Loading" else latest?.occurredAt?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "None")
+        KeyValueRow(
+            "Latest session",
+            if (state.isLocalDataLoading) "Loading" else state.monitoringSessions.firstOrNull()?.status ?: "None",
+        )
         KeyValueRow(
             "Trusted Contact",
             if (state.approvedContacts.isEmpty()) "Not connected" else "${state.approvedContacts.size} approved",

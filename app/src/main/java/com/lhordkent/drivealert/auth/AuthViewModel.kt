@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.FirebaseAuth
@@ -12,17 +14,22 @@ import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.lhordkent.drivealert.data.profile.NewUserProfile
+import com.lhordkent.drivealert.data.profile.UserProfileRepository
+import kotlinx.coroutines.launch
 
-class AuthViewModel : ViewModel() {
+class AuthViewModel(
+    private val userProfileRepository: UserProfileRepository? = null,
+) : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private var hasResolvedInitialSession = false
-    private var freshAuthenticationPending = false
+    private var pendingAuthenticationEntry: AuthenticationEntry? = null
 
     private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
         val firebaseUser = firebaseAuth.currentUser
         val entry = when {
             firebaseUser == null -> AuthenticationEntry.NONE
-            freshAuthenticationPending -> AuthenticationEntry.FRESH
+            pendingAuthenticationEntry != null -> pendingAuthenticationEntry!!
             !hasResolvedInitialSession -> AuthenticationEntry.RESTORED
             else -> sessionState.entry
         }
@@ -38,7 +45,7 @@ class AuthViewModel : ViewModel() {
             entry = entry,
         )
         hasResolvedInitialSession = true
-        if (firebaseUser != null) freshAuthenticationPending = false
+        if (firebaseUser != null) pendingAuthenticationEntry = null
     }
 
     var state by mutableStateOf(AuthOperationState())
@@ -64,13 +71,13 @@ class AuthViewModel : ViewModel() {
 
     private fun signIn(email: String, password: String) {
         beginOperation()
-        freshAuthenticationPending = true
+        pendingAuthenticationEntry = AuthenticationEntry.FRESH
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 state = if (task.isSuccessful) {
                     AuthOperationState(successMessage = "Signed in successfully.")
                 } else {
-                    freshAuthenticationPending = false
+                    pendingAuthenticationEntry = null
                     AuthOperationState(errorMessage = task.exception.toAuthMessage(isSignIn = true))
                 }
             }
@@ -78,43 +85,70 @@ class AuthViewModel : ViewModel() {
 
     private fun signUp(input: SignUpInput) {
         beginOperation()
-        freshAuthenticationPending = true
+        pendingAuthenticationEntry = AuthenticationEntry.ACCOUNT_CREATED
         auth.createUserWithEmailAndPassword(input.email, input.password)
             .addOnCompleteListener { createTask ->
                 if (!createTask.isSuccessful) {
-                    freshAuthenticationPending = false
+                    pendingAuthenticationEntry = null
                     state = AuthOperationState(errorMessage = createTask.exception.toAuthMessage())
                     return@addOnCompleteListener
                 }
 
-                val displayName = listOf(input.firstName, input.middleInitial, input.lastName)
+                val displayName = listOf(input.firstName, input.middleName, input.lastName)
                     .filter { it.isNotBlank() }
                     .joinToString(" ")
-                val profile = UserProfileChangeRequest.Builder()
+                val firebaseProfile = UserProfileChangeRequest.Builder()
                     .setDisplayName(displayName)
                     .build()
 
-                auth.currentUser?.updateProfile(profile)?.addOnCompleteListener { profileTask ->
+                auth.currentUser?.updateProfile(firebaseProfile)?.addOnCompleteListener { profileTask ->
                     auth.currentUser?.let { currentUser ->
                         sessionState = sessionState.copy(
                             user = AuthenticatedUser(
                                 uid = currentUser.uid,
-                                displayName = currentUser.displayName.orEmpty(),
+                                displayName = displayName,
                                 email = currentUser.email.orEmpty(),
                             ),
                         )
                     }
-                    state = if (profileTask.isSuccessful) {
-                        AuthOperationState(successMessage = "Account created. You’re signed in.")
-                    } else {
-                        AuthOperationState(
-                            successMessage = "Account created and signed in. Profile details can be completed later.",
-                        )
-                    }
-                } ?: run {
-                    state = AuthOperationState(successMessage = "Account created. You’re signed in.")
-                }
+                    persistCloudProfile(input, profileTask.isSuccessful)
+                } ?: persistCloudProfile(input, firebaseDisplayNameSaved = false)
             }
+    }
+
+    private fun persistCloudProfile(input: SignUpInput, firebaseDisplayNameSaved: Boolean) {
+        val currentUser = auth.currentUser
+        val repository = userProfileRepository
+        if (currentUser == null || repository == null) {
+            state = AuthOperationState(
+                successMessage = if (firebaseDisplayNameSaved) {
+                    "Account created. You’re signed in."
+                } else {
+                    "Account created and signed in. Profile details can be completed later."
+                },
+            )
+            return
+        }
+        viewModelScope.launch {
+            state = try {
+                repository.create(
+                    NewUserProfile(
+                        uid = currentUser.uid,
+                        firstName = input.firstName,
+                        middleName = input.middleName.ifBlank { null },
+                        lastName = input.lastName,
+                        email = currentUser.email ?: input.email,
+                        phoneNumber = input.phoneNumber.ifBlank { null },
+                    ),
+                )
+                AuthOperationState(successMessage = "Account created. Choose how you will use DriveAlert.")
+            } catch (_: Exception) {
+                AuthOperationState(
+                    successMessage = "Account created and signed in.",
+                    errorMessage = "Profile details could not be saved. Check your connection and try again later.",
+                )
+            }
+        }
     }
 
     private fun resetPassword(email: String) {
@@ -135,13 +169,23 @@ class AuthViewModel : ViewModel() {
 
     private fun signOut() {
         auth.signOut()
-        freshAuthenticationPending = false
+        pendingAuthenticationEntry = null
         state = AuthOperationState()
     }
 
     override fun onCleared() {
         auth.removeAuthStateListener(authStateListener)
         super.onCleared()
+    }
+}
+
+class AuthViewModelFactory(
+    private val userProfileRepository: UserProfileRepository,
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        require(modelClass.isAssignableFrom(AuthViewModel::class.java))
+        return AuthViewModel(userProfileRepository) as T
     }
 }
 

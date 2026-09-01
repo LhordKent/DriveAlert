@@ -151,7 +151,7 @@ fun CreateAccountScreen(
     state: AuthOperationState = AuthOperationState(),
 ) {
     var firstName by rememberSaveable { mutableStateOf("") }
-    var middleInitial by rememberSaveable { mutableStateOf("") }
+    var middleName by rememberSaveable { mutableStateOf("") }
     var lastName by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
@@ -161,7 +161,6 @@ fun CreateAccountScreen(
     val focusManager = LocalFocusManager.current
 
     val firstNameError = if (attempted) AuthValidation.requiredError(firstName, "First name") else null
-    val middleError = if (attempted) AuthValidation.middleInitialError(middleInitial) else null
     val lastNameError = if (attempted) AuthValidation.requiredError(lastName, "Last name") else null
     val phoneError = if (attempted) AuthValidation.phoneError(phone) else null
     val emailError = if (attempted) AuthValidation.emailError(email) else null
@@ -172,7 +171,6 @@ fun CreateAccountScreen(
         attempted = true
         val isValid = listOf(
             AuthValidation.requiredError(firstName, "First name"),
-            AuthValidation.middleInitialError(middleInitial),
             AuthValidation.requiredError(lastName, "Last name"),
             AuthValidation.phoneError(phone),
             AuthValidation.emailError(email),
@@ -184,7 +182,7 @@ fun CreateAccountScreen(
             callbacks.onSignUp(
                 SignUpInput(
                     firstName = firstName.trim(),
-                    middleInitial = middleInitial.trim(),
+                    middleName = middleName.trim(),
                     lastName = lastName.trim(),
                     phoneNumber = phone.trim(),
                     email = email.trim(),
@@ -213,9 +211,9 @@ fun CreateAccountScreen(
         )
         Spacer(Modifier.height(12.dp))
         AuthTextField(
-            middleInitial, { middleInitial = it.take(2) }, "Middle initial (optional)", Modifier.testTag(AuthTestTags.MIDDLE_INITIAL),
-            middleError, !state.isLoading,
-            KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Characters, imeAction = ImeAction.Next), nextAction,
+            middleName, { middleName = it }, "Middle name (optional)", Modifier.testTag(AuthTestTags.MIDDLE_NAME),
+            null, !state.isLoading,
+            KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words, imeAction = ImeAction.Next), nextAction,
         )
         Spacer(Modifier.height(12.dp))
         AuthTextField(

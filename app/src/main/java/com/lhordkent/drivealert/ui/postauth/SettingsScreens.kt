@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
@@ -80,44 +78,18 @@ fun SettingsScreen(
 }
 
 @Composable
-fun AccountScreen(displayName: String, email: String, onSaveDisplayName: (String) -> Unit, onBack: () -> Unit) {
-    var editedName by rememberSaveable(displayName) { mutableStateOf(displayName) }
-    var saved by rememberSaveable { mutableStateOf(false) }
+fun AccountScreen(displayName: String, email: String, onBack: () -> Unit) {
     ScrollableScreen(title = "Account", onBack = onBack) {
         Text("Account profile", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(8.dp))
-        Text("Profile-name changes are stored for this app session. Email remains managed by Firebase Authentication.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text("This profile is linked to your signed-in DriveAlert account.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(24.dp))
-        OutlinedTextField(
-            value = editedName,
-            onValueChange = { editedName = it; saved = false },
-            label = { Text("Display name") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = com.lhordkent.drivealert.ui.theme.Surface,
-                unfocusedContainerColor = com.lhordkent.drivealert.ui.theme.Surface,
-                focusedBorderColor = DriveRed,
-                unfocusedBorderColor = Border,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary,
-            ),
-        )
-        Spacer(Modifier.height(14.dp))
-        PrimaryButton("Save Profile", {
-            onSaveDisplayName(editedName)
-            saved = true
-        }, enabled = editedName.isNotBlank())
-        if (saved) {
-            Spacer(Modifier.height(8.dp))
-            Text("Profile name saved for this session.", style = MaterialTheme.typography.bodySmall, color = com.lhordkent.drivealert.ui.theme.Success)
-        }
-        Spacer(Modifier.height(18.dp))
+        KeyValueRow("Name", displayName.ifBlank { "Not available" })
         HorizontalDivider(color = Border)
         KeyValueRow("Email", email.ifBlank { "Not available" })
         HorizontalDivider(color = Border)
         Spacer(Modifier.height(18.dp))
-        Text("Phone number and separate name fields are not stored by the current Firebase Authentication profile.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        Text("Profile editing is not available in this backend phase.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         Spacer(Modifier.height(24.dp))
     }
 }

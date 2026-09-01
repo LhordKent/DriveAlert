@@ -1,6 +1,7 @@
 package com.lhordkent.drivealert.postauth
 
 import java.time.LocalDateTime
+import com.lhordkent.drivealert.data.profile.UserRole
 
 enum class UserView { DRIVER, TRUSTED_CONTACT }
 
@@ -102,6 +103,14 @@ data class AlertEvent(
     val stage: WarningStage,
 )
 
+data class MonitoringSessionSummary(
+    val id: String,
+    val startedAt: LocalDateTime,
+    val endedAt: LocalDateTime?,
+    val status: String,
+    val highestStage: WarningStage?,
+)
+
 data class Stage3SyncRecord(
     val id: String,
     val occurredAt: LocalDateTime,
@@ -139,9 +148,12 @@ data class ConnectedDriver(
     val email: String,
     val connectedAt: LocalDateTime,
     val sharedRecords: List<Stage3SyncRecord>,
+    val connectionId: String = id,
 )
 
 enum class WarningSound(val label: String) {
+    ROOSTER_CALL("Rooster Call"),
+    ALARM_CLOCK("Alarm Clock"),
     DIGITAL_BEEP("Digital Beep"),
     SIREN_PULSE("Siren Pulse"),
     BELL_CHIME("Bell Chime"),
@@ -169,8 +181,12 @@ data class PostAuthUiState(
     val alignmentReady: Boolean = true,
     val calibrationState: CalibrationState = CalibrationState.READY,
     val profileDisplayName: String = "",
+    val userRole: UserRole? = null,
     val alertFilter: WarningStage? = null,
     val driverAlerts: List<AlertEvent> = emptyList(),
+    val monitoringSessions: List<MonitoringSessionSummary> = emptyList(),
+    val isLocalDataLoading: Boolean = false,
+    val localDataErrorMessage: String? = null,
     val driverSyncRecords: List<Stage3SyncRecord> = emptyList(),
     val approvedContacts: List<Contact> = emptyList(),
     val driverIncomingRequests: List<ConnectionRequest> = emptyList(),
@@ -178,6 +194,7 @@ data class PostAuthUiState(
     val connectedDrivers: List<ConnectedDriver> = emptyList(),
     val trustedIncomingRequests: List<ConnectionRequest> = emptyList(),
     val trustedOutgoingRequests: List<ConnectionRequest> = emptyList(),
+    val cloudConnectionErrorMessage: String? = null,
     val warningSound: WarningSound = WarningSound.DIGITAL_BEEP,
     val preferredVolume: PreferredVolume = PreferredVolume.MEDIUM,
     val notifications: NotificationPreferences = NotificationPreferences(),

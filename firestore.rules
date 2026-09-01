@@ -1,0 +1,111 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isConnectionParticipant(data) {
+      return signedIn()
+        && (request.auth.uid == data.driverUserId
+          || request.auth.uid == data.trustedContactUserId);
+    }
+
+    function isConnectionRecipient(data) {
+      return isConnectionParticipant(data)
+        && request.auth.uid != data.requestedByUserId;
+    }
+
+    function isConnectionSender(data) {
+      return isConnectionParticipant(data)
+        && request.auth.uid == data.requestedByUserId;
+    }
+
+    function connectionIdentityUnchanged() {
+      return request.resource.data.connectionId == resource.data.connectionId
+        && request.resource.data.driverUserId == resource.data.driverUserId
+        && request.resource.data.trustedContactUserId == resource.data.trustedContactUserId
+        && request.resource.data.requestedByUserId == resource.data.requestedByUserId
+        && request.resource.data.requestedAt == resource.data.requestedAt
+        && request.resource.data.driverName == resource.data.driverName
+        && request.resource.data.driverEmail == resource.data.driverEmail
+        && request.resource.data.trustedContactName == resource.data.trustedContactName
+        && request.resource.data.trustedContactEmail == resource.data.trustedContactEmail;
+    }
+
+    function recipientApproves() {
+      return resource.data.status == 'PENDING'
+        && request.resource.data.status == 'APPROVED'
+        && isConnectionRecipient(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedAt'])
+        && request.resource.data.approvedAt == request.time;
+    }
+
+    function recipientDeclines() {
+      return resource.data.status == 'PENDING'
+        && request.resource.data.status == 'DECLINED'
+        && isConnectionRecipient(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'declinedAt'])
+        && request.resource.data.declinedAt == request.time;
+    }
+
+    function senderCancels() {
+      return resource.data.status == 'PENDING'
+        && request.resource.data.status == 'REVOKED'
+        && isConnectionSender(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revokedAt'])
+        && request.resource.data.revokedAt == request.time;
+    }
+
+    function participantRevokes() {
+      return resource.data.status == 'APPROVED'
+        && request.resource.data.status == 'REVOKED'
+        && isConnectionParticipant(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revokedAt'])
+        && request.resource.data.revokedAt == request.time;
+    }
+
+    match /users/{userId} {
+      allow read, create, update: if isSelf(userId);
+      allow delete: if false;
+
+      match /stageSyncRecords/{recordId} {
+        function approvedConnection() {
+          let connectionId = resource.data.driverUserId + '__' + request.auth.uid;
+          let connection = get(/databases/$(database)/documents/trustedContactConnections/$(connectionId));
+          return connection.data.status == 'APPROVED'
+            && connection.data.approvedAt <= resource.data.periodStartedAt;
+        }
+
+        allow create: if isSelf(userId)
+          && request.resource.data.driverUserId == userId
+          && request.resource.data.warningStage == 'STAGE_3'
+          && request.resource.data.syncStatus == 'SYNCED';
+        allow read: if isSelf(userId)
+          || (signedIn()
+            && resource.data.driverUserId == userId
+            && approvedConnection());
+        allow update, delete: if false;
+      }
+    }
+
+    match /trustedContactConnections/{connectionId} {
+      allow read: if isConnectionParticipant(resource.data);
+      allow create, delete: if false;
+      allow update: if connectionIdentityUnchanged()
+        && (recipientApproves()
+          || recipientDeclines()
+          || senderCancels()
+          || participantRevokes());
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

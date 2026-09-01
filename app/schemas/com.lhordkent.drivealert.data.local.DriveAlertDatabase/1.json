@@ -1,0 +1,747 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "3131d150ffabc30e2cddcbe986d2befc",
+    "entities": [
+      {
+        "tableName": "driver_calibrations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`calibrationId` TEXT NOT NULL, `driverUserId` TEXT NOT NULL, `earThreshold` REAL NOT NULL, `marThreshold` REAL NOT NULL, `headPitchThresholdDegrees` REAL NOT NULL, `neutralHeadPitchDegrees` REAL NOT NULL, `calibratedAtEpochMillis` INTEGER NOT NULL, `isActive` INTEGER NOT NULL, PRIMARY KEY(`calibrationId`))",
+        "fields": [
+          {
+            "fieldPath": "calibrationId",
+            "columnName": "calibrationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "driverUserId",
+            "columnName": "driverUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "earThreshold",
+            "columnName": "earThreshold",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "marThreshold",
+            "columnName": "marThreshold",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "headPitchThresholdDegrees",
+            "columnName": "headPitchThresholdDegrees",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "neutralHeadPitchDegrees",
+            "columnName": "neutralHeadPitchDegrees",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "calibratedAtEpochMillis",
+            "columnName": "calibratedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "isActive",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "calibrationId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_driver_calibrations_driverUserId",
+            "unique": false,
+            "columnNames": [
+              "driverUserId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_driver_calibrations_driverUserId` ON `${TABLE_NAME}` (`driverUserId`)"
+          },
+          {
+            "name": "index_driver_calibrations_driverUserId_isActive",
+            "unique": false,
+            "columnNames": [
+              "driverUserId",
+              "isActive"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_driver_calibrations_driverUserId_isActive` ON `${TABLE_NAME}` (`driverUserId`, `isActive`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "monitoring_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `driverUserId` TEXT NOT NULL, `calibrationId` TEXT NOT NULL, `deviceId` TEXT NOT NULL, `startedAtEpochMillis` INTEGER NOT NULL, `endedAtEpochMillis` INTEGER, `status` TEXT NOT NULL, `highestWarningStage` TEXT, `createdAtEpochMillis` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`sessionId`), FOREIGN KEY(`calibrationId`) REFERENCES `driver_calibrations`(`calibrationId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "driverUserId",
+            "columnName": "driverUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "calibrationId",
+            "columnName": "calibrationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "deviceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtEpochMillis",
+            "columnName": "startedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAtEpochMillis",
+            "columnName": "endedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "highestWarningStage",
+            "columnName": "highestWarningStage",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_monitoring_sessions_driverUserId",
+            "unique": false,
+            "columnNames": [
+              "driverUserId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_monitoring_sessions_driverUserId` ON `${TABLE_NAME}` (`driverUserId`)"
+          },
+          {
+            "name": "index_monitoring_sessions_calibrationId",
+            "unique": false,
+            "columnNames": [
+              "calibrationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_monitoring_sessions_calibrationId` ON `${TABLE_NAME}` (`calibrationId`)"
+          },
+          {
+            "name": "index_monitoring_sessions_deviceId",
+            "unique": false,
+            "columnNames": [
+              "deviceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_monitoring_sessions_deviceId` ON `${TABLE_NAME}` (`deviceId`)"
+          },
+          {
+            "name": "index_monitoring_sessions_driverUserId_startedAtEpochMillis",
+            "unique": false,
+            "columnNames": [
+              "driverUserId",
+              "startedAtEpochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_monitoring_sessions_driverUserId_startedAtEpochMillis` ON `${TABLE_NAME}` (`driverUserId`, `startedAtEpochMillis`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "driver_calibrations",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "calibrationId"
+            ],
+            "referencedColumns": [
+              "calibrationId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "alerts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`alertId` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `driverUserId` TEXT NOT NULL, `detectedAtEpochMillis` INTEGER NOT NULL, `warningStageAtDetection` TEXT NOT NULL, `alarmTriggered` INTEGER NOT NULL, `alarmTriggeredAtEpochMillis` INTEGER, `createdAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`alertId`), FOREIGN KEY(`sessionId`) REFERENCES `monitoring_sessions`(`sessionId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "alertId",
+            "columnName": "alertId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "driverUserId",
+            "columnName": "driverUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detectedAtEpochMillis",
+            "columnName": "detectedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "warningStageAtDetection",
+            "columnName": "warningStageAtDetection",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alarmTriggered",
+            "columnName": "alarmTriggered",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alarmTriggeredAtEpochMillis",
+            "columnName": "alarmTriggeredAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "alertId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_alerts_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_alerts_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_alerts_driverUserId",
+            "unique": false,
+            "columnNames": [
+              "driverUserId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_alerts_driverUserId` ON `${TABLE_NAME}` (`driverUserId`)"
+          },
+          {
+            "name": "index_alerts_driverUserId_detectedAtEpochMillis",
+            "unique": false,
+            "columnNames": [
+              "driverUserId",
+              "detectedAtEpochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_alerts_driverUserId_detectedAtEpochMillis` ON `${TABLE_NAME}` (`driverUserId`, `detectedAtEpochMillis`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "monitoring_sessions",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "sessionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "alert_signs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`alertId` TEXT NOT NULL, `signType` TEXT NOT NULL, PRIMARY KEY(`alertId`, `signType`), FOREIGN KEY(`alertId`) REFERENCES `alerts`(`alertId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "alertId",
+            "columnName": "alertId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "signType",
+            "columnName": "signType",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "alertId",
+            "signType"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_alert_signs_alertId",
+            "unique": false,
+            "columnNames": [
+              "alertId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_alert_signs_alertId` ON `${TABLE_NAME}` (`alertId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "alerts",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "alertId"
+            ],
+            "referencedColumns": [
+              "alertId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "driver_preferences",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`driverUserId` TEXT NOT NULL, `selectedWarningSound` TEXT NOT NULL, `preferredWarningVolume` TEXT NOT NULL, `setupAndDeviceRemindersEnabled` INTEGER NOT NULL, `contactRequestUpdatesEnabled` INTEGER NOT NULL, `trustedRequestUpdatesEnabled` INTEGER NOT NULL, `sharedStage3RecordsEnabled` INTEGER NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`driverUserId`))",
+        "fields": [
+          {
+            "fieldPath": "driverUserId",
+            "columnName": "driverUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "selectedWarningSound",
+            "columnName": "selectedWarningSound",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "preferredWarningVolume",
+            "columnName": "preferredWarningVolume",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "setupAndDeviceRemindersEnabled",
+            "columnName": "setupAndDeviceRemindersEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contactRequestUpdatesEnabled",
+            "columnName": "contactRequestUpdatesEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trustedRequestUpdatesEnabled",
+            "columnName": "trustedRequestUpdatesEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sharedStage3RecordsEnabled",
+            "columnName": "sharedStage3RecordsEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "driverUserId"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "stage_sync_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stageSyncRecordId` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `driverUserId` TEXT NOT NULL, `recordType` TEXT NOT NULL, `periodStartedAtEpochMillis` INTEGER NOT NULL, `periodEndedAtEpochMillis` INTEGER, `eventCount` INTEGER NOT NULL, `eligibility` TEXT NOT NULL, `syncStatus` TEXT NOT NULL, `attemptCount` INTEGER NOT NULL, `lastAttemptAtEpochMillis` INTEGER, `syncedAtEpochMillis` INTEGER, `syncErrorCode` TEXT, `syncErrorMessage` TEXT, `firestoreDocumentId` TEXT NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`stageSyncRecordId`), FOREIGN KEY(`sessionId`) REFERENCES `monitoring_sessions`(`sessionId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "stageSyncRecordId",
+            "columnName": "stageSyncRecordId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "driverUserId",
+            "columnName": "driverUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordType",
+            "columnName": "recordType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "periodStartedAtEpochMillis",
+            "columnName": "periodStartedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "periodEndedAtEpochMillis",
+            "columnName": "periodEndedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "eventCount",
+            "columnName": "eventCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eligibility",
+            "columnName": "eligibility",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncStatus",
+            "columnName": "syncStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptCount",
+            "columnName": "attemptCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastAttemptAtEpochMillis",
+            "columnName": "lastAttemptAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "syncedAtEpochMillis",
+            "columnName": "syncedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "syncErrorCode",
+            "columnName": "syncErrorCode",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "syncErrorMessage",
+            "columnName": "syncErrorMessage",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "firestoreDocumentId",
+            "columnName": "firestoreDocumentId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "stageSyncRecordId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_stage_sync_records_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_stage_sync_records_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_stage_sync_records_driverUserId",
+            "unique": false,
+            "columnNames": [
+              "driverUserId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_stage_sync_records_driverUserId` ON `${TABLE_NAME}` (`driverUserId`)"
+          },
+          {
+            "name": "index_stage_sync_records_driverUserId_syncStatus",
+            "unique": false,
+            "columnNames": [
+              "driverUserId",
+              "syncStatus"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_stage_sync_records_driverUserId_syncStatus` ON `${TABLE_NAME}` (`driverUserId`, `syncStatus`)"
+          },
+          {
+            "name": "index_stage_sync_records_driverUserId_periodStartedAtEpochMillis",
+            "unique": false,
+            "columnNames": [
+              "driverUserId",
+              "periodStartedAtEpochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_stage_sync_records_driverUserId_periodStartedAtEpochMillis` ON `${TABLE_NAME}` (`driverUserId`, `periodStartedAtEpochMillis`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "monitoring_sessions",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "sessionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "stage_sync_record_signs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stageSyncRecordId` TEXT NOT NULL, `signType` TEXT NOT NULL, PRIMARY KEY(`stageSyncRecordId`, `signType`), FOREIGN KEY(`stageSyncRecordId`) REFERENCES `stage_sync_records`(`stageSyncRecordId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "stageSyncRecordId",
+            "columnName": "stageSyncRecordId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "signType",
+            "columnName": "signType",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "stageSyncRecordId",
+            "signType"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_stage_sync_record_signs_stageSyncRecordId",
+            "unique": false,
+            "columnNames": [
+              "stageSyncRecordId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_stage_sync_record_signs_stageSyncRecordId` ON `${TABLE_NAME}` (`stageSyncRecordId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "stage_sync_records",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "stageSyncRecordId"
+            ],
+            "referencedColumns": [
+              "stageSyncRecordId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "trusted_contact_connection_projection",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`connectionId` TEXT NOT NULL, `driverUserId` TEXT NOT NULL, `trustedContactUserId` TEXT NOT NULL, `requestedByUserId` TEXT NOT NULL, `status` TEXT NOT NULL, `requestedAtEpochMillis` INTEGER NOT NULL, `approvedAtEpochMillis` INTEGER, `declinedAtEpochMillis` INTEGER, `revokedAtEpochMillis` INTEGER, `lastRefreshedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`connectionId`))",
+        "fields": [
+          {
+            "fieldPath": "connectionId",
+            "columnName": "connectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "driverUserId",
+            "columnName": "driverUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trustedContactUserId",
+            "columnName": "trustedContactUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestedByUserId",
+            "columnName": "requestedByUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requestedAtEpochMillis",
+            "columnName": "requestedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "approvedAtEpochMillis",
+            "columnName": "approvedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "declinedAtEpochMillis",
+            "columnName": "declinedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "revokedAtEpochMillis",
+            "columnName": "revokedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "lastRefreshedAtEpochMillis",
+            "columnName": "lastRefreshedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "connectionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_trusted_contact_connection_projection_driverUserId",
+            "unique": false,
+            "columnNames": [
+              "driverUserId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_trusted_contact_connection_projection_driverUserId` ON `${TABLE_NAME}` (`driverUserId`)"
+          },
+          {
+            "name": "index_trusted_contact_connection_projection_trustedContactUserId",
+            "unique": false,
+            "columnNames": [
+              "trustedContactUserId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_trusted_contact_connection_projection_trustedContactUserId` ON `${TABLE_NAME}` (`trustedContactUserId`)"
+          },
+          {
+            "name": "index_trusted_contact_connection_projection_driverUserId_status",
+            "unique": false,
+            "columnNames": [
+              "driverUserId",
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_trusted_contact_connection_projection_driverUserId_status` ON `${TABLE_NAME}` (`driverUserId`, `status`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3131d150ffabc30e2cddcbe986d2befc')"
+    ]
+  }
+}

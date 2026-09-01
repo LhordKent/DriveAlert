@@ -131,6 +131,7 @@ fun AlertHistoryScreen(
     syncRecords: List<Stage3SyncRecord>,
     selectedFilter: WarningStage?,
     onFilterSelected: (WarningStage?) -> Unit,
+    isLoading: Boolean = false,
     onEventSelected: (String) -> Unit,
 ) {
     val today = LocalDate.now()
@@ -173,7 +174,11 @@ fun AlertHistoryScreen(
             }
         }
         Spacer(Modifier.height(20.dp))
-        if (filtered.isEmpty()) {
+        if (isLoading) {
+            EmptyState("Loading alert history", "Your locally stored records will appear here shortly.")
+        } else if (filtered.isEmpty() && events.isEmpty()) {
+            EmptyState("No alerts recorded yet", "Confirmed warning events will appear here after monitoring.")
+        } else if (filtered.isEmpty()) {
             EmptyState("No alerts in this filter", "Choose another Warning Stage to review your event history.")
         } else {
             filtered.groupBy { it.occurredAt.toLocalDate() }.forEach { (date, dateEvents) ->
