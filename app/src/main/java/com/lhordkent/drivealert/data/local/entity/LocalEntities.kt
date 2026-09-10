@@ -3,6 +3,7 @@ package com.lhordkent.drivealert.data.local.entity
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import androidx.room.ColumnInfo
 
 @Entity(
     tableName = "driver_calibrations",
@@ -15,7 +16,29 @@ data class CalibrationEntity(
     val marThreshold: Double,
     val headPitchThresholdDegrees: Double,
     val neutralHeadPitchDegrees: Double,
+    @ColumnInfo(defaultValue = "0") val detectorSchemaVersion: Int = 3,
+    @ColumnInfo(defaultValue = "0") val neutralEar: Double = 0.25,
+    @ColumnInfo(defaultValue = "0") val closedEyeEar: Double = 0.05,
+    @ColumnInfo(defaultValue = "0") val neutralMar: Double = 0.02,
+    @ColumnInfo(defaultValue = "0") val openMouthMar: Double = 1.0,
+    @ColumnInfo(defaultValue = "1") val downwardPitchMultiplier: Double = 1.0,
     val calibratedAtEpochMillis: Long,
+    val isActive: Boolean,
+)
+
+@Entity(
+    tableName = "provisioned_devices",
+    primaryKeys = ["driverUserId", "deviceId"],
+    indices = [Index("driverUserId"), Index(value = ["driverUserId", "isActive"])],
+)
+data class ProvisionedDeviceEntity(
+    val deviceId: String,
+    val driverUserId: String,
+    val hostname: String?,
+    val lastKnownIp: String,
+    val streamPort: Int,
+    val streamPath: String,
+    val lastConnectedAtEpochMillis: Long,
     val isActive: Boolean,
 )
 
@@ -115,6 +138,7 @@ data class DriverPreferenceEntity(
     val contactRequestUpdatesEnabled: Boolean,
     val trustedRequestUpdatesEnabled: Boolean,
     val sharedStage3RecordsEnabled: Boolean,
+    @ColumnInfo(defaultValue = "1") val warningAlertsEnabled: Boolean = true,
     val updatedAtEpochMillis: Long,
 )
 

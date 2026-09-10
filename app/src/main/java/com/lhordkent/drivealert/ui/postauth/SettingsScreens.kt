@@ -1,5 +1,6 @@
 package com.lhordkent.drivealert.ui.postauth
 
+import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,8 +23,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.lhordkent.drivealert.data.connection.ConnectionCode
 import com.lhordkent.drivealert.postauth.NotificationPreferences
 import com.lhordkent.drivealert.postauth.PreferredVolume
 import com.lhordkent.drivealert.postauth.UserView
@@ -78,7 +84,17 @@ fun SettingsScreen(
 }
 
 @Composable
-fun AccountScreen(displayName: String, email: String, onBack: () -> Unit) {
+fun AccountScreen(
+    displayName: String,
+    email: String,
+    connectionCode: String,
+    profileErrorMessage: String?,
+    onBack: () -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    var copied by rememberSaveable { mutableStateOf(false) }
+    val formattedCode = ConnectionCode.format(connectionCode)
     ScrollableScreen(title = "Account", onBack = onBack) {
         Text("Account profile", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(8.dp))
@@ -88,7 +104,53 @@ fun AccountScreen(displayName: String, email: String, onBack: () -> Unit) {
         HorizontalDivider(color = Border)
         KeyValueRow("Email", email.ifBlank { "Not available" })
         HorizontalDivider(color = Border)
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(26.dp))
+        SectionTitle("My connection code")
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Share this code with a Driver or Trusted Contact you know. They will still need your approval before a connection becomes active.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+        )
+        Spacer(Modifier.height(14.dp))
+        if (connectionCode.isNotBlank()) {
+            GroupSurface {
+                Text(
+                    formattedCode,
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = TextPrimary,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SecondaryButton(
+                    text = if (copied) "Copied" else "Copy code",
+                    onClick = {
+                        clipboard.setText(AnnotatedString(formattedCode))
+                        copied = true
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                SecondaryButton(
+                    text = "Share code",
+                    onClick = {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "Connect with me on DriveAlert using this code: $formattedCode")
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Share DriveAlert code"))
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Text(
+                profileErrorMessage ?: "Creating your connection code…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (profileErrorMessage == null) TextMuted else DriveRed,
+            )
+        }
+        Spacer(Modifier.height(22.dp))
         Text("Profile editing is not available in this backend phase.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         Spacer(Modifier.height(24.dp))
     }
@@ -99,16 +161,26 @@ fun NotificationSettingsScreen(
     view: UserView,
     preferences: NotificationPreferences,
     onPreferencesChange: (NotificationPreferences) -> Unit,
+    onRequestNotificationPermission: () -> Unit = {},
     onBack: () -> Unit,
 ) {
     ScrollableScreen(title = "Notifications", onBack = onBack) {
         Text(
-            "These preferences affect interface state only. DriveAlert does not request Android notification permission in this phase.",
+            "Choose which DriveAlert updates can appear as Android notifications.",
             style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
         )
         Spacer(Modifier.height(22.dp))
         if (view == UserView.DRIVER) {
+            PreferenceSwitch(
+                title = "Confirmed warning alerts",
+                body = "Show the current Warning Stage and confirmed visible signs while monitoring.",
+                checked = preferences.warningAlerts,
+                onCheckedChange = {
+                    if (it) onRequestNotificationPermission()
+                    onPreferencesChange(preferences.copy(warningAlerts = it))
+                },
+            )
             PreferenceSwitch(
                 title = "Setup and device reminders",
                 body = "Reminders about setup readiness and device connection.",

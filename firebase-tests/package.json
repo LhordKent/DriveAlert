@@ -1,0 +1,13 @@
+{
+  "name": "drivealert-firebase-tests",
+  "private": true,
+  "scripts": {
+    "test": "mocha --timeout 60000 test/emulator.test.js",
+    "test:emulator": "cd .. && firebase emulators:exec --project drivealert-lhordkent --only auth,firestore \"npm --prefix firebase-tests test\""
+  },
+  "devDependencies": {
+    "firebase": "^12.1.0",
+    "firebase-tools": "^15.28.2",
+    "mocha": "^12.0.0"
+  }
+}

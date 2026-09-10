@@ -14,6 +14,10 @@ import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.data.connection.TrustedContactRepository
 import com.lhordkent.drivealert.data.connection.TrustedContactConnection
 import com.lhordkent.drivealert.data.connection.ConnectionParticipantRole
+import com.lhordkent.drivealert.data.connection.ConnectionCode
+import com.lhordkent.drivealert.data.connection.ConnectionCodeNotFoundException
+import com.lhordkent.drivealert.data.connection.ExistingConnectionException
+import com.lhordkent.drivealert.data.connection.SelfConnectionException
 import com.lhordkent.drivealert.data.local.entity.ConnectionStatus
 import com.lhordkent.drivealert.data.sync.StageSyncRepository
 import com.lhordkent.drivealert.data.sync.SharedStage3Repository
@@ -22,7 +26,6 @@ import java.time.ZoneId
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import java.util.UUID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -37,6 +40,7 @@ class PostAuthViewModel(
     private val stageSyncRepository: StageSyncRepository? = null,
     private val sharedStage3Repository: SharedStage3Repository? = null,
     initialState: PostAuthUiState = seedState(),
+    private val todayProvider: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
     private var accountEmail: String = ""
     private var boundDriverUserId: String? = null
@@ -72,6 +76,7 @@ class PostAuthViewModel(
                 .collect { (driverAlerts, monitoringSessions) ->
                     state = state.copy(
                         driverAlerts = driverAlerts,
+                        alertInsights = calculateAlertHistoryInsights(driverAlerts, todayProvider()),
                         monitoringSessions = monitoringSessions,
                         isLocalDataLoading = false,
                         localDataErrorMessage = null,
@@ -80,17 +85,25 @@ class PostAuthViewModel(
         }
     }
 
-    fun bindCloudProfile(userId: String) {
+    fun bindCloudProfile(userId: String, displayName: String, email: String) {
         val repository = userProfileRepository ?: return
         profileJob?.cancel()
         profileJob = viewModelScope.launch {
+            runCatching { repository.ensureProfile(userId, displayName, email) }
+                .onFailure {
+                    state = state.copy(profileErrorMessage = "Your connection code is unavailable. Check your internet connection and try again.")
+                }
             repository.observe(userId)
-                .catch { /* Cloud profile remains unavailable until connectivity returns. */ }
+                .catch {
+                    state = state.copy(profileErrorMessage = "Your cloud profile is unavailable. Check your internet connection and try again.")
+                }
                 .collect { profile ->
                     if (profile != null) {
                         state = state.copy(
                             profileDisplayName = profile.fullName.ifBlank { state.profileDisplayName },
                             userRole = profile.userRole,
+                            connectionCode = profile.connectionCode,
+                            profileErrorMessage = null,
                         )
                     }
                 }
@@ -202,30 +215,6 @@ class PostAuthViewModel(
         state = state.copy(activeWarningStage = stage)
     }
 
-    fun reconnectDevice() {
-        state = state.copy(
-            deviceConnection = if (state.deviceConnection == DeviceConnectionState.CONNECTED) {
-                DeviceConnectionState.RECONNECTING
-            } else {
-                DeviceConnectionState.CONNECTED
-            },
-        )
-    }
-
-    fun completeAlignmentCheck() {
-        state = state.copy(alignmentReady = !state.alignmentReady)
-    }
-
-    fun completeCalibration() {
-        state = state.copy(
-            calibrationState = if (state.calibrationState == CalibrationState.READY) {
-                CalibrationState.IN_PROGRESS
-            } else {
-                CalibrationState.READY
-            },
-        )
-    }
-
     fun selectAlertFilter(stage: WarningStage?) {
         state = state.copy(alertFilter = stage)
     }
@@ -238,42 +227,65 @@ class PostAuthViewModel(
         )
     }
 
-    fun sendConnectionRequest(targetView: UserView, email: String): String? {
-        val normalized = email.trim().lowercase()
-        if (!EMAIL_PATTERN.matches(normalized)) return "Enter a valid email address"
-        if (normalized == accountEmail) return "Use a different email address"
-        val allEmails = when (targetView) {
-            UserView.DRIVER -> state.approvedContacts.map { it.email } +
-                state.driverIncomingRequests.map { it.email } + state.driverOutgoingRequests.map { it.email }
-            UserView.TRUSTED_CONTACT -> state.connectedDrivers.map { it.email } +
-                state.trustedIncomingRequests.map { it.email } + state.trustedOutgoingRequests.map { it.email }
-        }.map(String::lowercase)
-        if (normalized in allEmails) return "A connection or request already exists for this email"
+    fun lookupConnectionCode(code: String) {
+        val normalized = ConnectionCode.normalize(code)
+        if (!ConnectionCode.isValid(normalized)) {
+            state = state.copy(connectionInvite = ConnectionInviteUiState(errorMessage = "Enter a complete DriveAlert connection code"))
+            return
+        }
+        val repository = trustedContactRepository ?: return
+        val currentUserId = boundDriverUserId ?: return
+        state = state.copy(connectionInvite = ConnectionInviteUiState(isLookingUp = true))
+        viewModelScope.launch {
+            runCatching { repository.resolveConnectionCode(normalized) }
+                .onSuccess { target ->
+                    state = state.copy(connectionInvite = when {
+                        target == null -> ConnectionInviteUiState(errorMessage = CODE_NOT_FOUND_MESSAGE)
+                        target.userId == currentUserId -> ConnectionInviteUiState(errorMessage = "Use another person's connection code")
+                        else -> ConnectionInviteUiState(
+                            targetUserId = target.userId,
+                            targetDisplayName = target.displayName,
+                            normalizedCode = target.normalizedCode,
+                        )
+                    })
+                }
+                .onFailure {
+                    state = state.copy(connectionInvite = ConnectionInviteUiState(errorMessage = LOOKUP_ERROR_MESSAGE))
+                }
+        }
+    }
 
-        val repository = trustedContactRepository
-        if (repository != null) {
-            val inviterRole = when (targetView) {
-                UserView.DRIVER -> ConnectionParticipantRole.DRIVER
-                UserView.TRUSTED_CONTACT -> ConnectionParticipantRole.TRUSTED_CONTACT
+    fun clearConnectionInvite() {
+        state = state.copy(connectionInvite = ConnectionInviteUiState())
+    }
+
+    fun sendConnectionRequest(targetView: UserView) {
+        val repository = trustedContactRepository ?: return
+        val userId = boundDriverUserId ?: return
+        val code = state.connectionInvite.normalizedCode ?: return
+        val inviterRole = if (targetView == UserView.DRIVER) ConnectionParticipantRole.DRIVER else ConnectionParticipantRole.TRUSTED_CONTACT
+        state = state.copy(connectionInvite = state.connectionInvite.copy(isSending = true, errorMessage = null))
+        viewModelScope.launch {
+            runCatching {
+                repository.sendRequestByCode(
+                    requesterUserId = userId,
+                    requesterName = state.profileDisplayName.ifBlank { "DriveAlert user" },
+                    requesterEmail = accountEmail,
+                    targetCode = code,
+                    inviterRole = inviterRole,
+                )
+            }.onSuccess {
+                state = state.copy(connectionInvite = state.connectionInvite.copy(isSending = false, requestSent = true))
+            }.onFailure { error ->
+                val message = when (error) {
+                    is ConnectionCodeNotFoundException -> CODE_NOT_FOUND_MESSAGE
+                    is SelfConnectionException -> "Use another person's connection code"
+                    is ExistingConnectionException -> "A connection or pending request already exists"
+                    else -> "Connection request could not be sent. Check your internet connection and try again."
+                }
+                state = state.copy(connectionInvite = state.connectionInvite.copy(isSending = false, errorMessage = message))
             }
-            viewModelScope.launch {
-                runCatching { repository.sendRequestByEmail(normalized, inviterRole) }
-                    .onFailure { state = state.copy(cloudConnectionErrorMessage = "Connection request could not be sent. Check your internet connection and try again.") }
-            }
-            return null
         }
-        val request = ConnectionRequest(
-            id = UUID.randomUUID().toString(),
-            name = normalized.substringBefore('@').replace('.', ' ').replaceFirstChar(Char::uppercase),
-            email = normalized,
-            direction = RequestDirection.OUTGOING,
-            requestedAt = LocalDateTime.now(),
-        )
-        state = when (targetView) {
-            UserView.DRIVER -> state.copy(driverOutgoingRequests = state.driverOutgoingRequests + request)
-            UserView.TRUSTED_CONTACT -> state.copy(trustedOutgoingRequests = state.trustedOutgoingRequests + request)
-        }
-        return null
     }
 
     fun acceptRequest(view: UserView, requestId: String) {
@@ -394,24 +406,11 @@ class PostAuthViewModel(
 
     companion object {
         private const val CLOUD_CONNECTION_ERROR = "Cloud connection data is unavailable. Check your internet connection and try again."
-        private val EMAIL_PATTERN = Regex("^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$")
+        private const val CODE_NOT_FOUND_MESSAGE = "No active DriveAlert account was found for this code"
+        private const val LOOKUP_ERROR_MESSAGE = "The connection code could not be checked. Connect to the internet and try again."
 
         fun seedState(today: LocalDate = LocalDate.now()): PostAuthUiState {
             fun at(daysAgo: Long, hour: Int, minute: Int) = LocalDateTime.of(today.minusDays(daysAgo), LocalTime.of(hour, minute))
-            val driverAlerts = listOf(
-                AlertEvent("driver-1", at(0, 19, 42), setOf(VisibleSign.PROLONGED_EYE_CLOSURE, VisibleSign.YAWNING), WarningStage.STAGE_3),
-                AlertEvent("driver-2", at(0, 14, 18), setOf(VisibleSign.PROLONGED_EYE_CLOSURE), WarningStage.STAGE_2),
-                AlertEvent("driver-3", at(0, 8, 12), setOf(VisibleSign.HEAD_NODDING), WarningStage.STAGE_1),
-                AlertEvent("driver-4", at(1, 21, 5), setOf(VisibleSign.PROLONGED_EYE_CLOSURE), WarningStage.STAGE_3),
-                AlertEvent("driver-5", at(3, 18, 18), setOf(VisibleSign.YAWNING), WarningStage.STAGE_2),
-                AlertEvent("driver-6", at(5, 9, 5), setOf(VisibleSign.PROLONGED_EYE_CLOSURE), WarningStage.STAGE_1),
-            )
-
-            val driverSyncRecords = listOf(
-                Stage3SyncRecord("sync-1", at(0, 19, 42), SyncRecordKind.STAGE_3_TRANSITION, setOf(VisibleSign.PROLONGED_EYE_CLOSURE, VisibleSign.YAWNING), SharingState.SHARED),
-                Stage3SyncRecord("sync-2", at(1, 21, 5), SyncRecordKind.STAGE_3_PERSISTENCE, setOf(VisibleSign.PROLONGED_EYE_CLOSURE), SharingState.PENDING),
-            )
-
             fun shared(id: String, driverId: String, driverName: String, daysAgo: Long, hour: Int, kind: SyncRecordKind, signs: Set<VisibleSign>) = Stage3SyncRecord(
                 id = id,
                 occurredAt = at(daysAgo, hour, 42),
@@ -433,8 +432,6 @@ class PostAuthViewModel(
             )
 
             return PostAuthUiState(
-                driverAlerts = driverAlerts,
-                driverSyncRecords = driverSyncRecords,
                 approvedContacts = listOf(Contact("mara", "Mara Santos", "mara.santos@gmail.com", at(21, 10, 0))),
                 driverIncomingRequests = listOf(ConnectionRequest("driver-in", "Paolo Reyes", "paolo.reyes@gmail.com", RequestDirection.INCOMING, at(0, 10, 15))),
                 driverOutgoingRequests = listOf(ConnectionRequest("driver-out", "Lea Torres", "lea.torres@gmail.com", RequestDirection.OUTGOING, at(1, 16, 20))),

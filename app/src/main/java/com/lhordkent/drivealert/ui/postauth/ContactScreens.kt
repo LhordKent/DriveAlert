@@ -17,6 +17,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,10 +29,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.lhordkent.drivealert.postauth.ConnectedDriver
 import com.lhordkent.drivealert.postauth.ConnectionRequest
+import com.lhordkent.drivealert.postauth.ConnectionInviteUiState
 import com.lhordkent.drivealert.postauth.Contact
 import com.lhordkent.drivealert.postauth.RequestDirection
 import com.lhordkent.drivealert.postauth.Stage3SyncRecord
@@ -213,7 +216,7 @@ private fun RequestRow(
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
         Text(request.name, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-        Text(request.email, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        if (request.email.isNotBlank()) Text(request.email, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         Spacer(Modifier.height(5.dp))
         Text(
             if (request.direction == RequestDirection.INCOMING) "Invited you to connect" else "Waiting for approval",
@@ -243,7 +246,7 @@ private fun ConnectionIdentityRow(name: String, email: String, status: String, a
     ) {
         Column(Modifier.weight(1f)) {
             Text(name, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-            Text(email, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            if (email.isNotBlank()) Text(email, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             Spacer(Modifier.height(6.dp))
             StatusPill(status, StatusTone.SUCCESS)
         }
@@ -255,19 +258,24 @@ private fun ConnectionIdentityRow(name: String, email: String, status: String, a
 @Composable
 fun InviteConnectionScreen(
     targetView: UserView,
-    onSend: (String) -> String?,
+    inviteState: ConnectionInviteUiState,
+    onLookup: (String) -> Unit,
+    onSend: () -> Unit,
+    onClear: () -> Unit,
     onBack: () -> Unit,
 ) {
     val isDriverView = targetView == UserView.DRIVER
-    var email by rememberSaveable { mutableStateOf("") }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var code by rememberSaveable { mutableStateOf("") }
     val focus = LocalFocusManager.current
-    fun submit() {
-        error = onSend(email)
-        if (error == null) {
-            focus.clearFocus()
+    LaunchedEffect(inviteState.requestSent) {
+        if (inviteState.requestSent) {
+            onClear()
             onBack()
         }
+    }
+    fun lookup() {
+        focus.clearFocus()
+        onLookup(code)
     }
     ScrollableScreen(
         title = if (isDriverView) "Invite a Trusted Contact" else "Invite a Driver",
@@ -275,24 +283,30 @@ fun InviteConnectionScreen(
     ) {
         Text(
             if (isDriverView) {
-                "Enter the email of someone you trust. After approval, future eligible Stage 3 transition or persistence records can be shared."
+                "Enter the connection code shown in the other person's DriveAlert Account screen. After approval, future eligible Stage 3 records can be shared."
             } else {
-                "Enter a Driver's email. They must approve the connection before future eligible Stage 3 transition or persistence records can be shared."
+                "Enter a Driver's connection code. They must approve before future eligible Stage 3 records can be shared."
             },
             style = MaterialTheme.typography.bodyLarge,
             color = TextSecondary,
         )
         Spacer(Modifier.height(22.dp))
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it; error = null },
-            label = { Text(if (isDriverView) "Trusted Contact email" else "Driver email") },
-            isError = error != null,
-            supportingText = error?.let { message -> { Text(message) } },
+            value = code,
+            onValueChange = { code = it.uppercase(); onClear() },
+            label = { Text("Connection code") },
+            placeholder = { Text("DA-XXXXX-XXXXX-XXXXX-XXXXX-XXXXXX") },
+            isError = inviteState.errorMessage != null,
+            supportingText = inviteState.errorMessage?.let { message -> { Text(message) } },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { submit() }),
-            modifier = Modifier.fillMaxWidth().testTag(PostAuthTestTags.INVITE_EMAIL),
+            enabled = !inviteState.isLookingUp && !inviteState.isSending,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Ascii,
+                capitalization = KeyboardCapitalization.Characters,
+                imeAction = ImeAction.Search,
+            ),
+            keyboardActions = KeyboardActions(onSearch = { lookup() }),
+            modifier = Modifier.fillMaxWidth().testTag(PostAuthTestTags.INVITE_CODE),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Surface,
                 unfocusedContainerColor = Surface,
@@ -303,9 +317,33 @@ fun InviteConnectionScreen(
             ),
         )
         Spacer(Modifier.height(20.dp))
-        PrimaryButton("Send Request", { submit() })
+        if (inviteState.targetUserId == null) {
+            SecondaryButton(
+                text = if (inviteState.isLookingUp) "Checking code…" else "Find account",
+                onClick = ::lookup,
+                enabled = code.isNotBlank() && !inviteState.isLookingUp,
+            )
+        } else {
+            GroupSurface {
+                Text("Account found", style = MaterialTheme.typography.labelLarge, color = TextMuted)
+                Spacer(Modifier.height(6.dp))
+                Text(inviteState.targetDisplayName.orEmpty(), style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (isDriverView) "This person will be invited as your Trusted Contact." else "This person will be invited to connect as a Driver.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            PrimaryButton(
+                text = if (inviteState.isSending) "Sending request…" else "Send connection request",
+                onClick = onSend,
+                enabled = !inviteState.isSending,
+            )
+        }
         Spacer(Modifier.height(12.dp))
-        SecondaryButton("Cancel", onBack)
+        SecondaryButton("Cancel", { onClear(); onBack() })
     }
 }
 

@@ -13,10 +13,8 @@ class PostAuthViewModelTest {
         val today = LocalDate.of(2026, 8, 31)
         val state = PostAuthViewModel.seedState(today)
 
-        assertEquals(6, state.driverAlerts.size)
-        assertEquals(3, state.driverAlerts.count { it.occurredAt.toLocalDate() == today })
-        assertTrue(state.driverAlerts.any { it.signs.size > 1 })
-        assertTrue(state.driverSyncRecords.all { it.kind == SyncRecordKind.STAGE_3_TRANSITION || it.kind == SyncRecordKind.STAGE_3_PERSISTENCE })
+        assertTrue(state.driverAlerts.isEmpty())
+        assertTrue(state.driverSyncRecords.isEmpty())
         assertTrue(state.connectedDrivers.flatMap { it.sharedRecords }.all { it.sharingState == SharingState.SHARED })
     }
 
@@ -46,15 +44,17 @@ class PostAuthViewModelTest {
     }
 
     @Test
-    fun invitationValidationBlocksSelfAndDuplicates() {
-        val viewModel = PostAuthViewModel()
-        viewModel.setAccountEmail("driver@example.com")
+    fun connectionCodesNormalizeFormatAndRejectIncompleteValues() {
+        val generated = com.lhordkent.drivealert.data.connection.ConnectionCode.generate()
+        val formatted = com.lhordkent.drivealert.data.connection.ConnectionCode.format(generated)
 
-        assertEquals("Enter a valid email address", viewModel.sendConnectionRequest(UserView.DRIVER, "bad"))
-        assertEquals("Use a different email address", viewModel.sendConnectionRequest(UserView.DRIVER, "driver@example.com"))
-        assertTrue(viewModel.sendConnectionRequest(UserView.DRIVER, "mara.santos@gmail.com")?.contains("already exists") == true)
-        assertNull(viewModel.sendConnectionRequest(UserView.DRIVER, "new.contact@example.com"))
-        assertTrue(viewModel.state.driverOutgoingRequests.any { it.email == "new.contact@example.com" })
+        assertTrue(com.lhordkent.drivealert.data.connection.ConnectionCode.isValid(generated))
+        assertEquals(generated, com.lhordkent.drivealert.data.connection.ConnectionCode.normalize(formatted.lowercase()))
+        assertFalse(com.lhordkent.drivealert.data.connection.ConnectionCode.isValid("DA-short"))
+
+        val viewModel = PostAuthViewModel()
+        viewModel.lookupConnectionCode("DA-short")
+        assertTrue(viewModel.state.connectionInvite.errorMessage?.contains("complete") == true)
     }
 
     @Test
@@ -73,9 +73,9 @@ class PostAuthViewModelTest {
 
     @Test
     fun onlySynchronizationRecordSharingStateIsChanged() {
-        val viewModel = PostAuthViewModel()
-        val event = viewModel.state.driverAlerts.first()
-        val record = viewModel.state.driverSyncRecords.first()
+        val event = AlertEvent("alert", java.time.LocalDateTime.now(), setOf(VisibleSign.YAWNING), WarningStage.STAGE_1)
+        val record = Stage3SyncRecord("sync", java.time.LocalDateTime.now(), SyncRecordKind.STAGE_3_TRANSITION, setOf(VisibleSign.YAWNING), SharingState.PENDING)
+        val viewModel = PostAuthViewModel(initialState = PostAuthUiState(driverAlerts = listOf(event), driverSyncRecords = listOf(record)))
 
         viewModel.updateSharingState(event.id, SharingState.FAILED)
         viewModel.updateSharingState(record.id, SharingState.FAILED)
@@ -86,10 +86,9 @@ class PostAuthViewModelTest {
 
     @Test
     fun contactApprovalSharesOnlyFutureStage3SynchronizationRecords() {
-        val state = PostAuthViewModel.seedState(LocalDate.of(2026, 8, 31))
-        val approvalTime = state.driverSyncRecords.maxOf { it.occurredAt }.plusMinutes(1)
+        val oldRecord = Stage3SyncRecord("sync", java.time.LocalDateTime.of(2026, 8, 31, 12, 0), SyncRecordKind.STAGE_3_TRANSITION, setOf(VisibleSign.YAWNING), SharingState.PENDING)
+        val approvalTime = oldRecord.occurredAt.plusMinutes(1)
         val newlyApproved = Contact("new", "New Contact", "new@example.com", approvalTime)
-        val oldRecord = state.driverSyncRecords.first()
         val futureRecord = oldRecord.copy(id = "future", occurredAt = approvalTime.plusMinutes(1))
 
         assertFalse(oldRecord.isEligibleFor(newlyApproved))
@@ -97,21 +96,8 @@ class PostAuthViewModelTest {
     }
 
     @Test
-    fun mockSetupReducersStayInMemory() {
+    fun setupCompletionStartsFalse() {
         val viewModel = PostAuthViewModel()
-        viewModel.reconnectDevice()
-        viewModel.completeAlignmentCheck()
-        viewModel.completeCalibration()
-
-        assertEquals(DeviceConnectionState.RECONNECTING, viewModel.state.deviceConnection)
-        assertFalse(viewModel.state.alignmentReady)
-        assertEquals(CalibrationState.IN_PROGRESS, viewModel.state.calibrationState)
-
-        viewModel.reconnectDevice()
-        viewModel.completeAlignmentCheck()
-        viewModel.completeCalibration()
-        assertEquals(DeviceConnectionState.CONNECTED, viewModel.state.deviceConnection)
-        assertTrue(viewModel.state.alignmentReady)
-        assertEquals(CalibrationState.READY, viewModel.state.calibrationState)
+        assertFalse(viewModel.state.driverSetupComplete)
     }
 }

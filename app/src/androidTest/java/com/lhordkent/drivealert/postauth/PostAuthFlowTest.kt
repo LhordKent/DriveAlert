@@ -12,6 +12,8 @@ import com.lhordkent.drivealert.auth.AuthCallbacks
 import com.lhordkent.drivealert.auth.AuthSessionState
 import com.lhordkent.drivealert.auth.AuthenticatedUser
 import com.lhordkent.drivealert.auth.AuthenticationEntry
+import com.lhordkent.drivealert.monitoring.ActiveMonitoringState
+import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.ui.DriveAlertApp
 import com.lhordkent.drivealert.ui.postauth.AlertDetailScreen
 import com.lhordkent.drivealert.ui.postauth.MonitoringPreviewScreen
@@ -25,25 +27,22 @@ class PostAuthFlowTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun freshAuthenticationConnectsDriverSetupHomeAndMonitoring() {
+    fun freshAuthenticationRequiresLiveCalibrationBeforeMonitoring() {
         launchSignedIn(AuthenticationEntry.ACCOUNT_CREATED)
 
         composeRule.onNodeWithText("Choose your view").assertIsDisplayed()
         composeRule.onNodeWithText("Continue as Driver").performScrollTo().performClick()
         composeRule.onNodeWithText("Set up DriveAlert").assertIsDisplayed()
         composeRule.onNodeWithText("Device connection").performScrollTo().performClick()
-        composeRule.onNodeWithText("Local device readiness").assertIsDisplayed()
+        composeRule.onNodeWithText("Connect your DriveAlert camera").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("Driver calibration").performScrollTo().performClick()
         composeRule.onNodeWithText("Personalized calibration").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("Continue to Home").performScrollTo().performClick()
-        composeRule.onNodeWithText("Ready for preview").assertIsDisplayed()
-        composeRule.onNodeWithText("Preview Monitoring").performScrollTo().performClick()
-        composeRule.onNodeWithText("Monitoring active").assertIsDisplayed()
-        composeRule.onNodeWithText("No active warning").assertIsDisplayed()
-        composeRule.onNodeWithText("Exit Preview").performScrollTo().performClick()
-        composeRule.onNodeWithText("Ready for preview").assertIsDisplayed()
+        composeRule.onNodeWithText("Setup needed").assertIsDisplayed()
+        composeRule.onNodeWithText("Start Monitoring").performScrollTo().performClick()
+        composeRule.onNodeWithText("Personalized calibration").assertIsDisplayed()
     }
 
     @Test
@@ -71,7 +70,7 @@ class PostAuthFlowTest {
         val selected = mutableStateOf(MonitoringScenario.NORMAL)
         composeRule.setContent {
             DriveAlertTheme {
-                MonitoringPreviewScreen(selected.value, null, 3, null, {})
+                MonitoringPreviewScreen(scenario = selected.value, onExit = {})
             }
         }
         expected.forEach { (scenario, text) ->
@@ -82,25 +81,35 @@ class PostAuthFlowTest {
 
     @Test
     fun monitoringPreviewCanPresentEveryLiveWarningStage() {
-        val stage = mutableStateOf<WarningStage?>(WarningStage.STAGE_1)
+        val monitoring = mutableStateOf(
+            ActiveMonitoringState(
+                isActive = true,
+                currentStage = WarningStage.STAGE_1,
+                confirmedEventCount = 3,
+                latestSigns = setOf(VisibleSign.YAWNING),
+                warningDelivery = WarningDeliveryStatus.HARDWARE_PENDING,
+            ),
+        )
         composeRule.setContent {
             DriveAlertTheme {
-                MonitoringPreviewScreen(MonitoringScenario.NORMAL, stage.value, 3, null, {})
+                MonitoringPreviewScreen(MonitoringScenario.NORMAL, monitoring.value, {})
             }
         }
 
-        composeRule.onNodeWithText("The selected warning sound is sent", substring = true).performScrollTo().assertIsDisplayed()
-        composeRule.runOnIdle { stage.value = WarningStage.STAGE_2 }
-        composeRule.onNodeWithText("spoken advisory", substring = true).performScrollTo().assertIsDisplayed()
-        composeRule.runOnIdle { stage.value = WarningStage.STAGE_3 }
-        composeRule.onNodeWithText("Maximum intervention is active", substring = true).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Warning Stage 1").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("3").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Yawning").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Onboard speaker delivery pending", substring = true).performScrollTo().assertIsDisplayed()
+        composeRule.runOnIdle { monitoring.value = monitoring.value.copy(currentStage = WarningStage.STAGE_2) }
+        composeRule.onNodeWithText("fixed rest advisory", substring = true).performScrollTo().assertIsDisplayed()
+        composeRule.runOnIdle { monitoring.value = monitoring.value.copy(currentStage = WarningStage.STAGE_3) }
+        composeRule.onNodeWithText("Maximum Driver warning", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun alertDetailsUseInterventionLanguageAndSharingRules() {
-        val state = PostAuthViewModel.seedState()
-        val stage1 = state.driverAlerts.first { it.stage == WarningStage.STAGE_1 }
-        val stage3 = state.driverAlerts.first { it.stage == WarningStage.STAGE_3 }
+        val stage1 = com.lhordkent.drivealert.postauth.AlertEvent("stage1", java.time.LocalDateTime.now(), setOf(com.lhordkent.drivealert.postauth.VisibleSign.YAWNING), WarningStage.STAGE_1)
+        val stage3 = stage1.copy(id = "stage3", stage = WarningStage.STAGE_3)
         val selected = mutableStateOf(stage1)
 
         composeRule.setContent { DriveAlertTheme { AlertDetailScreen(selected.value, {}) } }
@@ -114,7 +123,10 @@ class PostAuthFlowTest {
 
     @Test
     fun stage3DetailSupportsEverySharingState() {
-        val original = PostAuthViewModel.seedState().driverSyncRecords.first()
+        val original = com.lhordkent.drivealert.postauth.Stage3SyncRecord(
+            "sync", java.time.LocalDateTime.now(), com.lhordkent.drivealert.postauth.SyncRecordKind.STAGE_3_TRANSITION,
+            setOf(com.lhordkent.drivealert.postauth.VisibleSign.YAWNING), SharingState.PENDING,
+        )
         val selected = mutableStateOf(original.copy(sharingState = SharingState.NO_CONTACT))
         composeRule.setContent { DriveAlertTheme { Stage3SyncRecordDetailScreen(selected.value, {}) } }
 
@@ -158,9 +170,6 @@ class PostAuthFlowTest {
                     onSetProfileName = postAuthViewModel::setProfileDisplayName,
                     onChooseView = postAuthViewModel::chooseView,
                     onCompleteSetup = postAuthViewModel::completeDriverSetup,
-                    onReconnectDevice = postAuthViewModel::reconnectDevice,
-                    onCompleteAlignment = postAuthViewModel::completeAlignmentCheck,
-                    onCompleteCalibration = postAuthViewModel::completeCalibration,
                     onFilterChange = postAuthViewModel::selectAlertFilter,
                     onSendRequest = postAuthViewModel::sendConnectionRequest,
                     onAcceptRequest = postAuthViewModel::acceptRequest,

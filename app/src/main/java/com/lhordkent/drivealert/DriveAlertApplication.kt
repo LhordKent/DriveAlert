@@ -8,12 +8,15 @@ import com.lhordkent.drivealert.data.repository.RoomAlertRepository
 import com.lhordkent.drivealert.data.repository.RoomMonitoringSessionRepository
 import com.lhordkent.drivealert.data.repository.DriverPreferenceRepository
 import com.lhordkent.drivealert.data.repository.RoomDriverPreferenceRepository
+import com.lhordkent.drivealert.data.repository.CalibrationRepository
+import com.lhordkent.drivealert.data.repository.RoomCalibrationRepository
+import com.lhordkent.drivealert.data.repository.ProvisionedDeviceRepository
+import com.lhordkent.drivealert.data.repository.RoomProvisionedDeviceRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.MemoryCacheSettings
 import com.lhordkent.drivealert.data.profile.FirestoreUserProfileRepository
 import com.lhordkent.drivealert.data.profile.UserProfileRepository
-import com.google.firebase.functions.FirebaseFunctions
 import com.lhordkent.drivealert.data.connection.FirestoreTrustedContactRepository
 import com.lhordkent.drivealert.data.connection.TrustedContactRepository
 import com.lhordkent.drivealert.data.sync.FirestoreStageSyncRemoteDataSource
@@ -25,9 +28,16 @@ import com.lhordkent.drivealert.data.sync.StageSyncScheduler
 import com.lhordkent.drivealert.data.sync.WorkManagerStageSyncScheduler
 import com.lhordkent.drivealert.data.sync.FirestoreSharedStage3Repository
 import com.lhordkent.drivealert.data.sync.SharedStage3Repository
+import com.lhordkent.drivealert.notification.AndroidDriverWarningNotificationGateway
+import com.lhordkent.drivealert.notification.DriverWarningNotificationCoordinator
 
 class DriveAlertApplication : Application() {
     val container: AppContainer by lazy { AppContainer(this) }
+
+    override fun onCreate() {
+        super.onCreate()
+        AndroidDriverWarningNotificationGateway.createChannel(this)
+    }
 }
 
 class AppContainer(application: Application) {
@@ -40,15 +50,20 @@ class AppContainer(application: Application) {
         }
     }
     val alertRepository: AlertRepository = RoomAlertRepository(database.alertDao())
+    val driverWarningNotificationCoordinator = DriverWarningNotificationCoordinator(
+        AndroidDriverWarningNotificationGateway(application),
+    )
     val monitoringSessionRepository: MonitoringSessionRepository =
         RoomMonitoringSessionRepository(database.monitoringSessionDao())
     val driverPreferenceRepository: DriverPreferenceRepository =
         RoomDriverPreferenceRepository(database.driverPreferenceDao())
+    val calibrationRepository: CalibrationRepository = RoomCalibrationRepository(database.calibrationDao())
+    val provisionedDeviceRepository: ProvisionedDeviceRepository =
+        RoomProvisionedDeviceRepository(database.provisionedDeviceDao())
     val userProfileRepository: UserProfileRepository by lazy { FirestoreUserProfileRepository(firestore) }
     val trustedContactRepository: TrustedContactRepository by lazy {
         FirestoreTrustedContactRepository(
             firestore = firestore,
-            functions = FirebaseFunctions.getInstance("asia-southeast1"),
             projectionDao = database.trustedContactConnectionProjectionDao(),
         )
     }

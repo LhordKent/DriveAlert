@@ -30,18 +30,6 @@ enum class SyncRecordKind(val label: String) {
     STAGE_3_PERSISTENCE("Stage 3 continued"),
 }
 
-enum class DeviceConnectionState(val label: String) {
-    CONNECTED("Connected"),
-    RECONNECTING("Reconnecting"),
-    DISCONNECTED("Disconnected"),
-}
-
-enum class CalibrationState(val label: String) {
-    NOT_STARTED("Not calibrated"),
-    IN_PROGRESS("Calibration in progress"),
-    READY("Calibrated"),
-}
-
 enum class MonitoringScenario(val label: String) {
     NORMAL("Normal monitoring"),
     EYE_UNAVAILABLE("Eye unavailable"),
@@ -101,6 +89,9 @@ data class AlertEvent(
     val occurredAt: LocalDateTime,
     val signs: Set<VisibleSign>,
     val stage: WarningStage,
+    val sessionId: String? = null,
+    val alarmTriggered: Boolean? = null,
+    val alarmTriggeredAt: LocalDateTime? = null,
 )
 
 data class MonitoringSessionSummary(
@@ -120,6 +111,21 @@ data class Stage3SyncRecord(
     val sourceDriverId: String? = null,
     val sourceDriverName: String? = null,
     val receivedAt: LocalDateTime? = null,
+    val sessionId: String? = null,
+)
+
+enum class AlertTrend(val label: String) {
+    HIGHER("Higher than previous 7 days"),
+    LOWER("Lower than previous 7 days"),
+    UNCHANGED("Same as previous 7 days"),
+}
+
+data class AlertHistoryInsights(
+    val alertsToday: Int = 0,
+    val weeklyAlerts: Int = 0,
+    val mostFrequentSign: VisibleSign? = null,
+    val highestStage: WarningStage? = null,
+    val trend: AlertTrend = AlertTrend.UNCHANGED,
 )
 
 data class Contact(
@@ -166,10 +172,21 @@ enum class PreferredVolume(val label: String) {
 }
 
 data class NotificationPreferences(
+    val warningAlerts: Boolean = true,
     val setupAndDeviceReminders: Boolean = true,
     val driverRequestUpdates: Boolean = true,
     val trustedRequestUpdates: Boolean = true,
     val sharedStage3Records: Boolean = true,
+)
+
+data class ConnectionInviteUiState(
+    val isLookingUp: Boolean = false,
+    val targetUserId: String? = null,
+    val targetDisplayName: String? = null,
+    val normalizedCode: String? = null,
+    val isSending: Boolean = false,
+    val errorMessage: String? = null,
+    val requestSent: Boolean = false,
 )
 
 data class PostAuthUiState(
@@ -177,13 +194,13 @@ data class PostAuthUiState(
     val driverSetupComplete: Boolean = false,
     val monitoringScenario: MonitoringScenario = MonitoringScenario.NORMAL,
     val activeWarningStage: WarningStage? = null,
-    val deviceConnection: DeviceConnectionState = DeviceConnectionState.CONNECTED,
-    val alignmentReady: Boolean = true,
-    val calibrationState: CalibrationState = CalibrationState.READY,
     val profileDisplayName: String = "",
+    val connectionCode: String = "",
+    val profileErrorMessage: String? = null,
     val userRole: UserRole? = null,
     val alertFilter: WarningStage? = null,
     val driverAlerts: List<AlertEvent> = emptyList(),
+    val alertInsights: AlertHistoryInsights = AlertHistoryInsights(),
     val monitoringSessions: List<MonitoringSessionSummary> = emptyList(),
     val isLocalDataLoading: Boolean = false,
     val localDataErrorMessage: String? = null,
@@ -195,6 +212,7 @@ data class PostAuthUiState(
     val trustedIncomingRequests: List<ConnectionRequest> = emptyList(),
     val trustedOutgoingRequests: List<ConnectionRequest> = emptyList(),
     val cloudConnectionErrorMessage: String? = null,
+    val connectionInvite: ConnectionInviteUiState = ConnectionInviteUiState(),
     val warningSound: WarningSound = WarningSound.DIGITAL_BEEP,
     val preferredVolume: PreferredVolume = PreferredVolume.MEDIUM,
     val notifications: NotificationPreferences = NotificationPreferences(),

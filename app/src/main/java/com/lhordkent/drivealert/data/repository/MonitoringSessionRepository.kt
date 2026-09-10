@@ -23,6 +23,7 @@ interface MonitoringSessionRepository {
     suspend fun start(input: StartMonitoringSessionInput): String
     suspend fun pause(driverUserId: String, sessionId: String)
     suspend fun resume(driverUserId: String, sessionId: String)
+    suspend fun updateHighestStage(driverUserId: String, sessionId: String, stage: WarningStage)
     suspend fun finish(
         driverUserId: String,
         sessionId: String,
@@ -81,6 +82,13 @@ class RoomMonitoringSessionRepository(
         transition(driverUserId, sessionId, MonitoringSessionStatus.PAUSED, MonitoringSessionStatus.ACTIVE)
     }
 
+    override suspend fun updateHighestStage(driverUserId: String, sessionId: String, stage: WarningStage) {
+        val current = requireNotNull(dao.getById(driverUserId, sessionId))
+        val stored = stage.toStored()
+        if ((current.highestWarningStage?.level ?: 0) >= stored.level) return
+        dao.update(current.copy(highestWarningStage = stored, updatedAtEpochMillis = clock()))
+    }
+
     override suspend fun finish(
         driverUserId: String,
         sessionId: String,
@@ -117,4 +125,10 @@ private fun StoredWarningStage.toDomain() = when (this) {
     StoredWarningStage.STAGE_1 -> WarningStage.STAGE_1
     StoredWarningStage.STAGE_2 -> WarningStage.STAGE_2
     StoredWarningStage.STAGE_3 -> WarningStage.STAGE_3
+}
+
+private fun WarningStage.toStored() = when (this) {
+    WarningStage.STAGE_1 -> StoredWarningStage.STAGE_1
+    WarningStage.STAGE_2 -> StoredWarningStage.STAGE_2
+    WarningStage.STAGE_3 -> StoredWarningStage.STAGE_3
 }

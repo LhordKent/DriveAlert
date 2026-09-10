@@ -5,12 +5,15 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.lhordkent.drivealert.data.local.dao.AlertDao
 import com.lhordkent.drivealert.data.local.dao.CalibrationDao
 import com.lhordkent.drivealert.data.local.dao.DriverPreferenceDao
 import com.lhordkent.drivealert.data.local.dao.MonitoringSessionDao
 import com.lhordkent.drivealert.data.local.dao.StageSyncRecordDao
 import com.lhordkent.drivealert.data.local.dao.TrustedContactConnectionProjectionDao
+import com.lhordkent.drivealert.data.local.dao.ProvisionedDeviceDao
 import com.lhordkent.drivealert.data.local.entity.AlertEntity
 import com.lhordkent.drivealert.data.local.entity.AlertSignEntity
 import com.lhordkent.drivealert.data.local.entity.CalibrationEntity
@@ -19,6 +22,7 @@ import com.lhordkent.drivealert.data.local.entity.MonitoringSessionEntity
 import com.lhordkent.drivealert.data.local.entity.StageSyncRecordEntity
 import com.lhordkent.drivealert.data.local.entity.StageSyncRecordSignEntity
 import com.lhordkent.drivealert.data.local.entity.TrustedContactConnectionProjectionEntity
+import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
 
 @Database(
     entities = [
@@ -30,8 +34,9 @@ import com.lhordkent.drivealert.data.local.entity.TrustedContactConnectionProjec
         StageSyncRecordEntity::class,
         StageSyncRecordSignEntity::class,
         TrustedContactConnectionProjectionEntity::class,
+        ProvisionedDeviceEntity::class,
     ],
-    version = 1,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(DriveAlertTypeConverters::class)
@@ -42,6 +47,7 @@ abstract class DriveAlertDatabase : RoomDatabase() {
     abstract fun driverPreferenceDao(): DriverPreferenceDao
     abstract fun stageSyncRecordDao(): StageSyncRecordDao
     abstract fun trustedContactConnectionProjectionDao(): TrustedContactConnectionProjectionDao
+    abstract fun provisionedDeviceDao(): ProvisionedDeviceDao
 
     companion object {
         const val DATABASE_NAME = "drivealert.db"
@@ -53,7 +59,40 @@ abstract class DriveAlertDatabase : RoomDatabase() {
                 context.applicationContext,
                 DriveAlertDatabase::class.java,
                 DATABASE_NAME,
-            ).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+        }
+
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE driver_calibrations ADD COLUMN detectorSchemaVersion INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE driver_calibrations ADD COLUMN neutralEar REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE driver_calibrations ADD COLUMN closedEyeEar REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE driver_calibrations ADD COLUMN neutralMar REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE driver_calibrations ADD COLUMN openMouthMar REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE driver_calibrations ADD COLUMN downwardPitchMultiplier REAL NOT NULL DEFAULT 1")
+                db.execSQL("UPDATE driver_calibrations SET isActive = 0")
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS provisioned_devices (
+                        deviceId TEXT NOT NULL,
+                        driverUserId TEXT NOT NULL,
+                        hostname TEXT,
+                        lastKnownIp TEXT NOT NULL,
+                        streamPort INTEGER NOT NULL,
+                        streamPath TEXT NOT NULL,
+                        lastConnectedAtEpochMillis INTEGER NOT NULL,
+                        isActive INTEGER NOT NULL,
+                        PRIMARY KEY(driverUserId, deviceId)
+                    )""".trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_provisioned_devices_driverUserId ON provisioned_devices(driverUserId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_provisioned_devices_driverUserId_isActive ON provisioned_devices(driverUserId, isActive)")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE driver_preferences ADD COLUMN warningAlertsEnabled INTEGER NOT NULL DEFAULT 1")
+            }
         }
     }
 }

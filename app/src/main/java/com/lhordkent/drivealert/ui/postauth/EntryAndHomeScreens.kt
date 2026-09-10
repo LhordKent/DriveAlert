@@ -37,6 +37,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.lhordkent.drivealert.R
+import com.lhordkent.drivealert.detection.DriverVisionUiState
+import com.lhordkent.drivealert.detection.frame.StreamConnectionState
 import com.lhordkent.drivealert.postauth.PostAuthUiState
 import com.lhordkent.drivealert.ui.theme.Border
 import com.lhordkent.drivealert.ui.theme.Ink
@@ -123,10 +125,11 @@ fun SetupDeviceScreen(
     onCameraAlignment: () -> Unit,
     onCalibration: () -> Unit,
     onBack: (() -> Unit)? = null,
+    vision: DriverVisionUiState = DriverVisionUiState(),
 ) {
     if (onBack != null) {
         ScrollableScreen(title = "Setup & Device", onBack = onBack) {
-            SetupDeviceContent(onContinue, onDeviceConnection, onCameraAlignment, onCalibration)
+            SetupDeviceContent(onContinue, onDeviceConnection, onCameraAlignment, onCalibration, vision)
         }
     } else {
         Column(Modifier.fillMaxSize().background(Ink)) {
@@ -140,7 +143,7 @@ fun SetupDeviceScreen(
                     .align(Alignment.CenterHorizontally)
                     .padding(horizontal = 20.dp, vertical = 12.dp)
                     .navigationBarsPadding(),
-            ) { SetupDeviceContent(onContinue, onDeviceConnection, onCameraAlignment, onCalibration) }
+            ) { SetupDeviceContent(onContinue, onDeviceConnection, onCameraAlignment, onCalibration, vision) }
         }
     }
 }
@@ -151,7 +154,9 @@ private fun SetupDeviceContent(
     onDeviceConnection: () -> Unit,
     onCameraAlignment: () -> Unit,
     onCalibration: () -> Unit,
+    vision: DriverVisionUiState,
 ) {
+    val connectionStatus = vision.streamState.setupConnectionStatus()
     Text("Set up DriveAlert", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
     Spacer(Modifier.height(8.dp))
     Text(
@@ -160,10 +165,17 @@ private fun SetupDeviceContent(
         color = TextSecondary,
     )
     Spacer(Modifier.height(24.dp))
-    SetupStep(Icons.Rounded.Router, "Device connection", "Ready for preview", "Review permissions, local hotspot, IoT speaker, and IR camera readiness.", onDeviceConnection)
-    SetupStep(Icons.Rounded.CameraAlt, "Camera alignment", "Alignment ready", "Check face position and camera placement before monitoring.", onCameraAlignment)
-    SetupStep(Icons.Rounded.CheckCircle, "Driver calibration", "Calibrated", "Review the mock eye, mouth, and neutral-head calibration checkpoints.", onCalibration)
-    SetupStep(Icons.Rounded.Notifications, "Notifications", "Recommended", "Notifications are helpful but do not block monitoring readiness.")
+    SetupStep(
+        Icons.Rounded.Router,
+        "Device connection",
+        connectionStatus.label,
+        "Connect the DriveAlert camera to the same local network.",
+        connectionStatus.tone,
+        onDeviceConnection,
+    )
+    SetupStep(Icons.Rounded.CameraAlt, "Camera alignment", if (vision.alignmentConfirmed) "Confirmed" else "Confirmation needed", "Preview the live camera and confirm the Driver is clearly visible.", if (vision.alignmentConfirmed) StatusTone.SUCCESS else StatusTone.WARNING, onCameraAlignment)
+    SetupStep(Icons.Rounded.CheckCircle, "Driver calibration", if (vision.activeCalibration != null) "Calibrated" else "Not calibrated", "Complete the guided eye, mouth, and head-position steps.", if (vision.activeCalibration != null) StatusTone.SUCCESS else StatusTone.WARNING, onCalibration)
+    SetupStep(Icons.Rounded.Notifications, "Notifications", "Recommended", "Notifications are helpful but do not block monitoring readiness.", StatusTone.INFO)
     Spacer(Modifier.height(8.dp))
     GroupSurface {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
@@ -187,6 +199,7 @@ private fun SetupStep(
     title: String,
     status: String,
     body: String,
+    tone: StatusTone,
     onClick: (() -> Unit)? = null,
 ) {
     Row(
@@ -204,7 +217,7 @@ private fun SetupStep(
         Column(Modifier.weight(1f)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary, modifier = Modifier.weight(1f))
-                StatusPill(status, StatusTone.SUCCESS)
+                StatusPill(status, tone)
             }
             Spacer(Modifier.height(5.dp))
             Text(body, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -215,29 +228,31 @@ private fun SetupStep(
 @Composable
 fun DriverHomeScreen(
     state: PostAuthUiState,
-    onPreviewMonitoring: () -> Unit,
+    vision: DriverVisionUiState = DriverVisionUiState(),
+    onStartMonitoring: () -> Unit,
     onSetupDevice: () -> Unit,
     onOpenAlerts: () -> Unit,
 ) {
     val latest = state.driverAlerts.maxByOrNull { it.occurredAt }
     val todayCount = state.driverAlerts.count { it.occurredAt.toLocalDate() == java.time.LocalDate.now() }
 
+    val monitoringReady = vision.isMonitoringReady()
     Column {
-        Text("Ready for preview", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+        Text(if (monitoringReady) "Ready for monitoring" else "Setup needed", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
-        Text("Setup requirements are ready for this interface preview.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text(if (monitoringReady) "Your camera and Driver calibration are ready." else "Connect the camera and complete Driver calibration before monitoring.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(20.dp))
         GroupSurface {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Monitoring readiness", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
                     Spacer(Modifier.height(4.dp))
-                    Text("Ready", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                    Text(if (monitoringReady) "Ready" else "Action required", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
                 }
-                StatusPill("Ready", StatusTone.SUCCESS)
+                StatusPill(if (monitoringReady) "Ready" else "Setup", if (monitoringReady) StatusTone.SUCCESS else StatusTone.WARNING)
             }
             Spacer(Modifier.height(18.dp))
-            PrimaryButton("Preview Monitoring", onPreviewMonitoring)
+            PrimaryButton("Start Monitoring", onStartMonitoring)
             Spacer(Modifier.height(10.dp))
             SecondaryButton("Setup & Device", onSetupDevice)
         }
@@ -266,3 +281,17 @@ fun DriverHomeScreen(
         Spacer(Modifier.height(24.dp))
     }
 }
+
+internal data class SetupConnectionStatus(val label: String, val tone: StatusTone)
+
+internal fun StreamConnectionState.setupConnectionStatus(): SetupConnectionStatus = when (this) {
+    StreamConnectionState.SETUP_REQUIRED -> SetupConnectionStatus("Setup needed", StatusTone.WARNING)
+    StreamConnectionState.READY -> SetupConnectionStatus("Connect required", StatusTone.WARNING)
+    StreamConnectionState.CONNECTING -> SetupConnectionStatus("Connecting", StatusTone.INFO)
+    StreamConnectionState.CONNECTED -> SetupConnectionStatus("Connected", StatusTone.SUCCESS)
+    StreamConnectionState.RECONNECTING -> SetupConnectionStatus("Reconnecting", StatusTone.WARNING)
+    StreamConnectionState.UNAVAILABLE -> SetupConnectionStatus("Unavailable", StatusTone.ERROR)
+}
+
+internal fun DriverVisionUiState.isMonitoringReady(): Boolean =
+    streamState == StreamConnectionState.CONNECTED && activeCalibration != null

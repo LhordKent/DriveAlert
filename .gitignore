@@ -50,16 +50,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Firebase Emulator Suite state and generated Cloud Functions dependencies.
+# Firebase Emulator Suite state and generated test dependencies.
 /.firebase/
 /firebase-debug.log
 /firestore-debug.log
 /ui-debug.log
-/functions/node_modules/
-/functions/.secret.local
-/functions/.runtimeconfig.json
+/firebase-tests/node_modules/
 /firebase-export-*/
 /tmp/
+/dist/
 
 # Never version server credentials. app/google-services.json remains allowed
 # because it is Firebase Android client configuration, not an Admin key.

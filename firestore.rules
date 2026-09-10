@@ -35,7 +35,30 @@ service cloud.firestore {
         && request.resource.data.driverName == resource.data.driverName
         && request.resource.data.driverEmail == resource.data.driverEmail
         && request.resource.data.trustedContactName == resource.data.trustedContactName
-        && request.resource.data.trustedContactEmail == resource.data.trustedContactEmail;
+        && request.resource.data.trustedContactEmail == resource.data.trustedContactEmail
+        && request.resource.data.targetConnectionCode == resource.data.targetConnectionCode;
+    }
+
+    function validConnectionCreate(connectionId) {
+      let data = request.resource.data;
+      let targetCode = get(/databases/$(database)/documents/connectionCodes/$(data.targetConnectionCode));
+      let expectedTarget = data.requestedByUserId == data.driverUserId
+        ? data.trustedContactUserId
+        : data.driverUserId;
+      return signedIn()
+        && data.connectionId == connectionId
+        && connectionId == data.driverUserId + '__' + data.trustedContactUserId
+        && data.driverUserId != data.trustedContactUserId
+        && data.requestedByUserId == request.auth.uid
+        && isConnectionParticipant(data)
+        && data.status == 'PENDING'
+        && data.requestedAt == request.time
+        && data.approvedAt == null
+        && data.declinedAt == null
+        && data.revokedAt == null
+        && data.targetConnectionCode.matches('^DA[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{26}$')
+        && targetCode.data.active == true
+        && targetCode.data.ownerUserId == expectedTarget;
     }
 
     function recipientApproves() {
@@ -94,9 +117,24 @@ service cloud.firestore {
       }
     }
 
+    match /connectionCodes/{connectionCode} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && connectionCode.matches('^DA[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{26}$')
+        && request.resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.active == true
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.connectionCode == connectionCode;
+      allow update: if signedIn()
+        && resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.ownerUserId == resource.data.ownerUserId;
+      allow delete: if false;
+    }
+
     match /trustedContactConnections/{connectionId} {
       allow read: if isConnectionParticipant(resource.data);
-      allow create, delete: if false;
+      allow create: if validConnectionCreate(connectionId);
+      allow delete: if false;
       allow update: if connectionIdentityUnchanged()
         && (recipientApproves()
           || recipientDeclines()

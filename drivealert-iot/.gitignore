@@ -1,0 +1,8 @@
+# Arduino/ESP32 generated output only. Firmware sources and configuration remain tracked.
+build/
+.arduino/
+*.bin
+*.elf
+*.map
+*.hex
+*.uf2

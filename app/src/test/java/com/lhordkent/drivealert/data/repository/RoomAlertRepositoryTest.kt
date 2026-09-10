@@ -17,6 +17,22 @@ import org.junit.Test
 
 class RoomAlertRepositoryTest {
     @Test
+    fun historyIsNewestFirstAndDetailLoadsRequestedStoredId() = runTest {
+        val dao = FakeAlertDao()
+        val ids = ArrayDeque(listOf("older", "newer"))
+        val repository = RoomAlertRepository(dao, idFactory = { ids.removeFirst() }, zoneId = ZoneOffset.UTC)
+        fun input(time: Long) = ConfirmedAlertInput(
+            "session-id", "driver-a", time, WarningStage.STAGE_1,
+            setOf(VisibleSign.YAWNING), false, null,
+        )
+        repository.recordConfirmedAlert(input(1_000L))
+        repository.recordConfirmedAlert(input(2_000L))
+
+        assertEquals(listOf("newer", "older"), repository.observeAlerts("driver-a").first().map { it.id })
+        assertEquals("older", repository.getAlert("driver-a", "older")?.id)
+    }
+
+    @Test
     fun confirmedAlertIsPersistedWithSignsAndNoSynchronizationDependency() = runTest {
         val dao = FakeAlertDao()
         val repository = RoomAlertRepository(
@@ -41,8 +57,34 @@ class RoomAlertRepositoryTest {
         val stored = repository.observeAlerts("driver-a").first().single()
         assertEquals("alert-id", id)
         assertEquals(WarningStage.STAGE_2, stored.stage)
+        assertEquals("session-id", stored.sessionId)
+        assertEquals(true, stored.alarmTriggered)
         assertEquals(setOf(VisibleSign.PROLONGED_EYE_CLOSURE, VisibleSign.HEAD_NODDING), stored.signs)
         assertTrue(dao.insertedStageSyncRecordIds.isEmpty())
+    }
+
+    @Test
+    fun overlappingConfirmedSignCanBeMergedIntoTheExistingAlert() = runTest {
+        val dao = FakeAlertDao()
+        val repository = RoomAlertRepository(dao, idFactory = { "alert-id" }, zoneId = ZoneOffset.UTC)
+        repository.recordConfirmedAlert(
+            ConfirmedAlertInput(
+                sessionId = "session-id",
+                driverUserId = "driver-a",
+                detectedAtEpochMillis = 1_000L,
+                warningStageAtDetection = WarningStage.STAGE_1,
+                signs = setOf(VisibleSign.PROLONGED_EYE_CLOSURE),
+                alarmTriggered = false,
+                alarmTriggeredAtEpochMillis = null,
+            ),
+        )
+
+        repository.addSigns("driver-a", "alert-id", setOf(VisibleSign.YAWNING))
+
+        assertEquals(
+            setOf(VisibleSign.PROLONGED_EYE_CLOSURE, VisibleSign.YAWNING),
+            repository.observeAlerts("driver-a").first().single().signs,
+        )
     }
 }
 
@@ -62,6 +104,14 @@ private class FakeAlertDao : AlertDao() {
         publish()
     }
 
+    override suspend fun insertSignsIgnoringDuplicates(signs: List<AlertSignEntity>) {
+        signs.forEach { sign ->
+            val stored = this.signs.getOrPut(sign.alertId) { mutableListOf() }
+            if (stored.none { it.signType == sign.signType }) stored += sign
+        }
+        publish()
+    }
+
     override suspend fun getById(driverUserId: String, alertId: String): AlertWithSigns? =
         alerts[alertId]?.takeIf { it.driverUserId == driverUserId }?.let {
             AlertWithSigns(it, signs[alertId].orEmpty())
@@ -72,6 +122,7 @@ private class FakeAlertDao : AlertDao() {
     override fun observeLatest(driverUserId: String, limit: Int): Flow<List<AlertWithSigns>> = state
 
     private fun publish() {
-        state.value = alerts.values.map { AlertWithSigns(it, signs[it.alertId].orEmpty()) }
+        state.value = alerts.values.sortedByDescending { it.detectedAtEpochMillis }
+            .map { AlertWithSigns(it, signs[it.alertId].orEmpty()) }
     }
 }

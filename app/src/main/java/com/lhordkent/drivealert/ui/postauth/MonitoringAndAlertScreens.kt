@@ -28,7 +28,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.lhordkent.drivealert.detection.model.MonitoringDetectionResult
+import com.lhordkent.drivealert.monitoring.ActiveMonitoringState
+import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.postauth.AlertEvent
+import com.lhordkent.drivealert.postauth.AlertHistoryInsights
+import com.lhordkent.drivealert.postauth.MonitoringSessionSummary
 import com.lhordkent.drivealert.postauth.MonitoringScenario
 import com.lhordkent.drivealert.postauth.SharingState
 import com.lhordkent.drivealert.postauth.Stage3SyncRecord
@@ -50,13 +55,13 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun MonitoringPreviewScreen(
     scenario: MonitoringScenario,
-    activeWarningStage: WarningStage?,
-    confirmedEvents: Int,
-    latestEvent: LocalDateTime?,
+    monitoring: ActiveMonitoringState = ActiveMonitoringState(),
     onExit: () -> Unit,
+    detectionResult: MonitoringDetectionResult? = null,
 ) {
     val presentation = scenario.presentation()
-    ScrollableScreen(title = "Monitoring Preview", onBack = onExit) {
+    val activeWarningStage = monitoring.currentStage
+    ScrollableScreen(title = "Active Monitoring", onBack = onExit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(presentation.headline, style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
@@ -79,20 +84,24 @@ fun MonitoringPreviewScreen(
         }
         Spacer(Modifier.height(24.dp))
         GroupSurface {
-            KeyValueRow("Session duration", "01:24:16")
+            KeyValueRow("Session duration", monitoring.durationMs.durationText())
             Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Current warning", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                if (activeWarningStage == null) Text("No active warning", style = MaterialTheme.typography.labelLarge, color = TextPrimary) else StagePill(activeWarningStage)
+                if (activeWarningStage == null) {
+                    Text("No active warning", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+                } else {
+                    StatusPill("Warning ${activeWarningStage.label}", activeWarningStage.statusTone())
+                }
             }
-            KeyValueRow("Confirmed events", confirmedEvents.toString())
-            KeyValueRow("Latest event", latestEvent?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "None")
+            KeyValueRow("Confirmed events", monitoring.confirmedEventCount.toString())
+            KeyValueRow("Latest event", monitoring.latestSigns.joinToString { it.label }.ifEmpty { "None" })
         }
         if (activeWarningStage != null) {
             Spacer(Modifier.height(16.dp))
             GroupSurface {
                 Text("${activeWarningStage.label}: ${activeWarningStage.explanation}", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                 Spacer(Modifier.height(6.dp))
-                Text(warningOutputDescription(activeWarningStage), style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                Text(warningOutputDescription(activeWarningStage, monitoring.warningDelivery), style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             }
         }
         Spacer(Modifier.height(24.dp))
@@ -102,10 +111,43 @@ fun MonitoringPreviewScreen(
         AvailabilityRow("Yawning Monitoring", presentation.yawningAvailable)
         AvailabilityRow("Head Monitoring", presentation.headAvailable)
         Spacer(Modifier.height(24.dp))
-        SecondaryButton("Exit Preview", onExit)
+        SectionTitle("On-device detection diagnostics")
+        Spacer(Modifier.height(8.dp))
+        GroupSurface {
+            if (detectionResult == null) {
+                Text(
+                    "Detection engine is installed; no camera frame has reached active monitoring yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
+            } else {
+                KeyValueRow("Face", if (detectionResult.faceDetected) "Detected" else "Unavailable")
+                KeyValueRow("EAR", detectionResult.measurements.ear.metricText())
+                KeyValueRow("EAR threshold", detectionResult.eye.threshold.metricText())
+                KeyValueRow("Eye state", detectionResult.eye.state.name)
+                KeyValueRow("Eye candidate", (detectionResult.eye.candidateDurationMs / 1_000.0).metricText(" s"))
+                KeyValueRow("MAR", detectionResult.measurements.mar.metricText())
+                KeyValueRow("Open-mouth mean", detectionResult.activeCalibration?.openMouthMar.metricText())
+                KeyValueRow("MAR threshold", detectionResult.yawn.threshold.metricText())
+                KeyValueRow("Yawn state", detectionResult.yawn.state.name)
+                KeyValueRow("Yawn candidate", (detectionResult.yawn.candidateDurationMs / 1_000.0).metricText(" s"))
+                KeyValueRow("Raw head pitch", detectionResult.measurements.rawHeadPitchDegrees.metricText("°"))
+                KeyValueRow("Neutral head pitch", detectionResult.activeCalibration?.neutralHeadPitchDegrees.metricText("°"))
+                KeyValueRow("Relative head pitch", detectionResult.relativeHeadPitchDegrees.metricText("°"))
+                KeyValueRow("Head threshold", detectionResult.head.threshold.metricText("°"))
+                KeyValueRow("Downward ratio", detectionResult.headDownwardRatio.metricText())
+                KeyValueRow("Head state", detectionResult.head.state.name)
+                KeyValueRow("Events in latest frame", detectionResult.events.joinToString { it.type.name }.ifEmpty { "None" })
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        SecondaryButton("Exit Monitoring", onExit)
         Spacer(Modifier.height(16.dp))
     }
 }
+
+private fun Double?.metricText(suffix: String = ""): String =
+    this?.let { "%.4f%s".format(it, suffix) } ?: "Unavailable"
 
 @Composable
 private fun AvailabilityRow(label: String, available: Boolean) {
@@ -131,36 +173,27 @@ fun AlertHistoryScreen(
     syncRecords: List<Stage3SyncRecord>,
     selectedFilter: WarningStage?,
     onFilterSelected: (WarningStage?) -> Unit,
+    insights: AlertHistoryInsights = AlertHistoryInsights(),
+    sessions: List<MonitoringSessionSummary> = emptyList(),
+    errorMessage: String? = null,
     isLoading: Boolean = false,
     onEventSelected: (String) -> Unit,
 ) {
     val today = LocalDate.now()
-    val todayCount = events.count { it.occurredAt.toLocalDate() == today }
-    val weekCount = events.count { !it.occurredAt.toLocalDate().isBefore(today.minusDays(6)) }
-    val highestStage = events.maxByOrNull { it.stage.ordinal }?.stage
-    val signCounts = VisibleSign.values().associateWith { sign -> events.count { sign in it.signs } }
-    val frequentSign = signCounts.maxByOrNull { it.value }?.key?.label ?: "No alerts"
-    val currentWeekCount = events.count { !it.occurredAt.toLocalDate().isBefore(today.minusDays(6)) }
-    val previousWeekCount = events.count { dateInRange(it.occurredAt.toLocalDate(), today.minusDays(13), today.minusDays(7)) }
-    val trend = when {
-        currentWeekCount > previousWeekCount -> "Higher than previous 7 days"
-        currentWeekCount < previousWeekCount -> "Lower than previous 7 days"
-        else -> "Same as previous 7 days"
-    }
     val filtered = events.filter { selectedFilter == null || it.stage == selectedFilter }.sortedByDescending { it.occurredAt }
 
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SummaryValue("Today", todayCount.toString(), Modifier.weight(1f))
-            SummaryValue("7 days", weekCount.toString(), Modifier.weight(1f))
-            SummaryValue("Highest", highestStage?.label ?: "None", Modifier.weight(1f))
+            SummaryValue("Today", insights.alertsToday.toString(), Modifier.weight(1f))
+            SummaryValue("7 days", insights.weeklyAlerts.toString(), Modifier.weight(1f))
+            SummaryValue("Highest", insights.highestStage?.label ?: "None", Modifier.weight(1f))
         }
         Spacer(Modifier.height(20.dp))
         GroupSurface {
             SectionTitle("Insights")
             Spacer(Modifier.height(8.dp))
-            KeyValueRow("Most frequent sign", frequentSign)
-            KeyValueRow("Alert frequency", trend)
+            KeyValueRow("Most frequent sign", insights.mostFrequentSign?.label ?: "No alerts")
+            KeyValueRow("Alert frequency", insights.trend.label)
             KeyValueRow("Stage 3 synchronization", syncSummary(syncRecords))
         }
         Spacer(Modifier.height(20.dp))
@@ -174,7 +207,9 @@ fun AlertHistoryScreen(
             }
         }
         Spacer(Modifier.height(20.dp))
-        if (isLoading) {
+        if (errorMessage != null) {
+            EmptyState("Alert history unavailable", errorMessage)
+        } else if (isLoading) {
             EmptyState("Loading alert history", "Your locally stored records will appear here shortly.")
         } else if (filtered.isEmpty() && events.isEmpty()) {
             EmptyState("No alerts recorded yet", "Confirmed warning events will appear here after monitoring.")
@@ -184,7 +219,12 @@ fun AlertHistoryScreen(
             filtered.groupBy { it.occurredAt.toLocalDate() }.forEach { (date, dateEvents) ->
                 SectionTitle(relativeDate(date, today), Modifier.padding(top = 8.dp, bottom = 4.dp))
                 dateEvents.forEach { event ->
-                    AlertEventRow(event, onClick = { onEventSelected(event.id) })
+                    AlertEventRow(
+                        event,
+                        session = sessions.firstOrNull { it.id == event.sessionId },
+                        syncRecords = syncRecords.filter { it.sessionId != null && it.sessionId == event.sessionId },
+                        onClick = { onEventSelected(event.id) },
+                    )
                 }
                 Spacer(Modifier.height(10.dp))
             }
@@ -223,7 +263,12 @@ private fun AlertFilterChip(label: String, selected: Boolean, onClick: () -> Uni
 }
 
 @Composable
-fun AlertEventRow(event: AlertEvent, onClick: () -> Unit) {
+fun AlertEventRow(
+    event: AlertEvent,
+    session: MonitoringSessionSummary? = null,
+    syncRecords: List<Stage3SyncRecord> = emptyList(),
+    onClick: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -238,6 +283,14 @@ fun AlertEventRow(event: AlertEvent, onClick: () -> Unit) {
         }
         Spacer(Modifier.height(7.dp))
         Text(event.signs.joinToString { it.label }, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        session?.let {
+            Spacer(Modifier.height(4.dp))
+            Text("Session ${it.id.take(8)}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        }
+        if (syncRecords.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text("Stage 3 sync: ${syncSummary(syncRecords)}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        }
     }
 }
 
@@ -245,6 +298,8 @@ fun AlertEventRow(event: AlertEvent, onClick: () -> Unit) {
 fun AlertDetailScreen(
     event: AlertEvent,
     onBack: () -> Unit,
+    session: MonitoringSessionSummary? = null,
+    syncRecords: List<Stage3SyncRecord> = emptyList(),
 ) {
     ScrollableScreen(title = "Alert Detail", onBack = onBack) {
         Text(
@@ -256,6 +311,12 @@ fun AlertDetailScreen(
         SectionTitle("Event information")
         Spacer(Modifier.height(8.dp))
         KeyValueRow("Detected visible sign(s)", event.signs.joinToString { it.label })
+        KeyValueRow("Monitoring session", session?.let { "${it.id.take(8)} (${it.status})" } ?: "Unavailable")
+        KeyValueRow("Warning output", when (event.alarmTriggered) {
+            true -> "Triggered"
+            false -> "Not delivered"
+            null -> "Unavailable"
+        })
         Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Warning Stage at Detection", style = MaterialTheme.typography.bodyMedium, color = TextSecondary, modifier = Modifier.weight(1f))
             StagePill(event.stage)
@@ -278,6 +339,15 @@ fun AlertDetailScreen(
         SectionTitle("Record visibility")
         Spacer(Modifier.height(10.dp))
         StatusPill("Driver history", StatusTone.NEUTRAL)
+        Spacer(Modifier.height(10.dp))
+        KeyValueRow(
+            "Trusted Contact synchronization",
+            when {
+                event.stage != WarningStage.STAGE_3 -> "Not eligible"
+                syncRecords.isEmpty() -> "No session boundary record available"
+                else -> syncSummary(syncRecords)
+            },
+        )
         Spacer(Modifier.height(10.dp))
         Text(
             if (event.stage == WarningStage.STAGE_3) "This confirmed event remains in Driver Alert History. A separate Stage 3 transition or persistence record may be eligible for Trusted Contact synchronization."
@@ -318,13 +388,25 @@ fun Stage3SyncRecordDetailScreen(record: Stage3SyncRecord, onBack: () -> Unit) {
     }
 }
 
-private fun warningOutputDescription(stage: WarningStage): String = when (stage) {
-    WarningStage.STAGE_1 -> "The selected warning sound is sent to the onboard speaker."
-    WarningStage.STAGE_2 -> "The warning sound is repeated with a spoken advisory recommending rest."
-    WarningStage.STAGE_3 -> "Maximum intervention is active. An eligible synchronization record may be queued for an approved Trusted Contact."
+private fun warningOutputDescription(stage: WarningStage, delivery: WarningDeliveryStatus): String = when (stage) {
+    WarningStage.STAGE_1 -> "Selected warning sound requested. ${delivery.label}."
+    WarningStage.STAGE_2 -> "Selected warning sound and the fixed rest advisory requested. ${delivery.label}."
+    WarningStage.STAGE_3 -> "Maximum Driver warning requested. ${delivery.label}. Eligible Stage 3 boundary records are queued separately."
 }
 
-private fun dateInRange(date: LocalDate, start: LocalDate, end: LocalDate): Boolean = !date.isBefore(start) && !date.isAfter(end)
+private fun WarningStage.statusTone() = when (this) {
+    WarningStage.STAGE_1 -> StatusTone.INFO
+    WarningStage.STAGE_2 -> StatusTone.WARNING
+    WarningStage.STAGE_3 -> StatusTone.ERROR
+}
+
+private fun Long.durationText(): String {
+    val totalSeconds = this.coerceAtLeast(0L) / 1_000L
+    val hours = totalSeconds / 3_600L
+    val minutes = (totalSeconds % 3_600L) / 60L
+    val seconds = totalSeconds % 60L
+    return "%02d:%02d:%02d".format(hours, minutes, seconds)
+}
 
 private fun syncSummary(records: List<Stage3SyncRecord>): String {
     if (records.isEmpty()) return "No eligible records"

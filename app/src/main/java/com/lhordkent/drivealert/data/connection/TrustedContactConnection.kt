@@ -11,6 +11,7 @@ data class TrustedContactConnection(
     val trustedContactName: String,
     val trustedContactEmail: String,
     val requestedByUserId: String,
+    val targetConnectionCode: String = "",
     val status: ConnectionStatus,
     val requestedAtEpochMillis: Long,
     val approvedAtEpochMillis: Long?,

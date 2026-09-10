@@ -55,6 +55,7 @@ class RoomDriverPreferenceRepository(
                 contactRequestUpdatesEnabled = preferences.notifications.driverRequestUpdates,
                 trustedRequestUpdatesEnabled = preferences.notifications.trustedRequestUpdates,
                 sharedStage3RecordsEnabled = preferences.notifications.sharedStage3Records,
+                warningAlertsEnabled = preferences.notifications.warningAlerts,
                 updatedAtEpochMillis = clock(),
             ),
         )
@@ -75,6 +76,7 @@ private fun DriverPreferenceEntity.toDomain() = DriverPreferences(
         StoredPreferredVolume.HIGH -> PreferredVolume.HIGH
     },
     notifications = NotificationPreferences(
+        warningAlerts = warningAlertsEnabled,
         setupAndDeviceReminders = setupAndDeviceRemindersEnabled,
         driverRequestUpdates = contactRequestUpdatesEnabled,
         trustedRequestUpdates = trustedRequestUpdatesEnabled,

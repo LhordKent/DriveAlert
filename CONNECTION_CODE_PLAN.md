@@ -1,6 +1,6 @@
 # DriveAlert Free Connection-Code Plan
 
-Status: design only. Do not treat this document as an implemented feature.
+Status: implemented in Android and covered by local Firestore emulator tests. The checked-in Firebase rules remain intentionally undeployed until the project owner explicitly approves deployment.
 
 ## Goal
 

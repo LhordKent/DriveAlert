@@ -29,6 +29,7 @@ interface AlertRepository {
     fun observeAlerts(driverUserId: String): Flow<List<AlertEvent>>
     suspend fun getAlert(driverUserId: String, alertId: String): AlertEvent?
     suspend fun recordConfirmedAlert(input: ConfirmedAlertInput): String
+    suspend fun addSigns(driverUserId: String, alertId: String, signs: Set<VisibleSign>)
 }
 
 class RoomAlertRepository(
@@ -61,6 +62,12 @@ class RoomAlertRepository(
         alertDao.insert(entity, input.signs.mapTo(linkedSetOf()) { AlertSignEntity(alertId, it.toStored()) })
         return alertId
     }
+
+    override suspend fun addSigns(driverUserId: String, alertId: String, signs: Set<VisibleSign>) {
+        require(signs.isNotEmpty())
+        requireNotNull(alertDao.getById(driverUserId, alertId))
+        alertDao.addSigns(alertId, signs.mapTo(linkedSetOf()) { AlertSignEntity(alertId, it.toStored()) })
+    }
 }
 
 private fun AlertWithSigns.toDomain(zoneId: ZoneId) = AlertEvent(
@@ -68,6 +75,11 @@ private fun AlertWithSigns.toDomain(zoneId: ZoneId) = AlertEvent(
     occurredAt = Instant.ofEpochMilli(alert.detectedAtEpochMillis).atZone(zoneId).toLocalDateTime(),
     signs = signs.mapTo(linkedSetOf()) { it.signType.toDomain() },
     stage = alert.warningStageAtDetection.toDomain(),
+    sessionId = alert.sessionId,
+    alarmTriggered = alert.alarmTriggered,
+    alarmTriggeredAt = alert.alarmTriggeredAtEpochMillis?.let {
+        Instant.ofEpochMilli(it).atZone(zoneId).toLocalDateTime()
+    },
 )
 
 private fun WarningStage.toStored() = when (this) {

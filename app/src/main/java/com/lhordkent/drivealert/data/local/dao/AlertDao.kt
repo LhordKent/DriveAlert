@@ -18,12 +18,22 @@ abstract class AlertDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     protected abstract suspend fun insertSigns(signs: List<AlertSignEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    protected abstract suspend fun insertSignsIgnoringDuplicates(signs: List<AlertSignEntity>)
+
     @Transaction
     open suspend fun insert(alert: AlertEntity, signs: Set<AlertSignEntity>) {
         require(signs.isNotEmpty()) { "A confirmed Alert must contain at least one selected visible sign." }
         require(signs.all { it.alertId == alert.alertId }) { "Every sign must belong to the inserted Alert." }
         insertEntity(alert)
         insertSigns(signs.toList())
+    }
+
+    @Transaction
+    open suspend fun addSigns(alertId: String, signs: Set<AlertSignEntity>) {
+        require(signs.isNotEmpty())
+        require(signs.all { it.alertId == alertId })
+        insertSignsIgnoringDuplicates(signs.toList())
     }
 
     @Transaction

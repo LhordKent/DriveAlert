@@ -22,6 +22,7 @@ data class UserProfile(
     val accountStatus: AccountStatus,
     val registeredAtEpochMillis: Long?,
     val deactivatedAtEpochMillis: Long?,
+    val connectionCode: String,
 ) {
     val fullName: String
         get() = listOf(firstName, middleName.orEmpty(), lastName).filter(String::isNotBlank).joinToString(" ")

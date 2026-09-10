@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.lhordkent.drivealert.data.local.entity.AlertEntity
 import com.lhordkent.drivealert.data.local.entity.AlertSignEntity
 import com.lhordkent.drivealert.data.local.entity.CalibrationEntity
+import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
 import com.lhordkent.drivealert.data.local.entity.MonitoringSessionEntity
 import com.lhordkent.drivealert.data.local.entity.MonitoringSessionStatus
 import com.lhordkent.drivealert.data.local.entity.StageSyncEligibility
@@ -26,6 +27,16 @@ import org.junit.Before
 import org.junit.Test
 
 class DriveAlertDatabaseTest {
+    @Test
+    fun provisionedDeviceIsIsolatedPerDriverAndOnlyOneIsActive() = runBlocking {
+        database.provisionedDeviceDao().insertAndActivate(device("driver-a", "camera-1", "192.168.1.20"))
+        database.provisionedDeviceDao().insertAndActivate(device("driver-a", "camera-2", "192.168.1.21"))
+        database.provisionedDeviceDao().insertAndActivate(device("driver-b", "camera-1", "192.168.1.22"))
+
+        assertEquals("camera-2", database.provisionedDeviceDao().getActive("driver-a")?.deviceId)
+        assertEquals("camera-1", database.provisionedDeviceDao().getActive("driver-b")?.deviceId)
+    }
+
     private lateinit var context: Context
     private lateinit var database: DriveAlertDatabase
 
@@ -174,6 +185,17 @@ class DriveAlertDatabaseTest {
         headPitchThresholdDegrees = 14.0,
         neutralHeadPitchDegrees = 1.5,
         calibratedAtEpochMillis = time,
+        isActive = true,
+    )
+
+    private fun device(driverId: String, deviceId: String, ip: String) = ProvisionedDeviceEntity(
+        deviceId = deviceId,
+        driverUserId = driverId,
+        hostname = deviceId,
+        lastKnownIp = ip,
+        streamPort = 81,
+        streamPath = "/stream",
+        lastConnectedAtEpochMillis = 1_000,
         isActive = true,
     )
 

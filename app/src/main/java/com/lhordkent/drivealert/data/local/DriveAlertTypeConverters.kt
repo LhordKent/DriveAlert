@@ -14,8 +14,9 @@ import com.lhordkent.drivealert.data.local.entity.StoredWarningStage
 class DriveAlertTypeConverters {
     @TypeConverter fun monitoringSessionStatus(value: String) = enumValueOf<MonitoringSessionStatus>(value)
     @TypeConverter fun monitoringSessionStatus(value: MonitoringSessionStatus) = value.name
-    @TypeConverter fun warningStage(value: String) = enumValueOf<StoredWarningStage>(value)
-    @TypeConverter fun warningStage(value: StoredWarningStage) = value.name
+    @TypeConverter fun warningStage(value: String?): StoredWarningStage? =
+        value?.let { enumValueOf<StoredWarningStage>(it) }
+    @TypeConverter fun warningStage(value: StoredWarningStage?): String? = value?.name
     @TypeConverter fun visibleSign(value: String) = enumValueOf<StoredVisibleSign>(value)
     @TypeConverter fun visibleSign(value: StoredVisibleSign) = value.name
     @TypeConverter fun warningSound(value: String) = enumValueOf<StoredWarningSound>(value)

@@ -65,6 +65,7 @@ class RoomStageSyncRepository(
                         value.record.syncStatus == StageSyncStatus.FAILED -> SharingState.FAILED
                         else -> SharingState.PENDING
                     },
+                    sessionId = value.record.sessionId,
                 )
             }
         }

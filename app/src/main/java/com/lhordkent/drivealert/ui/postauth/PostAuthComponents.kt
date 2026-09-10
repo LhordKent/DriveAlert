@@ -77,7 +77,7 @@ import com.lhordkent.drivealert.ui.theme.WarningSoft
 object PostAuthTestTags {
     const val PRIMARY_ACTION = "post_auth_primary_action"
     const val BOTTOM_NAV = "post_auth_bottom_nav"
-    const val INVITE_EMAIL = "invite_email"
+    const val INVITE_CODE = "invite_code"
 }
 
 data class AppNavItem(

@@ -3,6 +3,7 @@ package com.lhordkent.drivealert.data.repository
 import com.lhordkent.drivealert.data.local.dao.MonitoringSessionDao
 import com.lhordkent.drivealert.data.local.entity.MonitoringSessionEntity
 import com.lhordkent.drivealert.data.local.entity.MonitoringSessionStatus
+import com.lhordkent.drivealert.data.local.entity.StoredWarningStage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -28,6 +29,8 @@ class MonitoringSessionRepositoryTest {
         assertEquals(MonitoringSessionStatus.PAUSED, dao.current?.status)
 
         repository.resume("driver-a", "session-1")
+        repository.updateHighestStage("driver-a", "session-1", com.lhordkent.drivealert.postauth.WarningStage.STAGE_2)
+        assertEquals(StoredWarningStage.STAGE_2, dao.current?.highestWarningStage)
         repository.finish("driver-a", "session-1", MonitoringSessionStatus.COMPLETED, 3_000L)
         assertEquals(MonitoringSessionStatus.COMPLETED, dao.current?.status)
         assertEquals(3_000L, dao.current?.endedAtEpochMillis)
