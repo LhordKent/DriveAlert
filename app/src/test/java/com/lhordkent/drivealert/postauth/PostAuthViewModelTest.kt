@@ -29,16 +29,11 @@ class PostAuthViewModelTest {
     }
 
     @Test
-    fun symmetricRequestsUpdateOnlyInMemoryState() {
+    fun trustedContactAcceptsIncomingDriverRequestInMemory() {
         val viewModel = PostAuthViewModel()
-        val driverRequest = viewModel.state.driverIncomingRequests.first()
         val trustedRequest = viewModel.state.trustedIncomingRequests.first()
 
-        viewModel.acceptRequest(UserView.DRIVER, driverRequest.id)
-        assertTrue(viewModel.state.approvedContacts.any { it.email == driverRequest.email })
-        assertFalse(viewModel.state.driverIncomingRequests.any { it.id == driverRequest.id })
-
-        viewModel.acceptRequest(UserView.TRUSTED_CONTACT, trustedRequest.id)
+        viewModel.acceptTrustedIncomingRequest(trustedRequest.id)
         assertTrue(viewModel.state.connectedDrivers.any { it.email == trustedRequest.email })
         assertFalse(viewModel.state.trustedIncomingRequests.any { it.id == trustedRequest.id })
     }
@@ -63,12 +58,48 @@ class PostAuthViewModelTest {
         val originalAlerts = viewModel.state.driverAlerts
         viewModel.chooseView(UserView.TRUSTED_CONTACT)
         viewModel.completeDriverSetup()
-        viewModel.removeConnection(UserView.TRUSTED_CONTACT, "adrian")
+        viewModel.disconnectDriver("adrian")
         assertFalse(viewModel.state.connectedDrivers.any { it.id == "adrian" })
         assertEquals(originalAlerts, viewModel.state.driverAlerts)
 
         assertEquals(UserView.TRUSTED_CONTACT, viewModel.state.activeView)
         assertTrue(viewModel.state.driverSetupComplete)
+    }
+
+    @Test
+    fun switchingViewsDoesNotOverwriteBothRoleInMemory() {
+        val viewModel = PostAuthViewModel(initialState = PostAuthUiState(userRole = com.lhordkent.drivealert.data.profile.UserRole.BOTH))
+        viewModel.chooseView(UserView.TRUSTED_CONTACT)
+        viewModel.chooseView(UserView.DRIVER)
+        assertEquals(com.lhordkent.drivealert.data.profile.UserRole.BOTH, viewModel.state.userRole)
+    }
+
+    @Test
+    fun productionProjectionsExposeBothPendingRequestDirections() {
+        fun connection(requestedBy: String) = com.lhordkent.drivealert.data.connection.TrustedContactConnection(
+            connectionId = "driver__trusted",
+            driverUserId = "driver",
+            trustedContactUserId = "trusted",
+            driverName = "Driver",
+            driverEmail = "driver@example.com",
+            trustedContactName = "Trusted",
+            trustedContactEmail = "",
+            requestedByUserId = requestedBy,
+            targetConnectionCode = "DA23456789ABCDEFGHJKLMNPQRST",
+            status = com.lhordkent.drivealert.data.local.entity.ConnectionStatus.PENDING,
+            requestedAtEpochMillis = 1L,
+            approvedAtEpochMillis = null,
+            declinedAtEpochMillis = null,
+            revokedAtEpochMillis = null,
+        )
+
+        val driverOriginated = connection("driver")
+        assertEquals(1, PostAuthUiState().withDriverConnections(listOf(driverOriginated)).driverOutgoingRequests.size)
+        assertEquals(1, PostAuthUiState().withTrustedConnections(listOf(driverOriginated)).trustedIncomingRequests.size)
+
+        val trustedOriginated = connection("trusted")
+        assertEquals(1, PostAuthUiState().withDriverConnections(listOf(trustedOriginated)).driverIncomingRequests.size)
+        assertEquals(1, PostAuthUiState().withTrustedConnections(listOf(trustedOriginated)).trustedOutgoingRequests.size)
     }
 
     @Test

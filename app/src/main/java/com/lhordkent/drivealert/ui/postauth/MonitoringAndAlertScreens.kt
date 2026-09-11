@@ -61,23 +61,25 @@ fun MonitoringPreviewScreen(
 ) {
     val presentation = scenario.presentation()
     val activeWarningStage = monitoring.currentStage
-    ScrollableScreen(title = "Active Monitoring", onBack = onExit) {
+    ScrollableScreen(title = "Monitoring Activity", onBack = onExit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(presentation.headline, style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+                Text(if (monitoring.isActive) presentation.headline else "Monitoring inactive", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
                 Spacer(Modifier.height(6.dp))
-                Text(presentation.guidance, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                Text(if (monitoring.isActive) presentation.guidance else "Start monitoring from Driver Home to begin a session.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             }
             Spacer(Modifier.size(12.dp))
             StatusPill(
-                label = when (presentation.headline) {
-                    "Monitoring active" -> "Active"
-                    "Monitoring limited" -> "Limited"
+                label = when {
+                    !monitoring.isActive -> "Inactive"
+                    presentation.headline == "Monitoring active" -> "Active"
+                    presentation.headline == "Monitoring limited" -> "Limited"
                     else -> "Paused"
                 },
-                tone = when (presentation.headline) {
-                    "Monitoring active" -> StatusTone.SUCCESS
-                    "Monitoring limited" -> StatusTone.WARNING
+                tone = when {
+                    !monitoring.isActive -> StatusTone.INFO
+                    presentation.headline == "Monitoring active" -> StatusTone.SUCCESS
+                    presentation.headline == "Monitoring limited" -> StatusTone.WARNING
                     else -> StatusTone.ERROR
                 },
             )
@@ -141,7 +143,7 @@ fun MonitoringPreviewScreen(
             }
         }
         Spacer(Modifier.height(24.dp))
-        SecondaryButton("Exit Monitoring", onExit)
+        SecondaryButton("Back to Driver Home", onExit)
         Spacer(Modifier.height(16.dp))
     }
 }

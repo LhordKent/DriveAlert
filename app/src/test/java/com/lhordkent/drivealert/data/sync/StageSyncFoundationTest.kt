@@ -8,6 +8,7 @@ import com.lhordkent.drivealert.data.local.entity.StageSyncRecordType
 import com.lhordkent.drivealert.data.local.entity.StageSyncRecordWithSigns
 import com.lhordkent.drivealert.data.local.entity.StageSyncStatus
 import com.lhordkent.drivealert.data.local.entity.StoredVisibleSign
+import com.lhordkent.drivealert.postauth.SyncRecordKind
 import com.lhordkent.drivealert.postauth.VisibleSign
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +22,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StageSyncFoundationTest {
+
+    @Test
+    fun `stage sync record types use the Firestore contract values`() {
+        assertEquals("STAGE_3_TRANSITION", StageSyncRecordType.STAGE3_TRANSITION.firestoreValue())
+        assertEquals("STAGE_3_PERSISTENCE", StageSyncRecordType.STAGE3_PERSISTENCE.firestoreValue())
+    }
+
+    @Test
+    fun `shared records recognize current and legacy Firestore persistence values`() {
+        assertEquals(SyncRecordKind.STAGE_3_PERSISTENCE, "STAGE_3_PERSISTENCE".toSyncRecordKind())
+        assertEquals(SyncRecordKind.STAGE_3_PERSISTENCE, "STAGE3_PERSISTENCE".toSyncRecordKind())
+        assertEquals(SyncRecordKind.STAGE_3_TRANSITION, "STAGE_3_TRANSITION".toSyncRecordKind())
+        assertEquals(SyncRecordKind.STAGE_3_TRANSITION, "STAGE3_TRANSITION".toSyncRecordKind())
+    }
     @Test
     fun explicitStage3RecordStartsPendingEvaluationAndSchedulesConnectedWork() = runTest {
         val dao = FakeStageSyncRecordDao()

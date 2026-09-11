@@ -1,8 +1,10 @@
 package com.lhordkent.drivealert.postauth
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -15,12 +17,19 @@ import com.lhordkent.drivealert.auth.AuthenticationEntry
 import com.lhordkent.drivealert.monitoring.ActiveMonitoringState
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.ui.DriveAlertApp
+import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.ui.postauth.AlertDetailScreen
 import com.lhordkent.drivealert.ui.postauth.MonitoringPreviewScreen
+import com.lhordkent.drivealert.ui.postauth.DriverHomeScreen
+import com.lhordkent.drivealert.detection.DriverVisionUiState
+import com.lhordkent.drivealert.detection.frame.StreamConnectionState
+import com.lhordkent.drivealert.detection.model.CalibrationResult
 import com.lhordkent.drivealert.ui.postauth.Stage3SyncRecordDetailScreen
+import com.lhordkent.drivealert.ui.postauth.RequestsScreen
 import com.lhordkent.drivealert.ui.theme.DriveAlertTheme
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertEquals
 
 class PostAuthFlowTest {
     @get:Rule
@@ -70,7 +79,11 @@ class PostAuthFlowTest {
         val selected = mutableStateOf(MonitoringScenario.NORMAL)
         composeRule.setContent {
             DriveAlertTheme {
-                MonitoringPreviewScreen(scenario = selected.value, onExit = {})
+                MonitoringPreviewScreen(
+                    scenario = selected.value,
+                    monitoring = ActiveMonitoringState(isActive = true),
+                    onExit = {},
+                )
             }
         }
         expected.forEach { (scenario, text) ->
@@ -104,6 +117,47 @@ class PostAuthFlowTest {
         composeRule.onNodeWithText("fixed rest advisory", substring = true).performScrollTo().assertIsDisplayed()
         composeRule.runOnIdle { monitoring.value = monitoring.value.copy(currentStage = WarningStage.STAGE_3) }
         composeRule.onNodeWithText("Maximum Driver warning", substring = true).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun driverHomeSeparatesMonitoringToggleFromActivityNavigation() {
+        var startCount = 0
+        var stopCount = 0
+        var activityCount = 0
+        val active = mutableStateOf(false)
+        val calibration = CalibrationResult(
+            calibrationId = "test", schemaVersion = 3, calibratedAtTimestampMs = 1,
+            neutralEar = 0.3, closedEyeEar = 0.1, earThreshold = 0.2,
+            neutralMar = 0.1, openMouthMar = 0.5, marThreshold = 0.3,
+            neutralHeadPitchDegrees = 0.0, downwardPitchMultiplier = 1.0,
+        )
+        composeRule.setContent {
+            DriveAlertTheme {
+                DriverHomeScreen(
+                    state = PostAuthUiState(),
+                    vision = DriverVisionUiState(
+                        streamState = StreamConnectionState.CONNECTED,
+                        activeCalibration = calibration,
+                        monitoring = ActiveMonitoringState(isActive = active.value),
+                    ),
+                    onStartMonitoring = { startCount++; active.value = true },
+                    onStopMonitoring = { stopCount++; active.value = false },
+                    onOpenMonitoringActivity = { activityCount++ },
+                    onSetupDevice = {},
+                    onOpenAlerts = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Start Monitoring").performClick()
+        composeRule.onNodeWithText("Stop Monitoring").assertIsDisplayed()
+        composeRule.onNodeWithText("Monitoring Activity").performClick()
+        composeRule.onNodeWithText("Stop Monitoring").performClick()
+        composeRule.runOnIdle {
+            assertEquals(1, startCount)
+            assertEquals(1, activityCount)
+            assertEquals(1, stopCount)
+        }
     }
 
     @Test
@@ -142,6 +196,19 @@ class PostAuthFlowTest {
     }
 
     @Test
+    fun initialCloudLoadingDoesNotRenderFalseEmptyState() {
+        composeRule.setContent {
+            DriveAlertTheme {
+                RequestsScreen(
+                    incoming = emptyList(), outgoing = emptyList(), onAccept = {}, onDecline = {}, onCancel = {}, isLoading = true,
+                )
+            }
+        }
+        composeRule.onNodeWithText("Loading requests…").assertIsDisplayed()
+        composeRule.onAllNodesWithText("No pending requests").assertCountEquals(0)
+    }
+
+    @Test
     fun restoredSessionAndRoleSwitchUseTheExistingNavigationHost() {
         launchSignedIn(AuthenticationEntry.RESTORED)
 
@@ -157,7 +224,9 @@ class PostAuthFlowTest {
     private fun launchSignedIn(entry: AuthenticationEntry) {
         composeRule.setContent {
             DriveAlertTheme {
-                val postAuthViewModel: PostAuthViewModel = viewModel()
+                val postAuthViewModel: PostAuthViewModel = viewModel {
+                    PostAuthViewModel(initialState = PostAuthViewModel.seedState().copy(userRole = UserRole.DRIVER))
+                }
                 DriveAlertApp(
                     callbacks = AuthCallbacks(),
                     sessionState = AuthSessionState(
@@ -171,11 +240,16 @@ class PostAuthFlowTest {
                     onChooseView = postAuthViewModel::chooseView,
                     onCompleteSetup = postAuthViewModel::completeDriverSetup,
                     onFilterChange = postAuthViewModel::selectAlertFilter,
-                    onSendRequest = postAuthViewModel::sendConnectionRequest,
-                    onAcceptRequest = postAuthViewModel::acceptRequest,
-                    onDeclineRequest = postAuthViewModel::declineRequest,
-                    onCancelRequest = postAuthViewModel::cancelRequest,
-                    onRemoveConnection = postAuthViewModel::removeConnection,
+                    onSendTrustedContactRequest = postAuthViewModel::sendTrustedContactRequest,
+                    onSendDriverRequest = postAuthViewModel::sendDriverRequest,
+                    onAcceptDriverIncomingRequest = postAuthViewModel::acceptDriverIncomingRequest,
+                    onAcceptTrustedIncomingRequest = postAuthViewModel::acceptTrustedIncomingRequest,
+                    onDeclineDriverIncomingRequest = postAuthViewModel::declineDriverIncomingRequest,
+                    onDeclineTrustedIncomingRequest = postAuthViewModel::declineTrustedIncomingRequest,
+                    onCancelDriverOutgoingRequest = postAuthViewModel::cancelDriverOutgoingRequest,
+                    onCancelTrustedOutgoingRequest = postAuthViewModel::cancelTrustedOutgoingRequest,
+                    onRevokeDriverContact = postAuthViewModel::revokeDriverContact,
+                    onDisconnectDriver = postAuthViewModel::disconnectDriver,
                     onWarningSoundChange = postAuthViewModel::selectWarningSound,
                     onVolumeChange = postAuthViewModel::selectPreferredVolume,
                     onNotificationsChange = postAuthViewModel::updateNotifications,

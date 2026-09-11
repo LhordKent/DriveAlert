@@ -49,6 +49,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -212,15 +213,22 @@ fun RootContent(
 }
 
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun PrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    containerColor: Color = DriveRed,
+    contentColor: Color = TextPrimary,
+) {
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.fillMaxWidth().height(52.dp).testTag(PostAuthTestTags.PRIMARY_ACTION),
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = DriveRed,
-            contentColor = TextPrimary,
+            containerColor = containerColor,
+            contentColor = contentColor,
             disabledContainerColor = DriveRedSoft,
             disabledContentColor = TextMuted,
         ),

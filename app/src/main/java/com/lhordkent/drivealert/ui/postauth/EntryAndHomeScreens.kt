@@ -43,6 +43,7 @@ import com.lhordkent.drivealert.postauth.PostAuthUiState
 import com.lhordkent.drivealert.ui.theme.Border
 import com.lhordkent.drivealert.ui.theme.Ink
 import com.lhordkent.drivealert.ui.theme.Surface
+import com.lhordkent.drivealert.ui.theme.Success
 import com.lhordkent.drivealert.ui.theme.TextMuted
 import com.lhordkent.drivealert.ui.theme.TextPrimary
 import com.lhordkent.drivealert.ui.theme.TextSecondary
@@ -230,6 +231,8 @@ fun DriverHomeScreen(
     state: PostAuthUiState,
     vision: DriverVisionUiState = DriverVisionUiState(),
     onStartMonitoring: () -> Unit,
+    onStopMonitoring: () -> Unit,
+    onOpenMonitoringActivity: () -> Unit,
     onSetupDevice: () -> Unit,
     onOpenAlerts: () -> Unit,
 ) {
@@ -237,22 +240,49 @@ fun DriverHomeScreen(
     val todayCount = state.driverAlerts.count { it.occurredAt.toLocalDate() == java.time.LocalDate.now() }
 
     val monitoringReady = vision.isMonitoringReady()
+    val monitoringActive = vision.monitoring.isActive
     Column {
-        Text(if (monitoringReady) "Ready for monitoring" else "Setup needed", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
+        Text(
+            when {
+                monitoringActive -> "Monitoring active"
+                monitoringReady -> "Ready for monitoring"
+                else -> "Setup needed"
+            },
+            style = MaterialTheme.typography.headlineMedium,
+            color = TextPrimary,
+        )
         Spacer(Modifier.height(6.dp))
-        Text(if (monitoringReady) "Your camera and Driver calibration are ready." else "Connect the camera and complete Driver calibration before monitoring.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text(
+            when {
+                monitoringActive -> "DriveAlert is monitoring the Driver on this device."
+                monitoringReady -> "Your camera and Driver calibration are ready."
+                else -> "Connect the camera and complete Driver calibration before monitoring."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+        )
         Spacer(Modifier.height(20.dp))
         GroupSurface {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Monitoring readiness", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                    Text(if (monitoringActive) "Monitoring status" else "Monitoring readiness", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
                     Spacer(Modifier.height(4.dp))
-                    Text(if (monitoringReady) "Ready" else "Action required", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                    Text(if (monitoringActive) "Active" else if (monitoringReady) "Ready" else "Action required", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
                 }
-                StatusPill(if (monitoringReady) "Ready" else "Setup", if (monitoringReady) StatusTone.SUCCESS else StatusTone.WARNING)
+                StatusPill(
+                    if (monitoringActive) "Active" else if (monitoringReady) "Ready" else "Setup",
+                    if (monitoringActive || monitoringReady) StatusTone.SUCCESS else StatusTone.WARNING,
+                )
             }
             Spacer(Modifier.height(18.dp))
-            PrimaryButton("Start Monitoring", onStartMonitoring)
+            PrimaryButton(
+                text = if (monitoringActive) "Stop Monitoring" else "Start Monitoring",
+                onClick = if (monitoringActive) onStopMonitoring else onStartMonitoring,
+                containerColor = if (monitoringActive) Success else com.lhordkent.drivealert.ui.theme.DriveRed,
+                contentColor = if (monitoringActive) Ink else TextPrimary,
+            )
+            Spacer(Modifier.height(10.dp))
+            SecondaryButton("Monitoring Activity", onOpenMonitoringActivity)
             Spacer(Modifier.height(10.dp))
             SecondaryButton("Setup & Device", onSetupDevice)
         }

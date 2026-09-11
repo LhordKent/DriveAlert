@@ -155,6 +155,8 @@ data class ConnectedDriver(
     val connectedAt: LocalDateTime,
     val sharedRecords: List<Stage3SyncRecord>,
     val connectionId: String = id,
+    val sharedRecordsLoading: Boolean = true,
+    val sharedRecordsErrorMessage: String? = null,
 )
 
 enum class WarningSound(val label: String) {
@@ -197,6 +199,7 @@ data class PostAuthUiState(
     val profileDisplayName: String = "",
     val connectionCode: String = "",
     val profileErrorMessage: String? = null,
+    val isProfileLoading: Boolean = true,
     val userRole: UserRole? = null,
     val alertFilter: WarningStage? = null,
     val driverAlerts: List<AlertEvent> = emptyList(),
@@ -211,6 +214,9 @@ data class PostAuthUiState(
     val connectedDrivers: List<ConnectedDriver> = emptyList(),
     val trustedIncomingRequests: List<ConnectionRequest> = emptyList(),
     val trustedOutgoingRequests: List<ConnectionRequest> = emptyList(),
+    val driverConnectionsLoading: Boolean = true,
+    val trustedConnectionsLoading: Boolean = true,
+    val connectionActionInProgressIds: Set<String> = emptySet(),
     val cloudConnectionErrorMessage: String? = null,
     val connectionInvite: ConnectionInviteUiState = ConnectionInviteUiState(),
     val warningSound: WarningSound = WarningSound.DIGITAL_BEEP,

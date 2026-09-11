@@ -108,7 +108,9 @@ cd firebase-tests
 npm run test:emulator
 ```
 
-Both a Driver and Trusted Contact can initiate a request using the other person's exact code. The target account is shown before sending; the recipient approves or declines, and the sender may cancel.
+Either a Driver or Trusted Contact can initiate a relationship using the other participant's exact connection code. The target account is shown before sending; the recipient may approve or decline, and the requester may cancel a pending request. Either participant may revoke an approved relationship.
+
+Firestore Security Rules validate ownership, schema shape, status transitions, and the Stage 3 synchronization boundary. They cannot independently attest that on-device MediaPipe detection was genuine; detection evidence remains Driver-client input, so backend attestation would require a separate trusted service.
 
 Do not deploy from normal build or test workflows. Rules or indexes deployment requires an explicit project-owner decision and `firebase deploy --only firestore` must be run manually. The currently deployed test-mode Firestore rules are not suitable for real user data and must be replaced with the checked-in reviewed rules before cloud data is used outside controlled development.
 

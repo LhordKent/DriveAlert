@@ -2,148 +2,216 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
+    function signedIn() { return request.auth != null; }
+    function isSelf(userId) { return signedIn() && request.auth.uid == userId; }
 
-    function isSelf(userId) {
-      return signedIn() && request.auth.uid == userId;
+    function validProfile(data, userId) {
+      return data.keys().hasOnly([
+          'uid', 'firstName', 'middleName', 'lastName', 'email', 'phoneNumber',
+          'userRole', 'accountStatus', 'registeredAt', 'deactivatedAt', 'connectionCode'
+        ])
+        && data.uid == userId
+        && data.uid is string
+        && (!('firstName' in data) || data.firstName is string)
+        && (!('middleName' in data) || data.middleName is string)
+        && (!('lastName' in data) || data.lastName is string)
+        && (!('email' in data) || data.email is string)
+        && (!('phoneNumber' in data) || data.phoneNumber is string)
+        && (!('userRole' in data) || data.userRole in ['DRIVER', 'TRUSTED_CONTACT', 'BOTH'])
+        && (!('accountStatus' in data) || data.accountStatus in ['ACTIVE', 'DEACTIVATED'])
+        && (!('registeredAt' in data) || data.registeredAt is timestamp)
+        && (!('deactivatedAt' in data) || data.deactivatedAt == null || data.deactivatedAt is timestamp)
+        && (!('connectionCode' in data) || data.connectionCode.matches('^DA[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{26}$'));
     }
 
     function isConnectionParticipant(data) {
-      return signedIn()
-        && (request.auth.uid == data.driverUserId
-          || request.auth.uid == data.trustedContactUserId);
+      return signedIn() && (request.auth.uid == data.driverUserId || request.auth.uid == data.trustedContactUserId);
     }
-
     function isConnectionRecipient(data) {
-      return isConnectionParticipant(data)
-        && request.auth.uid != data.requestedByUserId;
+      return isConnectionParticipant(data) && request.auth.uid != data.requestedByUserId;
     }
-
     function isConnectionSender(data) {
-      return isConnectionParticipant(data)
-        && request.auth.uid == data.requestedByUserId;
+      return isConnectionParticipant(data) && request.auth.uid == data.requestedByUserId;
     }
-
-    function connectionIdentityUnchanged() {
+    function connectionIdIncludesCaller(connectionId) {
+      return signedIn()
+        && (connectionId.matches('^' + request.auth.uid + '__.+$')
+          || connectionId.matches('^.+__' + request.auth.uid + '$'));
+    }
+    function connectionKeysValid(data) {
+      return data.keys().hasAll([
+          'connectionId', 'driverUserId', 'trustedContactUserId', 'driverName', 'driverEmail',
+          'trustedContactName', 'trustedContactEmail', 'requestedByUserId', 'targetConnectionCode',
+          'status', 'requestedAt', 'approvedAt', 'declinedAt', 'revokedAt'
+        ])
+        && data.keys().hasOnly([
+          'connectionId', 'driverUserId', 'trustedContactUserId', 'driverName', 'driverEmail',
+          'trustedContactName', 'trustedContactEmail', 'requestedByUserId', 'targetConnectionCode',
+          'status', 'requestedAt', 'approvedAt', 'declinedAt', 'revokedAt'
+        ])
+        && data.connectionId is string && data.driverUserId is string && data.trustedContactUserId is string
+        && data.driverName is string && data.driverEmail is string
+        && data.trustedContactName is string && data.trustedContactEmail is string
+        && data.requestedByUserId is string && data.targetConnectionCode is string
+        && data.status in ['PENDING', 'APPROVED', 'DECLINED', 'REVOKED']
+        && data.requestedAt is timestamp
+        && (data.approvedAt == null || data.approvedAt is timestamp)
+        && (data.declinedAt == null || data.declinedAt is timestamp)
+        && (data.revokedAt == null || data.revokedAt is timestamp);
+    }
+    function connectionParticipantsUnchanged() {
       return request.resource.data.connectionId == resource.data.connectionId
         && request.resource.data.driverUserId == resource.data.driverUserId
         && request.resource.data.trustedContactUserId == resource.data.trustedContactUserId
-        && request.resource.data.requestedByUserId == resource.data.requestedByUserId
-        && request.resource.data.requestedAt == resource.data.requestedAt
         && request.resource.data.driverName == resource.data.driverName
         && request.resource.data.driverEmail == resource.data.driverEmail
         && request.resource.data.trustedContactName == resource.data.trustedContactName
-        && request.resource.data.trustedContactEmail == resource.data.trustedContactEmail
-        && request.resource.data.targetConnectionCode == resource.data.targetConnectionCode;
+        && request.resource.data.trustedContactEmail == resource.data.trustedContactEmail;
     }
-
     function validConnectionCreate(connectionId) {
       let data = request.resource.data;
       let targetCode = get(/databases/$(database)/documents/connectionCodes/$(data.targetConnectionCode));
       let expectedTarget = data.requestedByUserId == data.driverUserId
         ? data.trustedContactUserId
         : data.driverUserId;
-      return signedIn()
+      return connectionKeysValid(data)
         && data.connectionId == connectionId
         && connectionId == data.driverUserId + '__' + data.trustedContactUserId
         && data.driverUserId != data.trustedContactUserId
         && data.requestedByUserId == request.auth.uid
         && isConnectionParticipant(data)
-        && data.status == 'PENDING'
-        && data.requestedAt == request.time
-        && data.approvedAt == null
-        && data.declinedAt == null
-        && data.revokedAt == null
+        && data.status == 'PENDING' && data.requestedAt == request.time
+        && data.approvedAt == null && data.declinedAt == null && data.revokedAt == null
         && data.targetConnectionCode.matches('^DA[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{26}$')
-        && targetCode.data.active == true
-        && targetCode.data.ownerUserId == expectedTarget;
+        && targetCode.data.active == true && targetCode.data.ownerUserId == expectedTarget;
     }
-
     function recipientApproves() {
-      return resource.data.status == 'PENDING'
-        && request.resource.data.status == 'APPROVED'
+      return resource.data.status == 'PENDING' && request.resource.data.status == 'APPROVED'
         && isConnectionRecipient(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedAt'])
         && request.resource.data.approvedAt == request.time;
     }
-
     function recipientDeclines() {
-      return resource.data.status == 'PENDING'
-        && request.resource.data.status == 'DECLINED'
+      return resource.data.status == 'PENDING' && request.resource.data.status == 'DECLINED'
         && isConnectionRecipient(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'declinedAt'])
         && request.resource.data.declinedAt == request.time;
     }
-
     function senderCancels() {
-      return resource.data.status == 'PENDING'
-        && request.resource.data.status == 'REVOKED'
+      return resource.data.status == 'PENDING' && request.resource.data.status == 'REVOKED'
         && isConnectionSender(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revokedAt'])
         && request.resource.data.revokedAt == request.time;
     }
-
     function participantRevokes() {
-      return resource.data.status == 'APPROVED'
-        && request.resource.data.status == 'REVOKED'
+      return resource.data.status == 'APPROVED' && request.resource.data.status == 'REVOKED'
         && isConnectionParticipant(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revokedAt'])
         && request.resource.data.revokedAt == request.time;
     }
+    function driverReRequests() {
+      let targetCode = get(/databases/$(database)/documents/connectionCodes/$(request.resource.data.targetConnectionCode));
+      return resource.data.status in ['DECLINED', 'REVOKED']
+        && isConnectionParticipant(resource.data)
+        && request.resource.data.status == 'PENDING'
+        && request.resource.data.requestedByUserId == request.auth.uid
+        && request.resource.data.requestedAt == request.time
+        && request.resource.data.approvedAt == null
+        && request.resource.data.declinedAt == null
+        && request.resource.data.revokedAt == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'requestedByUserId', 'targetConnectionCode', 'requestedAt', 'approvedAt', 'declinedAt', 'revokedAt'
+        ])
+        && targetCode.data.active == true
+        && targetCode.data.ownerUserId == (request.auth.uid == resource.data.driverUserId
+          ? resource.data.trustedContactUserId
+          : resource.data.driverUserId);
+    }
 
     match /users/{userId} {
-      allow read, create, update: if isSelf(userId);
+      allow read: if isSelf(userId);
+      allow create: if isSelf(userId) && validProfile(request.resource.data, userId);
+      allow update: if isSelf(userId)
+        && validProfile(request.resource.data, userId)
+        && request.resource.data.uid == resource.data.uid
+        && (!('registeredAt' in resource.data) || request.resource.data.registeredAt == resource.data.registeredAt)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['connectionCode'])
+          || getAfter(/databases/$(database)/documents/connectionCodes/$(request.resource.data.connectionCode)).data.ownerUserId == userId);
       allow delete: if false;
 
       match /stageSyncRecords/{recordId} {
+        function validStage3Create() {
+          let data = request.resource.data;
+          return data.keys().hasAll([
+              'stageSyncRecordId', 'driverUserId', 'sessionId', 'recordType', 'periodStartedAt',
+              'periodEndedAt', 'eventCount', 'signs', 'warningStage', 'warningStageAtDetection',
+              'syncStatus', 'createdAtClient', 'uploadedAt'
+            ])
+            && data.keys().hasOnly([
+              'stageSyncRecordId', 'driverUserId', 'sessionId', 'recordType', 'periodStartedAt',
+              'periodEndedAt', 'eventCount', 'signs', 'warningStage', 'warningStageAtDetection',
+              'syncStatus', 'createdAtClient', 'uploadedAt'
+            ])
+            && data.stageSyncRecordId == recordId && data.stageSyncRecordId is string
+            && data.driverUserId == userId && data.driverUserId == request.auth.uid
+            && data.sessionId is string
+            // Accept legacy Android values so already-queued records from an
+            // installed pre-contract-fix APK can drain after connectivity returns.
+            && data.recordType in [
+              'STAGE_3_TRANSITION', 'STAGE_3_PERSISTENCE',
+              'STAGE3_TRANSITION', 'STAGE3_PERSISTENCE'
+            ]
+            && data.periodStartedAt is timestamp
+            && (data.periodEndedAt == null || data.periodEndedAt is timestamp)
+            && data.eventCount is int && data.eventCount >= 1
+            && data.signs is list
+            && data.warningStage == 'STAGE_3' && data.warningStageAtDetection == 3
+            && data.syncStatus == 'SYNCED'
+            && data.createdAtClient is timestamp && data.uploadedAt == request.time;
+        }
         function approvedConnection() {
           let connectionId = resource.data.driverUserId + '__' + request.auth.uid;
           let connection = get(/databases/$(database)/documents/trustedContactConnections/$(connectionId));
-          return connection.data.status == 'APPROVED'
-            && connection.data.approvedAt <= resource.data.periodStartedAt;
+          return connection.data.status == 'APPROVED' && connection.data.approvedAt <= resource.data.periodStartedAt;
         }
-
-        allow create: if isSelf(userId)
-          && request.resource.data.driverUserId == userId
-          && request.resource.data.warningStage == 'STAGE_3'
-          && request.resource.data.syncStatus == 'SYNCED';
-        allow read: if isSelf(userId)
-          || (signedIn()
-            && resource.data.driverUserId == userId
-            && approvedConnection());
+        allow create: if isSelf(userId) && validStage3Create();
+        allow read: if isSelf(userId) || (signedIn() && resource.data.driverUserId == userId && approvedConnection());
         allow update, delete: if false;
       }
     }
 
     match /connectionCodes/{connectionCode} {
+      function validCode(data) {
+        return data.keys().hasAll(['ownerUserId', 'displayName', 'createdAt', 'active'])
+          && data.keys().hasOnly(['ownerUserId', 'displayName', 'createdAt', 'active'])
+          && data.ownerUserId is string && data.displayName is string
+          && data.createdAt is timestamp && data.active is bool;
+      }
       allow get: if signedIn();
       allow list: if false;
-      allow create: if signedIn()
+      allow create: if signedIn() && validCode(request.resource.data)
         && connectionCode.matches('^DA[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{26}$')
         && request.resource.data.ownerUserId == request.auth.uid
         && request.resource.data.active == true
         && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.connectionCode == connectionCode;
-      allow update: if signedIn()
+      allow update: if signedIn() && validCode(request.resource.data)
         && resource.data.ownerUserId == request.auth.uid
-        && request.resource.data.ownerUserId == resource.data.ownerUserId;
+        && request.resource.data.ownerUserId == resource.data.ownerUserId
+        && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if false;
     }
 
     match /trustedContactConnections/{connectionId} {
-      allow read: if isConnectionParticipant(resource.data);
+      // A new-request transaction must read the deterministic document before it
+      // exists. At that point resource.data is unavailable, so authorize only a
+      // direct get whose path identifies the caller as one of the participants.
+      allow get: if connectionIdIncludesCaller(connectionId) || isConnectionParticipant(resource.data);
+      allow list: if isConnectionParticipant(resource.data);
       allow create: if validConnectionCreate(connectionId);
+      allow update: if connectionKeysValid(request.resource.data) && connectionParticipantsUnchanged()
+        && (recipientApproves() || recipientDeclines() || senderCancels() || participantRevokes() || driverReRequests());
       allow delete: if false;
-      allow update: if connectionIdentityUnchanged()
-        && (recipientApproves()
-          || recipientDeclines()
-          || senderCancels()
-          || participantRevokes());
     }
-
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }

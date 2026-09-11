@@ -57,6 +57,8 @@ fun DriverContactsScreen(
     onDecline: (String) -> Unit,
     onCancel: (String) -> Unit,
     onRemove: (String) -> Unit,
+    isLoading: Boolean = false,
+    actionInProgressIds: Set<String> = emptySet(),
     cloudErrorMessage: String? = null,
 ) {
     var pendingRemove by rememberSaveable { mutableStateOf<String?>(null) }
@@ -65,28 +67,37 @@ fun DriverContactsScreen(
     PrimaryButton("Invite a Trusted Contact", onInvite)
     Spacer(Modifier.height(26.dp))
     SectionTitle("Approved")
-    if (contacts.isEmpty()) {
+    if (isLoading && contacts.isEmpty() && incoming.isEmpty() && outgoing.isEmpty()) {
+        LoadingMessage("Loading trusted contacts…")
+    } else if (contacts.isEmpty() && cloudErrorMessage == null) {
         EmptyState("No approved contacts", "Invite someone you trust to receive future eligible Stage 3 transition or persistence records.")
     } else {
         contacts.forEach { contact ->
             ConnectionIdentityRow(contact.name, contact.email, "Approved") {
-                TextButton(onClick = { pendingRemove = contact.id }) { Text("Remove", color = DriveRed) }
+                TextButton(onClick = { pendingRemove = contact.id }, enabled = contact.id !in actionInProgressIds) {
+                    Text(if (contact.id in actionInProgressIds) "Removing…" else "Remove", color = DriveRed)
+                }
             }
         }
     }
     Spacer(Modifier.height(20.dp))
     SectionTitle("Requests to you")
-    if (incoming.isEmpty()) {
+    if (!isLoading && incoming.isEmpty() && cloudErrorMessage == null) {
         Text("No incoming requests", style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(vertical = 16.dp))
     } else incoming.forEach { request ->
-        RequestRow(request, onAccept = { pendingAccept = request.id }, onDecline = { onDecline(request.id) })
+        RequestRow(
+            request,
+            actionInProgress = request.id in actionInProgressIds,
+            onAccept = { pendingAccept = request.id },
+            onDecline = { onDecline(request.id) },
+        )
     }
     Spacer(Modifier.height(20.dp))
     SectionTitle("Sent requests")
-    if (outgoing.isEmpty()) {
+    if (!isLoading && outgoing.isEmpty() && cloudErrorMessage == null) {
         Text("No sent requests", style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(vertical = 16.dp))
     } else outgoing.forEach { request ->
-        RequestRow(request, onCancel = { onCancel(request.id) })
+        RequestRow(request, actionInProgress = request.id in actionInProgressIds, onCancel = { onCancel(request.id) })
     }
     Spacer(Modifier.height(20.dp))
     Text("Expanded contact options are coming soon.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
@@ -118,6 +129,8 @@ fun TrustedDriversScreen(
     onDriverSelected: (String) -> Unit,
     onInvite: () -> Unit,
     onRemove: (String) -> Unit,
+    isLoading: Boolean = false,
+    actionInProgressIds: Set<String> = emptySet(),
     cloudErrorMessage: String? = null,
 ) {
     var pendingRemove by rememberSaveable { mutableStateOf<String?>(null) }
@@ -130,8 +143,10 @@ fun TrustedDriversScreen(
     Spacer(Modifier.height(18.dp))
     SecondaryButton("Invite a Driver", onInvite)
     Spacer(Modifier.height(24.dp))
-    if (drivers.isEmpty()) {
-        EmptyState("No connected Drivers", "Invite a Driver or accept a request to begin reviewing shared Stage 3 transition or persistence records.")
+    if (isLoading && drivers.isEmpty()) {
+        LoadingMessage("Loading connected Drivers…")
+    } else if (drivers.isEmpty() && cloudErrorMessage == null) {
+        EmptyState("No connected Drivers", "Accept a Driver's request to begin reviewing shared Stage 3 transition or persistence records.")
     } else drivers.forEach { driver ->
         Column(
             modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) { onDriverSelected(driver.id) }.padding(vertical = 15.dp),
@@ -141,16 +156,18 @@ fun TrustedDriversScreen(
                     Text(driver.name, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Text(driver.email, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
-                StatusPill("${driver.sharedRecords.size} shared", StatusTone.INFO)
+                StatusPill(if (driver.sharedRecordsLoading) "Loading…" else "${driver.sharedRecords.size} shared", StatusTone.INFO)
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    driver.sharedRecords.maxByOrNull { it.occurredAt }?.let { "Latest ${it.occurredAt.format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))}" } ?: "No shared records yet",
+                    if (driver.sharedRecordsLoading) "Loading shared records…" else driver.sharedRecords.maxByOrNull { it.occurredAt }?.let { "Latest ${it.occurredAt.format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))}" } ?: "No shared records yet",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMuted,
                 )
-                TextButton(onClick = { pendingRemove = driver.connectionId }) { Text("Disconnect", color = DriveRed) }
+                TextButton(onClick = { pendingRemove = driver.connectionId }, enabled = driver.connectionId !in actionInProgressIds) {
+                    Text(if (driver.connectionId in actionInProgressIds) "Disconnecting…" else "Disconnect", color = DriveRed)
+                }
             }
             HorizontalDivider(color = Border)
         }
@@ -175,6 +192,8 @@ fun RequestsScreen(
     onAccept: (String) -> Unit,
     onDecline: (String) -> Unit,
     onCancel: (String) -> Unit,
+    isLoading: Boolean = false,
+    actionInProgressIds: Set<String> = emptySet(),
     cloudErrorMessage: String? = null,
 ) {
     CloudErrorMessage(cloudErrorMessage)
@@ -185,19 +204,31 @@ fun RequestsScreen(
         color = TextSecondary,
         modifier = Modifier.padding(top = 6.dp, bottom = 10.dp),
     )
-    if (incoming.isEmpty()) {
+    if (isLoading && incoming.isEmpty()) {
+        LoadingMessage("Loading requests…")
+    } else if (incoming.isEmpty() && cloudErrorMessage == null) {
         EmptyState("No pending requests", "New connection requests will appear here.")
     } else incoming.forEach { request ->
-        RequestRow(request, onAccept = { onAccept(request.id) }, onDecline = { onDecline(request.id) })
+        RequestRow(
+            request,
+            actionInProgress = request.id in actionInProgressIds,
+            onAccept = { onAccept(request.id) },
+            onDecline = { onDecline(request.id) },
+        )
     }
     Spacer(Modifier.height(24.dp))
     SectionTitle("Sent requests")
-    if (outgoing.isEmpty()) {
+    if (!isLoading && outgoing.isEmpty() && cloudErrorMessage == null) {
         Text("No sent requests", style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(vertical = 16.dp))
     } else outgoing.forEach { request ->
-        RequestRow(request, onCancel = { onCancel(request.id) })
+        RequestRow(request, actionInProgress = request.id in actionInProgressIds, onCancel = { onCancel(request.id) })
     }
     Spacer(Modifier.height(24.dp))
+}
+
+@Composable
+private fun LoadingMessage(message: String) {
+    Text(message, style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(vertical = 16.dp))
 }
 
 @Composable
@@ -213,6 +244,7 @@ private fun RequestRow(
     onAccept: (() -> Unit)? = null,
     onDecline: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null,
+    actionInProgress: Boolean = false,
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
         Text(request.name, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
@@ -226,11 +258,11 @@ private fun RequestRow(
         Spacer(Modifier.height(10.dp))
         if (onAccept != null && onDecline != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                PrimaryButton("Accept", onAccept, Modifier.weight(1f))
-                SecondaryButton("Decline", onDecline, Modifier.weight(1f))
+                PrimaryButton(if (actionInProgress) "Working…" else "Accept", onAccept, Modifier.weight(1f), enabled = !actionInProgress)
+                SecondaryButton("Decline", onDecline, Modifier.weight(1f), enabled = !actionInProgress)
             }
         } else if (onCancel != null) {
-            SecondaryButton("Cancel request", onCancel)
+            SecondaryButton(if (actionInProgress) "Cancelling…" else "Cancel request", onCancel, enabled = !actionInProgress)
         }
         Spacer(Modifier.height(6.dp))
         HorizontalDivider(color = Border)
@@ -364,7 +396,10 @@ fun SharedRecordsScreen(
         Spacer(Modifier.height(22.dp))
         SectionTitle("Stage 3 synchronization timeline")
         Spacer(Modifier.height(6.dp))
-        if (driver.sharedRecords.isEmpty()) {
+        CloudErrorMessage(driver.sharedRecordsErrorMessage)
+        if (driver.sharedRecordsLoading && driver.sharedRecords.isEmpty()) {
+            LoadingMessage("Loading shared records…")
+        } else if (driver.sharedRecords.isEmpty() && driver.sharedRecordsErrorMessage == null) {
             EmptyState("No shared records", "Future eligible Stage 3 transition or persistence records will appear after they are received.")
         } else driver.sharedRecords.sortedByDescending { it.occurredAt }.forEach { record ->
             Stage3SyncRecordRow(record, onClick = { onEventSelected(record.id) })

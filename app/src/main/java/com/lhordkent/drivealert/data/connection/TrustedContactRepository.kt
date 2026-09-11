@@ -4,7 +4,6 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
 import com.lhordkent.drivealert.data.local.dao.TrustedContactConnectionProjectionDao
 import com.lhordkent.drivealert.data.local.entity.ConnectionStatus
@@ -22,20 +21,23 @@ interface TrustedContactRepository {
     fun observeForDriver(driverUserId: String): Flow<List<TrustedContactConnection>>
     fun observeForTrustedContact(trustedContactUserId: String): Flow<List<TrustedContactConnection>>
     suspend fun resolveConnectionCode(code: String): ConnectionCodeTarget?
-    suspend fun sendRequestByCode(
-        requesterUserId: String,
-        requesterName: String,
-        requesterEmail: String,
+    suspend fun sendTrustedContactRequest(
+        driverUserId: String,
+        driverName: String,
+        driverEmail: String,
         targetCode: String,
-        inviterRole: ConnectionParticipantRole,
+    )
+    suspend fun sendDriverRequest(
+        trustedContactUserId: String,
+        trustedContactName: String,
+        trustedContactEmail: String,
+        targetCode: String,
     )
     suspend fun acceptRequest(connectionId: String)
     suspend fun declineRequest(connectionId: String)
     suspend fun cancelRequest(connectionId: String)
     suspend fun revokeConnection(connectionId: String)
 }
-
-enum class ConnectionParticipantRole { DRIVER, TRUSTED_CONTACT }
 
 data class ConnectionCodeTarget(
     val userId: String,
@@ -91,12 +93,38 @@ class FirestoreTrustedContactRepository(
         )
     }
 
-    override suspend fun sendRequestByCode(
+    override suspend fun sendTrustedContactRequest(
+        driverUserId: String,
+        driverName: String,
+        driverEmail: String,
+        targetCode: String,
+    ) = sendRequest(
+        requesterUserId = driverUserId,
+        requesterName = driverName,
+        requesterEmail = driverEmail,
+        targetCode = targetCode,
+        requesterSide = RequesterSide.DRIVER,
+    )
+
+    override suspend fun sendDriverRequest(
+        trustedContactUserId: String,
+        trustedContactName: String,
+        trustedContactEmail: String,
+        targetCode: String,
+    ) = sendRequest(
+        requesterUserId = trustedContactUserId,
+        requesterName = trustedContactName,
+        requesterEmail = trustedContactEmail,
+        targetCode = targetCode,
+        requesterSide = RequesterSide.TRUSTED_CONTACT,
+    )
+
+    private suspend fun sendRequest(
         requesterUserId: String,
         requesterName: String,
         requesterEmail: String,
         targetCode: String,
-        inviterRole: ConnectionParticipantRole,
+        requesterSide: RequesterSide,
     ) {
         val normalized = ConnectionCode.normalize(targetCode)
         if (!ConnectionCode.isValid(normalized)) throw ConnectionCodeNotFoundException()
@@ -108,35 +136,36 @@ class FirestoreTrustedContactRepository(
             val targetUserId = codeSnapshot.getString("ownerUserId") ?: throw ConnectionCodeNotFoundException()
             if (targetUserId == requesterUserId) throw SelfConnectionException()
             val targetName = codeSnapshot.getString("displayName").orEmpty().ifBlank { "DriveAlert user" }
-            val driverUserId = if (inviterRole == ConnectionParticipantRole.DRIVER) requesterUserId else targetUserId
-            val trustedContactUserId = if (inviterRole == ConnectionParticipantRole.TRUSTED_CONTACT) requesterUserId else targetUserId
+            val driverUserId = if (requesterSide == RequesterSide.DRIVER) requesterUserId else targetUserId
+            val trustedContactUserId = if (requesterSide == RequesterSide.TRUSTED_CONTACT) requesterUserId else targetUserId
             val connectionId = "${driverUserId}__${trustedContactUserId}"
             val reference = connections.document(connectionId)
             val existing = transaction.get(reference)
             if (existing.exists() && existing.getString("status") in listOf(ConnectionStatus.PENDING.name, ConnectionStatus.APPROVED.name)) {
                 throw ExistingConnectionException()
             }
-            val driverIsRequester = driverUserId == requesterUserId
-            transaction.set(
-                reference,
-                mapOf(
+            val requestState = mapOf(
+                "requestedByUserId" to requesterUserId,
+                "targetConnectionCode" to normalized,
+                "status" to ConnectionStatus.PENDING.name,
+                "requestedAt" to FieldValue.serverTimestamp(),
+                "approvedAt" to null,
+                "declinedAt" to null,
+                "revokedAt" to null,
+            )
+            if (existing.exists()) {
+                transaction.update(reference, requestState)
+            } else {
+                transaction.set(reference, mapOf(
                     "connectionId" to connectionId,
                     "driverUserId" to driverUserId,
                     "trustedContactUserId" to trustedContactUserId,
-                    "driverName" to if (driverIsRequester) requesterName else targetName,
-                    "driverEmail" to if (driverIsRequester) requesterEmail else "",
-                    "trustedContactName" to if (driverIsRequester) targetName else requesterName,
-                    "trustedContactEmail" to if (driverIsRequester) "" else requesterEmail,
-                    "requestedByUserId" to requesterUserId,
-                    "targetConnectionCode" to normalized,
-                    "status" to ConnectionStatus.PENDING.name,
-                    "requestedAt" to FieldValue.serverTimestamp(),
-                    "approvedAt" to null,
-                    "declinedAt" to null,
-                    "revokedAt" to null,
-                ),
-                SetOptions.merge(),
-            )
+                    "driverName" to if (requesterSide == RequesterSide.DRIVER) requesterName else targetName,
+                    "driverEmail" to if (requesterSide == RequesterSide.DRIVER) requesterEmail else "",
+                    "trustedContactName" to if (requesterSide == RequesterSide.TRUSTED_CONTACT) requesterName else targetName,
+                    "trustedContactEmail" to if (requesterSide == RequesterSide.TRUSTED_CONTACT) requesterEmail else "",
+                ) + requestState)
+            }
         }.await()
     }
 
@@ -192,4 +221,6 @@ class FirestoreTrustedContactRepository(
         const val CONNECTIONS_COLLECTION = "trustedContactConnections"
         const val CONNECTION_CODES_COLLECTION = "connectionCodes"
     }
+
+    private enum class RequesterSide { DRIVER, TRUSTED_CONTACT }
 }

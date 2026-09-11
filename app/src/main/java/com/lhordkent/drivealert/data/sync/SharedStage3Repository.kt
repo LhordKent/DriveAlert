@@ -40,10 +40,7 @@ class FirestoreSharedStage3Repository(
                         Stage3SyncRecord(
                             id = document.getString("stageSyncRecordId") ?: document.id,
                             occurredAt = occurredAt.toDate().toInstant().atZone(zoneId).toLocalDateTime(),
-                            kind = when (document.getString("recordType")) {
-                                "STAGE3_PERSISTENCE" -> SyncRecordKind.STAGE_3_PERSISTENCE
-                                else -> SyncRecordKind.STAGE_3_TRANSITION
-                            },
+                            kind = document.getString("recordType").toSyncRecordKind(),
                             signs = (document.get("signs") as? List<*>)
                                 .orEmpty()
                                 .mapNotNull { value -> value?.toString()?.toVisibleSignOrNull() }
@@ -58,6 +55,11 @@ class FirestoreSharedStage3Repository(
             }
         awaitClose { registration.remove() }
     }
+}
+
+internal fun String?.toSyncRecordKind(): SyncRecordKind = when (this) {
+    "STAGE3_PERSISTENCE", "STAGE_3_PERSISTENCE" -> SyncRecordKind.STAGE_3_PERSISTENCE
+    else -> SyncRecordKind.STAGE_3_TRANSITION
 }
 
 private fun String.toVisibleSignOrNull(): VisibleSign? = when (this) {

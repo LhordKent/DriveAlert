@@ -21,7 +21,6 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,6 +57,7 @@ import com.lhordkent.drivealert.postauth.PostAuthUiState
 import com.lhordkent.drivealert.postauth.PostAuthViewModel
 import com.lhordkent.drivealert.postauth.PostAuthViewModelFactory
 import com.lhordkent.drivealert.postauth.UserView
+import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.ui.auth.CreateAccountScreen
 import com.lhordkent.drivealert.ui.auth.ForgotPasswordScreen
 import com.lhordkent.drivealert.ui.auth.SignInScreen
@@ -114,6 +114,12 @@ object PostAuthRoutes {
     fun driverAlert(eventId: String) = "driver/alerts/$eventId"
     fun trustedDriver(driverId: String) = "trusted/drivers/$driverId"
     fun trustedAlert(driverId: String, eventId: String) = "trusted/drivers/$driverId/alerts/$eventId"
+}
+
+internal fun restoredRoleDestination(role: UserRole?, driverSetupComplete: Boolean): String = when (role) {
+    UserRole.TRUSTED_CONTACT -> PostAuthRoutes.TRUSTED_DRIVERS
+    UserRole.DRIVER, UserRole.BOTH -> if (driverSetupComplete) PostAuthRoutes.DRIVER_HOME else PostAuthRoutes.DRIVER_SETUP
+    null -> PostAuthRoutes.ROLE_CHOICE
 }
 
 private val driverNavItems = listOf(
@@ -195,12 +201,17 @@ fun DriveAlertApp() {
         onCompleteSetup = postAuthViewModel::completeDriverSetup,
         onFilterChange = postAuthViewModel::selectAlertFilter,
         onLookupConnectionCode = postAuthViewModel::lookupConnectionCode,
-        onSendRequest = postAuthViewModel::sendConnectionRequest,
+        onSendTrustedContactRequest = postAuthViewModel::sendTrustedContactRequest,
+        onSendDriverRequest = postAuthViewModel::sendDriverRequest,
         onClearConnectionInvite = postAuthViewModel::clearConnectionInvite,
-        onAcceptRequest = postAuthViewModel::acceptRequest,
-        onDeclineRequest = postAuthViewModel::declineRequest,
-        onCancelRequest = postAuthViewModel::cancelRequest,
-        onRemoveConnection = postAuthViewModel::removeConnection,
+        onAcceptDriverIncomingRequest = postAuthViewModel::acceptDriverIncomingRequest,
+        onAcceptTrustedIncomingRequest = postAuthViewModel::acceptTrustedIncomingRequest,
+        onDeclineDriverIncomingRequest = postAuthViewModel::declineDriverIncomingRequest,
+        onDeclineTrustedIncomingRequest = postAuthViewModel::declineTrustedIncomingRequest,
+        onCancelDriverOutgoingRequest = postAuthViewModel::cancelDriverOutgoingRequest,
+        onCancelTrustedOutgoingRequest = postAuthViewModel::cancelTrustedOutgoingRequest,
+        onRevokeDriverContact = postAuthViewModel::revokeDriverContact,
+        onDisconnectDriver = postAuthViewModel::disconnectDriver,
         onWarningSoundChange = postAuthViewModel::selectWarningSound,
         onVolumeChange = postAuthViewModel::selectPreferredVolume,
         onNotificationsChange = postAuthViewModel::updateNotifications,
@@ -234,12 +245,17 @@ fun DriveAlertApp(
     onCompleteSetup: () -> Unit = {},
     onFilterChange: (com.lhordkent.drivealert.postauth.WarningStage?) -> Unit = {},
     onLookupConnectionCode: (String) -> Unit = {},
-    onSendRequest: (UserView) -> Unit = {},
+    onSendTrustedContactRequest: () -> Unit = {},
+    onSendDriverRequest: () -> Unit = {},
     onClearConnectionInvite: () -> Unit = {},
-    onAcceptRequest: (UserView, String) -> Unit = { _, _ -> },
-    onDeclineRequest: (UserView, String) -> Unit = { _, _ -> },
-    onCancelRequest: (UserView, String) -> Unit = { _, _ -> },
-    onRemoveConnection: (UserView, String) -> Unit = { _, _ -> },
+    onAcceptDriverIncomingRequest: (String) -> Unit = {},
+    onAcceptTrustedIncomingRequest: (String) -> Unit = {},
+    onDeclineDriverIncomingRequest: (String) -> Unit = {},
+    onDeclineTrustedIncomingRequest: (String) -> Unit = {},
+    onCancelDriverOutgoingRequest: (String) -> Unit = {},
+    onCancelTrustedOutgoingRequest: (String) -> Unit = {},
+    onRevokeDriverContact: (String) -> Unit = {},
+    onDisconnectDriver: (String) -> Unit = {},
     onWarningSoundChange: (com.lhordkent.drivealert.postauth.WarningSound) -> Unit = {},
     onVolumeChange: (com.lhordkent.drivealert.postauth.PreferredVolume) -> Unit = {},
     onNotificationsChange: (com.lhordkent.drivealert.postauth.NotificationPreferences) -> Unit = {},
@@ -254,7 +270,7 @@ fun DriveAlertApp(
     val navController = rememberNavController()
     val user = sessionState.user
 
-    LaunchedEffect(user?.uid, sessionState.entry) {
+    LaunchedEffect(user?.uid, sessionState.entry, postAuthState.userRole, postAuthState.isProfileLoading, postAuthState.driverSetupComplete) {
         if (user == null) {
             navController.navigate(AuthRoutes.STARTER) {
                 popUpTo(navController.graph.id) { inclusive = true }
@@ -266,12 +282,12 @@ fun DriveAlertApp(
             val destination = when (sessionState.entry) {
                 AuthenticationEntry.ACCOUNT_CREATED -> PostAuthRoutes.ROLE_CHOICE
                 AuthenticationEntry.FRESH, AuthenticationEntry.RESTORED, AuthenticationEntry.NONE ->
-                    if (postAuthState.driverSetupComplete) PostAuthRoutes.DRIVER_HOME else PostAuthRoutes.DRIVER_SETUP
+                    if (postAuthState.isProfileLoading) null else restoredRoleDestination(postAuthState.userRole, postAuthState.driverSetupComplete)
             }
-            navController.navigate(destination) {
+            destination?.let { navController.navigate(it) {
                 popUpTo(navController.graph.id) { inclusive = true }
                 launchSingleTop = true
-            }
+            } }
         }
     }
 
@@ -342,31 +358,22 @@ fun DriveAlertApp(
                         state = postAuthState,
                         vision = visionState,
                         onStartMonitoring = {
-                            navController.navigate(
-                                when {
-                                    visionState.streamState != com.lhordkent.drivealert.detection.frame.StreamConnectionState.CONNECTED ->
-                                        PostAuthRoutes.DRIVER_DEVICE_CONNECTION
-                                    visionState.activeCalibration == null -> PostAuthRoutes.DRIVER_CALIBRATION
-                                    else -> {
-                                        onStartMonitoring(postAuthState.warningSound, postAuthState.preferredVolume, postAuthState.notifications.warningAlerts)
-                                        PostAuthRoutes.DRIVER_MONITORING
-                                    }
-                                },
-                            )
+                            when {
+                                visionState.streamState != com.lhordkent.drivealert.detection.frame.StreamConnectionState.CONNECTED ->
+                                    navController.navigate(PostAuthRoutes.DRIVER_DEVICE_CONNECTION)
+                                visionState.activeCalibration == null -> navController.navigate(PostAuthRoutes.DRIVER_CALIBRATION)
+                                else -> onStartMonitoring(postAuthState.warningSound, postAuthState.preferredVolume, postAuthState.notifications.warningAlerts)
+                            }
                         },
+                        onStopMonitoring = onStopMonitoring,
+                        onOpenMonitoringActivity = { navController.navigate(PostAuthRoutes.DRIVER_MONITORING) },
                         onSetupDevice = { navController.navigate(PostAuthRoutes.DRIVER_SETUP) },
                         onOpenAlerts = { navigateRoot(navController, PostAuthRoutes.DRIVER_ALERTS, PostAuthRoutes.DRIVER_HOME) },
                     )
                 }
             }
             composable(PostAuthRoutes.DRIVER_MONITORING) {
-                LaunchedEffect(Unit) {
-                    onStartVision()
-                    onStartMonitoring(postAuthState.warningSound, postAuthState.preferredVolume, postAuthState.notifications.warningAlerts)
-                }
-                DisposableEffect(Unit) {
-                    onDispose(onStopMonitoring)
-                }
+                LaunchedEffect(Unit) { onStartVision() }
                 MonitoringPreviewScreen(
                     scenario = visionState.detection.toMonitoringScenario(),
                     monitoring = visionState.monitoring,
@@ -410,10 +417,12 @@ fun DriveAlertApp(
                         incoming = postAuthState.driverIncomingRequests,
                         outgoing = postAuthState.driverOutgoingRequests,
                         onInvite = { navController.navigate(PostAuthRoutes.DRIVER_INVITE) },
-                        onAccept = { onAcceptRequest(UserView.DRIVER, it) },
-                        onDecline = { onDeclineRequest(UserView.DRIVER, it) },
-                        onCancel = { onCancelRequest(UserView.DRIVER, it) },
-                        onRemove = { onRemoveConnection(UserView.DRIVER, it) },
+                        onAccept = onAcceptDriverIncomingRequest,
+                        onDecline = onDeclineDriverIncomingRequest,
+                        onCancel = onCancelDriverOutgoingRequest,
+                        onRemove = onRevokeDriverContact,
+                        isLoading = postAuthState.driverConnectionsLoading,
+                        actionInProgressIds = postAuthState.connectionActionInProgressIds,
                         cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,
                     )
                 }
@@ -423,7 +432,7 @@ fun DriveAlertApp(
                     targetView = UserView.DRIVER,
                     inviteState = postAuthState.connectionInvite,
                     onLookup = onLookupConnectionCode,
-                    onSend = { onSendRequest(UserView.DRIVER) },
+                    onSend = onSendTrustedContactRequest,
                     onClear = onClearConnectionInvite,
                     onBack = navController::popBackStack,
                 )
@@ -453,7 +462,9 @@ fun DriveAlertApp(
                         drivers = postAuthState.connectedDrivers,
                         onDriverSelected = { navController.navigate(PostAuthRoutes.trustedDriver(it)) },
                         onInvite = { navController.navigate(PostAuthRoutes.TRUSTED_INVITE) },
-                        onRemove = { onRemoveConnection(UserView.TRUSTED_CONTACT, it) },
+                        onRemove = onDisconnectDriver,
+                        isLoading = postAuthState.trustedConnectionsLoading,
+                        actionInProgressIds = postAuthState.connectionActionInProgressIds,
                         cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,
                     )
                 }
@@ -486,9 +497,11 @@ fun DriveAlertApp(
                     RequestsScreen(
                         incoming = postAuthState.trustedIncomingRequests,
                         outgoing = postAuthState.trustedOutgoingRequests,
-                        onAccept = { onAcceptRequest(UserView.TRUSTED_CONTACT, it) },
-                        onDecline = { onDeclineRequest(UserView.TRUSTED_CONTACT, it) },
-                        onCancel = { onCancelRequest(UserView.TRUSTED_CONTACT, it) },
+                        onAccept = onAcceptTrustedIncomingRequest,
+                        onDecline = onDeclineTrustedIncomingRequest,
+                        onCancel = onCancelTrustedOutgoingRequest,
+                        isLoading = postAuthState.trustedConnectionsLoading,
+                        actionInProgressIds = postAuthState.connectionActionInProgressIds,
                         cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,
                     )
                 }
@@ -498,7 +511,7 @@ fun DriveAlertApp(
                     targetView = UserView.TRUSTED_CONTACT,
                     inviteState = postAuthState.connectionInvite,
                     onLookup = onLookupConnectionCode,
-                    onSend = { onSendRequest(UserView.TRUSTED_CONTACT) },
+                    onSend = onSendDriverRequest,
                     onClear = onClearConnectionInvite,
                     onBack = navController::popBackStack,
                 )

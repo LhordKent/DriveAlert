@@ -73,10 +73,10 @@ class FirestoreUserProfileRepository(
                     val profileValues = mutableMapOf<String, Any?>(
                         "uid" to uid,
                         "email" to email.trim().lowercase(),
-                        "accountStatus" to AccountStatus.ACTIVE.name,
                         "connectionCode" to code,
                     )
                     if (!userSnapshot.exists()) {
+                        profileValues["accountStatus"] = AccountStatus.ACTIVE.name
                         profileValues["firstName"] = fallbackName
                         profileValues["lastName"] = ""
                         profileValues["registeredAt"] = FieldValue.serverTimestamp()

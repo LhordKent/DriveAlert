@@ -67,7 +67,7 @@ Relationship sides are determined by the initiator's active view:
 - Allow authenticated exact-document code lookup; deny code collection listing.
 - Connection creation requires `requestedByUserId == request.auth.uid`.
 - The creator must be one participant, and `targetConnectionCode` must resolve to the other participant.
-- Driver UID, Trusted Contact UID, requester, target code, and request time become immutable.
+- Driver UID and Trusted Contact UID are immutable. Either participant may reset a declined or revoked deterministic pair to a new pending request with a new request timestamp.
 - Only the recipient may approve or decline.
 - Only the initiator may cancel a pending request.
 - Either participant may revoke an approved connection.

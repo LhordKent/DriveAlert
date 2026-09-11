@@ -45,7 +45,7 @@ class FirestoreStageSyncRemoteDataSource(
                 "stageSyncRecordId" to value.stageSyncRecordId,
                 "driverUserId" to value.driverUserId,
                 "sessionId" to value.sessionId,
-                "recordType" to value.recordType.name,
+                "recordType" to value.recordType.firestoreValue(),
                 "periodStartedAt" to com.google.firebase.Timestamp(value.periodStartedAtEpochMillis / 1_000L, ((value.periodStartedAtEpochMillis % 1_000L) * 1_000_000L).toInt()),
                 "periodEndedAt" to value.periodEndedAtEpochMillis?.let { com.google.firebase.Timestamp(it / 1_000L, ((it % 1_000L) * 1_000_000L).toInt()) },
                 "eventCount" to value.eventCount,
@@ -63,4 +63,9 @@ class FirestoreStageSyncRemoteDataSource(
     companion object {
         const val STAGE_SYNC_COLLECTION = "stageSyncRecords"
     }
+}
+
+internal fun StageSyncRecordType.firestoreValue(): String = when (this) {
+    StageSyncRecordType.STAGE3_TRANSITION -> "STAGE_3_TRANSITION"
+    StageSyncRecordType.STAGE3_PERSISTENCE -> "STAGE_3_PERSISTENCE"
 }
