@@ -1,6 +1,7 @@
 package com.lhordkent.drivealert.data.local
 
 import com.lhordkent.drivealert.data.local.entity.StoredWarningStage
+import com.lhordkent.drivealert.data.local.entity.StoredWarningSound
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -14,5 +15,11 @@ class DriveAlertTypeConvertersTest {
         assertNull(converters.warningStage(null as StoredWarningStage?))
         assertEquals(StoredWarningStage.STAGE_2, converters.warningStage("STAGE_2"))
         assertEquals("STAGE_3", converters.warningStage(StoredWarningStage.STAGE_3))
+    }
+
+    @Test
+    fun legacySirenPulsePreferenceStillDeserializes() {
+        assertEquals(StoredWarningSound.SIREN_PULSE, converters.warningSound("SIREN_PULSE"))
+        assertEquals("DIGITAL_BEEP_2", converters.warningSound(StoredWarningSound.DIGITAL_BEEP_2))
     }
 }

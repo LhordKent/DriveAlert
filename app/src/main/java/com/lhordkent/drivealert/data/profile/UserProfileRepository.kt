@@ -16,6 +16,7 @@ interface UserProfileRepository {
     suspend fun create(profile: NewUserProfile)
     suspend fun ensureProfile(uid: String, displayName: String, email: String): String
     suspend fun selectRole(uid: String, selectedRole: UserRole): UserRole
+    suspend fun update(uid: String, profile: UserProfileUpdate)
 }
 
 class FirestoreUserProfileRepository(
@@ -111,6 +112,44 @@ class FirestoreUserProfileRepository(
             }
             transaction.set(reference, mapOf("uid" to uid, "userRole" to next.name), SetOptions.merge())
             next
+        }.await()
+    }
+
+    override suspend fun update(uid: String, profile: UserProfileUpdate) {
+        val firstName = profile.firstName.trim()
+        val middleName = profile.middleName.orEmpty().trim()
+        val lastName = profile.lastName.trim()
+        val phoneNumber = profile.phoneNumber.orEmpty().trim()
+        require(firstName.isNotBlank()) { "First name is required." }
+        require(lastName.isNotBlank()) { "Last name is required." }
+
+        firestore.runTransaction { transaction ->
+            val userReference = users.document(uid)
+            val userSnapshot = transaction.get(userReference)
+            check(userSnapshot.exists()) { "Your DriveAlert profile could not be found." }
+
+            val connectionCode = userSnapshot.getString("connectionCode").orEmpty()
+            val codeReference = connectionCode.takeIf(String::isNotBlank)?.let {
+                firestore.collection(CONNECTION_CODES_COLLECTION).document(it)
+            }
+            val codeSnapshot = codeReference?.let(transaction::get)
+
+            transaction.update(
+                userReference,
+                mapOf(
+                    "firstName" to firstName,
+                    "middleName" to middleName,
+                    "lastName" to lastName,
+                    "phoneNumber" to phoneNumber,
+                ),
+            )
+            if (codeReference != null && codeSnapshot?.exists() == true) {
+                transaction.update(codeReference, "displayName", profile.copy(
+                    firstName = firstName,
+                    middleName = middleName,
+                    lastName = lastName,
+                ).fullName)
+            }
         }.await()
     }
 

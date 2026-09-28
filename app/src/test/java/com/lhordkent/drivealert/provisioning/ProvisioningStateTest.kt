@@ -1,6 +1,7 @@
 package com.lhordkent.drivealert.provisioning
 
 import android.Manifest
+import com.lhordkent.drivealert.ui.postauth.wifiCredentialFieldsAvailable
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -45,6 +46,17 @@ class ProvisioningStateTest {
         val saved = ProvisioningReducer.reduce(ready, ProvisioningEvent.CredentialStatus("maming "))
         assertEquals(ProvisioningStage.CONNECTED_BLE, saved.stage)
         assertFalse(saved.stage == ProvisioningStage.CONNECTING_WIFI)
+    }
+
+    @Test
+    fun `saved ESP32 network never hides credential replacement fields`() {
+        val state = ProvisioningState(
+            stage = ProvisioningStage.CONNECTED_BLE,
+            credentialStatusKnown = true,
+            savedNetworkSsid = "PreviousOwnerHotspot",
+        )
+
+        assertTrue(wifiCredentialFieldsAvailable(state))
     }
 
     @Test

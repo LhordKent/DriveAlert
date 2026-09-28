@@ -15,8 +15,10 @@ This is not an ESP32-S3/Freenove board and the sensor is not OV2640. The CameraW
 - `DriveAlert_Camera_Test/DriveAlert_Camera_Test.ino`: startup, camera initialization, normal-mode recovery
 - `DriveAlert_Camera_Test/wifi_provisioning.*`: Preferences and secure BLE provisioning
 - `DriveAlert_Camera_Test/provisioning_protocol.h`: firmware UUID/status constants
-- `DriveAlert_Camera_Test/app_httpd.cpp`: unchanged working control and MJPEG servers
+- `DriveAlert_Camera_Test/app_httpd.cpp`: camera control/MJPEG servers and DriveAlert command endpoints
+- `DriveAlert_Camera_Test/warning_output.*`: DFPlayer UART setup, mappings, and queued playback
 - `PROVISIONING_PROTOCOL.md`: shared Android/firmware GATT contract
+- `WARNING_OUTPUT_PROTOCOL.md`: shared Android/firmware local HTTP warning contract
 
 ## Camera and HTTP behavior
 
@@ -26,6 +28,7 @@ The established stream implementation is preserved:
 - JPEG still: `/capture`
 - BMP still: `/bmp`
 - MJPEG stream: `http://<ESP32-DHCP-IP>:81/stream`
+- Warning output: `POST http://<ESP32-DHCP-IP>:80/drivealert/warning`
 - MIME: `multipart/x-mixed-replace;boundary=123456789000000000000987654321`
 
 Frames come from `esp_camera_fb_get()`. Native JPEG buffers are transmitted directly and returned with `esp_camera_fb_return()`. The stream loop and fallback JPEG conversion remain unchanged.

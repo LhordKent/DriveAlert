@@ -63,7 +63,7 @@ The app starts with Firestore's disk persistence disabled. Trusted Contact cloud
 - Firestore stores user profiles, Driver–Trusted Contact relationships, and synchronized Stage 3 records.
 - Room is the local source of truth, not a cache for Firestore. Monitoring and confirmed Alert persistence do not depend on internet access.
 - An ordinary Alert never creates cloud work automatically. The Android Warning Stage state machine explicitly creates separate `STAGE3_TRANSITION` and `STAGE3_PERSISTENCE` synchronization records at eligible boundaries.
-- Device provisioning, ESP32 camera streaming, MediaPipe face-landmark processing, driver calibration, temporal sign confirmation, active monitoring, warning stages, notifications, and Room Alert History are implemented. Physical ESP32/DFPlayer warning delivery remains a pending hardware boundary.
+- Device provisioning, ESP32 camera streaming, MediaPipe face-landmark processing, driver calibration, temporal sign confirmation, active monitoring, warning stages, notifications, Room Alert History, and the local HTTP/DFPlayer warning software path are implemented. End-to-end warning playback still requires manual verification on the physical ESP32-CAM, DFPlayer, speaker, and final microSD tracks.
 
 The configured Firestore database is `(default)`, Standard edition, in `asia-southeast1` (Singapore). The checked-in Firestore rules and indexes are local source files only; they are not deployed automatically.
 
@@ -147,8 +147,8 @@ For connection-code work, preserve the implemented architecture in `CONNECTION_C
 - BLE Wi-Fi provisioning and ESP32 MJPEG camera connection/reconnection
 - MediaPipe landmark processing with calibrated EAR, MAR, and head-pitch temporal detection
 - Real monitoring sessions, live duration/event state, and the three-stage 60-second warning controller
-- Android warning notifications and a pending/no-op physical speaker gateway
+- Android warning notifications and a local HTTP physical speaker gateway
 - Room-backed production Alert History, Alert Detail, monitoring-session summaries, preferences, and Stage 3 synchronization queue
 - Firestore-backed profiles, bidirectional connection requests, shared Stage 3 timelines, and background WorkManager synchronization
 
-Production Room starts empty; preview fixtures and UI-test fakes do not seed production data. Physical ESP32/DFPlayer speaker delivery and external email delivery are not implemented.
+Production Room starts empty; preview fixtures and UI-test fakes do not seed production data. The ESP32/DFPlayer software path is implemented but not yet physically verified end to end; external email delivery is not implemented.

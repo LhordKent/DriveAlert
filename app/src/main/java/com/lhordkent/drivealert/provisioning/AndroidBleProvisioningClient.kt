@@ -11,7 +11,6 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.BroadcastReceiver
@@ -21,7 +20,6 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.ParcelUuid
 import java.io.Closeable
 import java.util.ArrayDeque
 import java.util.UUID
@@ -46,6 +44,11 @@ class AndroidBleProvisioningClient(
     private var inFlightWrite: PendingWrite? = null
     private var receiverRegistered = false
     private var intentionalDisconnect = false
+    private val scanTimeout = Runnable {
+        if (!scanning) return@Runnable
+        stopScan()
+        if (devices.isEmpty()) onEvent(ProvisioningEvent.Failed("No DriveAlert provisioning device was found."))
+    }
 
     private data class PendingWrite(
         val characteristic: BluetoothGattCharacteristic,
@@ -55,13 +58,35 @@ class AndroidBleProvisioningClient(
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val name = result.scanRecord?.deviceName ?: return
-            if (!name.startsWith(ProvisioningProtocol.advertisedNamePrefix)) return
-            devices[result.device.address] = result.device
+            // Some ESP32/phone combinations expose the local name only through
+            // BluetoothDevice while the 128-bit service UUID is delivered in the
+            // scan-response packet. Validate the DriveAlert name here rather than
+            // relying on the phone's controller-level UUID filter.
+            val scanRecord = result.scanRecord
+            val advertisedName = scanRecord?.deviceName
+            val advertisesDriveAlertService = scanRecord?.serviceUuids
+                ?.any { it.uuid == ProvisioningProtocol.serviceUuid } == true
+            if (!isDriveAlertAdvertisement(advertisedName) && !advertisesDriveAlertService) return
+            val name = advertisedName
+                ?: result.device.name?.takeIf(::isDriveAlertAdvertisement)
+                ?: DEFAULT_DEVICE_NAME
+
+            // Advertisements repeat several times per second. Emitting every RSSI
+            // update needlessly recomposes the entire setup screen and makes taps
+            // feel delayed on lower-end phones.
+            if (devices.put(result.device.address, result.device) != null) return
             onEvent(ProvisioningEvent.DeviceDiscovered(ProvisioningDevice(result.device.address, name, result.rssi)))
         }
 
         override fun onScanFailed(errorCode: Int) {
+            if (isScanAlreadyRunning(errorCode)) {
+                // Android reports code 1 when the same callback is registered twice. The
+                // original scan is still active, so keep the session alive instead of
+                // presenting a false setup failure.
+                scanning = true
+                return
+            }
+            mainHandler.removeCallbacks(scanTimeout)
             scanning = false
             onEvent(ProvisioningEvent.Failed("Bluetooth scan failed (code $errorCode)."))
         }
@@ -185,6 +210,10 @@ class AndroidBleProvisioningClient(
     }
 
     fun startScan() {
+        // A fast double tap or repeated lifecycle event can arrive before Compose
+        // renders the SCANNING state. Registering the same callback again causes
+        // ScanCallback.SCAN_FAILED_ALREADY_STARTED (error code 1).
+        if (scanning) return
         closeGatt()
         devices.clear()
         val scanner = adapter?.bluetoothLeScanner ?: run {
@@ -193,14 +222,12 @@ class AndroidBleProvisioningClient(
         }
         onEvent(ProvisioningEvent.ScanStarted)
         scanning = true
-        val filters = listOf(ScanFilter.Builder().setServiceUuid(ParcelUuid(ProvisioningProtocol.serviceUuid)).build())
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
-        scanner.startScan(filters, settings, scanCallback)
-        mainHandler.postDelayed({
-            if (!scanning) return@postDelayed
-            stopScan()
-            if (devices.isEmpty()) onEvent(ProvisioningEvent.Failed("No DriveAlert provisioning device was found."))
-        }, SCAN_TIMEOUT_MS)
+        // Do not use a hardware service-UUID filter here. The classic ESP32 BLE
+        // stack can place the 128-bit UUID in its scan response, and some Android
+        // Bluetooth implementations then discard it before this callback runs.
+        scanner.startScan(emptyList(), settings, scanCallback)
+        mainHandler.postDelayed(scanTimeout, SCAN_TIMEOUT_MS)
     }
 
     fun connect(deviceId: String) {
@@ -262,6 +289,7 @@ class AndroidBleProvisioningClient(
     }
 
     fun retry() {
+        stopScan()
         closeGatt()
         onEvent(ProvisioningEvent.Retry)
     }
@@ -322,6 +350,7 @@ class AndroidBleProvisioningClient(
     }
 
     private fun stopScan() {
+        mainHandler.removeCallbacks(scanTimeout)
         if (!scanning) return
         adapter?.bluetoothLeScanner?.stopScan(scanCallback)
         scanning = false
@@ -384,6 +413,7 @@ class AndroidBleProvisioningClient(
 
     companion object {
         private const val SCAN_TIMEOUT_MS = 15_000L
+        private const val DEFAULT_DEVICE_NAME = "DriveAlert device"
 
         data class ConnectedEndpoint(val ip: String, val hostname: String?)
 
@@ -398,5 +428,11 @@ class AndroidBleProvisioningClient(
             if (!status.startsWith(prefix)) return null
             return status.removePrefix(prefix).takeIf(String::isNotEmpty)
         }
+
+        internal fun isScanAlreadyRunning(errorCode: Int): Boolean =
+            errorCode == ScanCallback.SCAN_FAILED_ALREADY_STARTED
+
+        internal fun isDriveAlertAdvertisement(name: String?): Boolean =
+            name?.startsWith(ProvisioningProtocol.advertisedNamePrefix) == true
     }
 }

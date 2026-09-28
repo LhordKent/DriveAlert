@@ -4,11 +4,14 @@ import com.lhordkent.drivealert.data.local.entity.StageSyncRecordType
 import com.lhordkent.drivealert.detection.model.ConfirmedSignEvent
 import com.lhordkent.drivealert.detection.model.SignType
 import com.lhordkent.drivealert.postauth.VisibleSign
+import com.lhordkent.drivealert.postauth.PreferredVolume
+import com.lhordkent.drivealert.postauth.WarningSound
 import com.lhordkent.drivealert.postauth.WarningStage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class WarningStageControllerTest {
     private val clock = FakeClock()
@@ -251,6 +254,32 @@ class WarningStageControllerTest {
         startStage1()
         controller.stop()
         assertEquals(ActiveMonitoringState(), controller.state)
+    }
+
+    @Test
+    fun warningTransportFailureDoesNotDiscardConfirmedAlertEffect() = runBlocking {
+        start()
+        val effects = controller.accept(listOf(event(SignType.YAWNING, 1L)))
+        val gateway = WarningOutputGateway { error("speaker unavailable") }
+        val delivery = gateway.activateSafely(
+            WarningStage.STAGE_1.warningOutputCommand(WarningSound.DIGITAL_BEEP, PreferredVolume.MEDIUM),
+        )
+
+        assertEquals(WarningDeliveryStatus.FAILED, delivery)
+        assertEquals(WarningStage.STAGE_1, effects.recordedAlert().stage)
+    }
+
+    @Test
+    fun injectableFakeGatewayReceivesTheExistingCommandType() = runBlocking {
+        var captured: WarningOutputCommand? = null
+        val gateway = WarningOutputGateway { command ->
+            captured = command
+            WarningDeliveryStatus.DELIVERED
+        }
+        val command = WarningStage.STAGE_3.warningOutputCommand(WarningSound.DIGITAL_BEEP_2, PreferredVolume.HIGH)
+
+        assertEquals(WarningDeliveryStatus.DELIVERED, gateway.activateSafely(command))
+        assertEquals(command, captured)
     }
 
     private fun start() = controller.start("session-1")

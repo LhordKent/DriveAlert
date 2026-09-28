@@ -32,9 +32,9 @@ import com.lhordkent.drivealert.detection.model.TemporalState
 import com.lhordkent.drivealert.monitoring.ActiveMonitoringState
 import com.lhordkent.drivealert.monitoring.MonitoringEffect
 import com.lhordkent.drivealert.monitoring.MonitoringSessionController
-import com.lhordkent.drivealert.monitoring.PendingHardwareWarningOutputGateway
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.monitoring.WarningOutputGateway
+import com.lhordkent.drivealert.monitoring.activateSafely
 import com.lhordkent.drivealert.monitoring.warningOutputCommand
 import com.lhordkent.drivealert.monitoring.toVisibleSign
 import com.lhordkent.drivealert.notification.DriverWarningNotificationCoordinator
@@ -45,6 +45,7 @@ import com.lhordkent.drivealert.device.AndroidDriveAlertEndpointResolver
 import com.lhordkent.drivealert.device.DriveAlertEndpointResolver
 import com.lhordkent.drivealert.device.DriveAlertSessionController
 import com.lhordkent.drivealert.device.HttpDriveAlertSessionController
+import com.lhordkent.drivealert.device.HttpWarningOutputGateway
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -66,6 +67,7 @@ data class DriverVisionUiState(
     val activeCalibration: CalibrationResult? = null,
     val disconnectInProgress: Boolean = false,
     val monitoring: ActiveMonitoringState = ActiveMonitoringState(),
+    val debugWarningDelivery: WarningDeliveryStatus? = null,
     val errorMessage: String? = null,
 )
 
@@ -83,7 +85,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         (application as DriveAlertApplication).container.alertRepository,
     private val stageSyncRepository: StageSyncRepository =
         (application as DriveAlertApplication).container.stageSyncRepository,
-    private val warningOutputGateway: WarningOutputGateway = PendingHardwareWarningOutputGateway(),
+    warningOutputGateway: WarningOutputGateway? = null,
     private val notificationCoordinator: DriverWarningNotificationCoordinator =
         (application as DriveAlertApplication).container.driverWarningNotificationCoordinator,
     private val elapsedClock: () -> Long = SystemClock::elapsedRealtime,
@@ -104,6 +106,14 @@ class DriverVisionViewModel @JvmOverloads constructor(
     )
     private var boundDriverId: String? = null
     private var activeDevice: ProvisionedDevice? = null
+    private val warningOutputGateway: WarningOutputGateway = warningOutputGateway ?: HttpWarningOutputGateway(
+        deviceProvider = { activeDevice },
+        endpointResolver = endpointResolver,
+        onDeviceResolved = { resolved ->
+            activeDevice = resolved
+            deviceRepository.saveActive(resolved)
+        },
+    )
     private var deviceJob: Job? = null
     private var reconnectJob: Job? = null
     private var monitoringJob: Job? = null
@@ -211,6 +221,27 @@ class DriverVisionViewModel @JvmOverloads constructor(
         }
     }
 
+    fun prepareForAccountChange(onComplete: () -> Unit) {
+        stopMonitoring(interrupted = true)
+        val device = activeDevice
+        if (device == null) {
+            stopStream(resetAlignment = true)
+            onComplete()
+            return
+        }
+        viewModelScope.launch {
+            // Best effort: a reachable ESP32 restarts into BLE-ready mode so the
+            // next account can provision it. Logout must still complete if the
+            // device is powered off or no longer on this network.
+            try {
+                sessionController.disconnect(device)
+            } finally {
+                stopStream(resetAlignment = true)
+                onComplete()
+            }
+        }
+    }
+
     fun startCalibration() {
         if (!mutableState.value.alignmentConfirmed || mutableState.value.streamState != StreamConnectionState.CONNECTED) return
         engine.startCalibration()
@@ -313,6 +344,18 @@ class DriverVisionViewModel @JvmOverloads constructor(
         }
     }
 
+    fun testWarningOutput(stage: WarningStage, sound: WarningSound, volume: PreferredVolume) {
+        viewModelScope.launch {
+            val delivery = warningOutputGateway.activateSafely(stage.warningOutputCommand(sound, volume))
+            mutableState.update {
+                it.copy(
+                    debugWarningDelivery = delivery,
+                    errorMessage = if (delivery == WarningDeliveryStatus.DELIVERED) null else "Speaker test failed.",
+                )
+            }
+        }
+    }
+
     private fun connect(device: ProvisionedDevice) {
         reconnectJob?.cancel()
         source?.stop()
@@ -401,9 +444,9 @@ class DriverVisionViewModel @JvmOverloads constructor(
     ) {
         for (effect in effects) when (effect) {
             is MonitoringEffect.ActivateWarning -> {
-                val delivery = runCatching {
-                    warningOutputGateway.activate(effect.stage.warningOutputCommand(monitoringSound, monitoringVolume))
-                }.getOrElse { WarningDeliveryStatus.FAILED }
+                val delivery = warningOutputGateway.activateSafely(
+                    effect.stage.warningOutputCommand(monitoringSound, monitoringVolume),
+                )
                 monitoringController.setWarningDelivery(delivery)
             }
             is MonitoringEffect.RecordAlert -> {

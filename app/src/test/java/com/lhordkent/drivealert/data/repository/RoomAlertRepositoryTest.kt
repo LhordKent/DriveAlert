@@ -4,7 +4,13 @@ import com.lhordkent.drivealert.data.local.dao.AlertDao
 import com.lhordkent.drivealert.data.local.entity.AlertEntity
 import com.lhordkent.drivealert.data.local.entity.AlertSignEntity
 import com.lhordkent.drivealert.data.local.entity.AlertWithSigns
+import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
+import com.lhordkent.drivealert.monitoring.WarningOutputGateway
+import com.lhordkent.drivealert.monitoring.activateSafely
+import com.lhordkent.drivealert.monitoring.warningOutputCommand
+import com.lhordkent.drivealert.postauth.PreferredVolume
 import com.lhordkent.drivealert.postauth.VisibleSign
+import com.lhordkent.drivealert.postauth.WarningSound
 import com.lhordkent.drivealert.postauth.WarningStage
 import java.time.ZoneOffset
 import kotlinx.coroutines.flow.Flow
@@ -85,6 +91,32 @@ class RoomAlertRepositoryTest {
             setOf(VisibleSign.PROLONGED_EYE_CLOSURE, VisibleSign.YAWNING),
             repository.observeAlerts("driver-a").first().single().signs,
         )
+    }
+
+    @Test
+    fun warningTransportFailureDoesNotPreventRoomAlertPersistence() = runTest {
+        val dao = FakeAlertDao()
+        val repository = RoomAlertRepository(dao, idFactory = { "alert-id" }, zoneId = ZoneOffset.UTC)
+        val failedGateway = WarningOutputGateway { error("ESP32 unavailable") }
+        val delivery = failedGateway.activateSafely(
+            WarningStage.STAGE_1.warningOutputCommand(WarningSound.DIGITAL_BEEP, PreferredVolume.MEDIUM),
+        )
+
+        repository.recordConfirmedAlert(
+            ConfirmedAlertInput(
+                sessionId = "session-id",
+                driverUserId = "driver-a",
+                detectedAtEpochMillis = 1_000L,
+                warningStageAtDetection = WarningStage.STAGE_1,
+                signs = setOf(VisibleSign.YAWNING),
+                alarmTriggered = delivery == WarningDeliveryStatus.DELIVERED,
+                alarmTriggeredAtEpochMillis = null,
+            ),
+        )
+
+        val stored = repository.observeAlerts("driver-a").first().single()
+        assertEquals(false, stored.alarmTriggered)
+        assertEquals(setOf(VisibleSign.YAWNING), stored.signs)
     }
 }
 

@@ -21,6 +21,10 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
 
     fun bindDriver(userId: String?) {
         if (boundDriverUserId == userId) return
+        // BLE callbacks and scan registrations are process-scoped, not account-scoped.
+        // Tear down the previous Driver's session before exposing a clean state to
+        // the next account; otherwise its first scan is rejected as already started.
+        client.retry()
         boundDriverUserId = userId
         driverUserId = userId
         mutableState.value = ProvisioningState()
@@ -45,6 +49,8 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
     fun resetAfterManualDisconnect() = client.retry()
 
     fun permissionDenied() = dispatch(ProvisioningEvent.Failed("Bluetooth permission is required for device setup."))
+
+    fun bluetoothDisabled() = dispatch(ProvisioningEvent.Failed("Turn on Bluetooth to scan for your DriveAlert device."))
 
     override fun onCleared() {
         client.close()

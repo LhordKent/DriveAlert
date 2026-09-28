@@ -67,7 +67,8 @@ private fun DriverPreferenceEntity.toDomain() = DriverPreferences(
         StoredWarningSound.ROOSTER_CALL -> WarningSound.ROOSTER_CALL
         StoredWarningSound.ALARM_CLOCK -> WarningSound.ALARM_CLOCK
         StoredWarningSound.DIGITAL_BEEP -> WarningSound.DIGITAL_BEEP
-        StoredWarningSound.SIREN_PULSE -> WarningSound.SIREN_PULSE
+        StoredWarningSound.SIREN_PULSE,
+        StoredWarningSound.DIGITAL_BEEP_2 -> WarningSound.DIGITAL_BEEP_2
         StoredWarningSound.BELL_CHIME -> WarningSound.BELL_CHIME
     },
     preferredVolume = when (preferredWarningVolume) {
@@ -88,7 +89,7 @@ private fun WarningSound.toStored() = when (this) {
     WarningSound.ROOSTER_CALL -> StoredWarningSound.ROOSTER_CALL
     WarningSound.ALARM_CLOCK -> StoredWarningSound.ALARM_CLOCK
     WarningSound.DIGITAL_BEEP -> StoredWarningSound.DIGITAL_BEEP
-    WarningSound.SIREN_PULSE -> StoredWarningSound.SIREN_PULSE
+    WarningSound.DIGITAL_BEEP_2 -> StoredWarningSound.DIGITAL_BEEP_2
     WarningSound.BELL_CHIME -> StoredWarningSound.BELL_CHIME
 }
 

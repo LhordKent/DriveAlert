@@ -23,7 +23,9 @@ enum class StoredWarningSound {
     ROOSTER_CALL,
     ALARM_CLOCK,
     DIGITAL_BEEP,
+    /** Legacy persisted value; read as DIGITAL_BEEP_2 and never written by current code. */
     SIREN_PULSE,
+    DIGITAL_BEEP_2,
     BELL_CHIME,
 }
 

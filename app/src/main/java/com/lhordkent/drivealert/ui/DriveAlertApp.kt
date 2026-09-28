@@ -190,13 +190,21 @@ fun DriveAlertApp() {
             if (notificationsEnabled) requestNotificationPermission()
             visionViewModel.startMonitoring(sound, volume, notificationsEnabled)
         },
+        onTestWarning = visionViewModel::testWarningOutput,
         onStopMonitoring = { visionViewModel.stopMonitoring() },
         onDisconnectDevice = {
             visionViewModel.disconnectCurrentSession(provisioningViewModel::resetAfterManualDisconnect)
         },
+        onPrepareSignOut = { onComplete ->
+            visionViewModel.prepareForAccountChange {
+                provisioningViewModel.resetAfterManualDisconnect()
+                onComplete()
+            }
+        },
         onNavigate = authViewModel::clearMessages,
         onSetAccountEmail = postAuthViewModel::setAccountEmail,
         onSetProfileName = postAuthViewModel::setProfileDisplayName,
+        onUpdateProfile = postAuthViewModel::updateProfile,
         onChooseView = postAuthViewModel::chooseView,
         onCompleteSetup = postAuthViewModel::completeDriverSetup,
         onFilterChange = postAuthViewModel::selectAlertFilter,
@@ -236,11 +244,14 @@ fun DriveAlertApp(
     onRepeatCalibrationPhase: () -> Unit = {},
     onCancelCalibration: () -> Unit = {},
     onStartMonitoring: (com.lhordkent.drivealert.postauth.WarningSound, com.lhordkent.drivealert.postauth.PreferredVolume, Boolean) -> Unit = { _, _, _ -> },
+    onTestWarning: (com.lhordkent.drivealert.postauth.WarningStage, com.lhordkent.drivealert.postauth.WarningSound, com.lhordkent.drivealert.postauth.PreferredVolume) -> Unit = { _, _, _ -> },
     onStopMonitoring: () -> Unit = {},
     onDisconnectDevice: () -> Unit = {},
+    onPrepareSignOut: (() -> Unit) -> Unit = { onComplete -> onComplete() },
     onNavigate: () -> Unit = {},
     onSetAccountEmail: (String) -> Unit = {},
     onSetProfileName: (String) -> Unit = {},
+    onUpdateProfile: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     onChooseView: (UserView) -> Unit = {},
     onCompleteSetup: () -> Unit = {},
     onFilterChange: (com.lhordkent.drivealert.postauth.WarningStage?) -> Unit = {},
@@ -452,7 +463,12 @@ fun DriveAlertApp(
                         onNotifications = { navController.navigate(PostAuthRoutes.NOTIFICATIONS) },
                         onWarningSound = { navController.navigate(PostAuthRoutes.WARNING_SOUND) },
                         onAbout = { navController.navigate(PostAuthRoutes.ABOUT) },
-                        onLogout = { onClearPostAuth(); callbacks.onSignOut() },
+                        onLogout = {
+                            onPrepareSignOut {
+                                onClearPostAuth()
+                                callbacks.onSignOut()
+                            }
+                        },
                     )
                 }
             }
@@ -531,16 +547,29 @@ fun DriveAlertApp(
                         onNotifications = { navController.navigate(PostAuthRoutes.NOTIFICATIONS) },
                         onWarningSound = {},
                         onAbout = { navController.navigate(PostAuthRoutes.ABOUT) },
-                        onLogout = { onClearPostAuth(); callbacks.onSignOut() },
+                        onLogout = {
+                            onPrepareSignOut {
+                                onClearPostAuth()
+                                callbacks.onSignOut()
+                            }
+                        },
                     )
                 }
             }
             composable(PostAuthRoutes.ACCOUNT) {
                 AccountScreen(
+                    firstName = postAuthState.profileFirstName,
+                    middleName = postAuthState.profileMiddleName,
+                    lastName = postAuthState.profileLastName,
+                    phoneNumber = postAuthState.profilePhoneNumber,
                     displayName = postAuthState.profileDisplayName.ifBlank { user?.displayName.orEmpty() },
                     email = user?.email.orEmpty(),
                     connectionCode = postAuthState.connectionCode,
                     profileErrorMessage = postAuthState.profileErrorMessage,
+                    isProfileUpdating = postAuthState.isProfileUpdating,
+                    profileUpdateSuccessMessage = postAuthState.profileUpdateSuccessMessage,
+                    profileUpdateErrorMessage = postAuthState.profileUpdateErrorMessage,
+                    onUpdateProfile = onUpdateProfile,
                     onBack = navController::popBackStack,
                 )
             }
@@ -555,11 +584,14 @@ fun DriveAlertApp(
             }
             composable(PostAuthRoutes.WARNING_SOUND) {
                 WarningSoundScreen(
-                    postAuthState.warningSound,
-                    postAuthState.preferredVolume,
-                    onWarningSoundChange,
-                    onVolumeChange,
-                    navController::popBackStack,
+                    selectedSound = postAuthState.warningSound,
+                    selectedVolume = postAuthState.preferredVolume,
+                    onSoundSelected = onWarningSoundChange,
+                    onVolumeSelected = onVolumeChange,
+                    onBack = navController::popBackStack,
+                    debugDelivery = visionState.debugWarningDelivery,
+                    onTestWarning = { stage -> onTestWarning(stage, postAuthState.warningSound, postAuthState.preferredVolume) },
+                    onPreviewSelection = { sound, volume -> onTestWarning(com.lhordkent.drivealert.postauth.WarningStage.STAGE_1, sound, volume) },
                 )
             }
             composable(PostAuthRoutes.ABOUT) { AboutDriveAlertScreen(navController::popBackStack) }

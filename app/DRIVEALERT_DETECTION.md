@@ -44,12 +44,11 @@ Calibration follows `NEUTRAL -> EYES_CLOSED -> MOUTH_OPEN -> HEAD_DOWN`. Each ph
 
 `ConfirmedSignEvent` is the output boundary for later warning-stage work. It includes sign type, monotonic confirmation timestamp, qualifying duration, measurement, threshold, calibration ID/version, and optional temporal context.
 
-## Explicitly outside this integration
+## Integration boundaries
 
 - Regional obstruction/reliability logic remains experimental and non-operational.
-- Warning Stages 1/2/3 are not connected.
-- Confirmed detector events are not yet connected to Room alert history or Firestore synchronization.
-- Android-to-ESP32 warning-command transport is not implemented.
+- Warning Stages 1/2/3, Room Alert History, Stage 3 synchronization, and the Android-to-ESP32 warning-command transport are downstream consumers of `ConfirmedSignEvent`; they do not alter detection behavior.
+- Physical Android-to-speaker playback requires manual hardware verification even when the software builds and transport tests pass.
 - No Hand Landmarker, YOLO, CNN, classifier, dataset collection, or training code is included.
 
 ## Verification

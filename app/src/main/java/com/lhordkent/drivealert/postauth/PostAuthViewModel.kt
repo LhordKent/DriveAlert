@@ -10,6 +10,7 @@ import com.lhordkent.drivealert.data.repository.AlertRepository
 import com.lhordkent.drivealert.data.repository.MonitoringSessionRepository
 import com.lhordkent.drivealert.data.repository.DriverPreferenceRepository
 import com.lhordkent.drivealert.data.profile.UserProfileRepository
+import com.lhordkent.drivealert.data.profile.UserProfileUpdate
 import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.data.connection.TrustedContactRepository
 import com.lhordkent.drivealert.data.connection.TrustedContactConnection
@@ -43,6 +44,7 @@ class PostAuthViewModel(
 ) : ViewModel() {
     private var accountEmail: String = ""
     private var boundDriverUserId: String? = null
+    private var boundProfileUserId: String? = null
     private var localDataJob: Job? = null
     private var profileJob: Job? = null
     private var preferenceJob: Job? = null
@@ -86,6 +88,7 @@ class PostAuthViewModel(
 
     fun bindCloudProfile(userId: String, displayName: String, email: String) {
         val repository = userProfileRepository ?: return
+        boundProfileUserId = userId
         profileJob?.cancel()
         state = state.copy(isProfileLoading = true)
         profileJob = viewModelScope.launch {
@@ -101,6 +104,10 @@ class PostAuthViewModel(
                     if (profile != null) {
                         state = state.copy(
                             profileDisplayName = profile.fullName.ifBlank { state.profileDisplayName },
+                            profileFirstName = profile.firstName,
+                            profileMiddleName = profile.middleName.orEmpty(),
+                            profileLastName = profile.lastName,
+                            profilePhoneNumber = profile.phoneNumber.orEmpty(),
                             userRole = profile.userRole,
                             activeView = if (profile.userRole == UserRole.TRUSTED_CONTACT) UserView.TRUSTED_CONTACT else UserView.DRIVER,
                             connectionCode = profile.connectionCode,
@@ -108,6 +115,52 @@ class PostAuthViewModel(
                             profileErrorMessage = null,
                         )
                     }
+                }
+        }
+    }
+
+    fun updateProfile(firstName: String, middleName: String, lastName: String, phoneNumber: String) {
+        val userId = boundProfileUserId ?: return
+        val repository = userProfileRepository ?: return
+        val update = UserProfileUpdate(
+            firstName = firstName.trim(),
+            middleName = middleName.trim().takeIf(String::isNotBlank),
+            lastName = lastName.trim(),
+            phoneNumber = phoneNumber.trim().takeIf(String::isNotBlank),
+        )
+        if (update.firstName.isBlank() || update.lastName.isBlank()) {
+            state = state.copy(
+                profileUpdateSuccessMessage = null,
+                profileUpdateErrorMessage = "First name and last name are required.",
+            )
+            return
+        }
+
+        state = state.copy(
+            isProfileUpdating = true,
+            profileUpdateSuccessMessage = null,
+            profileUpdateErrorMessage = null,
+        )
+        viewModelScope.launch {
+            runCatching { repository.update(userId, update) }
+                .onSuccess {
+                    state = state.copy(
+                        profileDisplayName = update.fullName,
+                        profileFirstName = update.firstName,
+                        profileMiddleName = update.middleName.orEmpty(),
+                        profileLastName = update.lastName,
+                        profilePhoneNumber = update.phoneNumber.orEmpty(),
+                        isProfileUpdating = false,
+                        profileUpdateSuccessMessage = "Profile updated.",
+                        profileUpdateErrorMessage = null,
+                    )
+                }
+                .onFailure {
+                    state = state.copy(
+                        isProfileUpdating = false,
+                        profileUpdateSuccessMessage = null,
+                        profileUpdateErrorMessage = "Your profile could not be updated. Check your connection and try again.",
+                    )
                 }
         }
     }
@@ -431,6 +484,7 @@ class PostAuthViewModel(
         sharedRecordJobs.values.forEach(Job::cancel)
         sharedRecordJobs.clear()
         boundDriverUserId = null
+        boundProfileUserId = null
         accountEmail = ""
         state = if (alertRepository == null) seedState() else PostAuthUiState()
     }

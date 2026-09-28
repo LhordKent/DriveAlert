@@ -22,6 +22,7 @@
 #include "sdkconfig.h"
 #include "camera_index.h"
 #include "board_config.h"
+#include "warning_output.h"
 
 void requestManualDisconnect();
 
@@ -684,6 +685,76 @@ static esp_err_t drivealert_disconnect_handler(httpd_req_t *req) {
   return response;
 }
 
+static esp_err_t send_warning_json(httpd_req_t *req, const char *status, const char *body) {
+  httpd_resp_set_status(req, status);
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+  return httpd_resp_sendstr(req, body);
+}
+
+static bool parse_warning_body(char *body, WarningOutput::Command *command) {
+  if (body == NULL || command == NULL) return false;
+  bool stageSeen = false;
+  bool soundSeen = false;
+  bool volumeSeen = false;
+  unsigned fieldCount = 0;
+  char *save = NULL;
+  for (char *field = strtok_r(body, "&", &save); field != NULL; field = strtok_r(NULL, "&", &save)) {
+    ++fieldCount;
+    char *separator = strchr(field, '=');
+    if (separator == NULL || strchr(separator + 1, '=') != NULL) return false;
+    *separator = '\0';
+    const char *key = field;
+    const char *value = separator + 1;
+    if (!strcmp(key, "stage") && !stageSeen) {
+      if (!strcmp(value, "1")) command->stage = 1;
+      else if (!strcmp(value, "2")) command->stage = 2;
+      else if (!strcmp(value, "3")) command->stage = 3;
+      else return false;
+      stageSeen = true;
+    } else if (!strcmp(key, "sound") && !soundSeen) {
+      if (!WarningOutput::parseSound(value, &command->sound)) return false;
+      soundSeen = true;
+    } else if (!strcmp(key, "volume") && !volumeSeen) {
+      if (!WarningOutput::parseVolume(value, &command->volume)) return false;
+      volumeSeen = true;
+    } else {
+      return false;
+    }
+  }
+  return fieldCount == 3 && stageSeen && soundSeen && volumeSeen &&
+         WarningOutput::isValid(*command);
+}
+
+static esp_err_t drivealert_warning_handler(httpd_req_t *req) {
+  constexpr size_t MAX_WARNING_BODY_BYTES = 160;
+  if (req->content_len == 0 || req->content_len > MAX_WARNING_BODY_BYTES) {
+    return send_warning_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+  }
+  char body[MAX_WARNING_BODY_BYTES + 1];
+  size_t received = 0;
+  while (received < req->content_len) {
+    const int count = httpd_req_recv(req, body + received, req->content_len - received);
+    if (count <= 0) {
+      return send_warning_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+    }
+    received += static_cast<size_t>(count);
+  }
+  body[received] = '\0';
+
+  WarningOutput::Command command = {};
+  if (!parse_warning_body(body, &command)) {
+    return send_warning_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+  }
+  if (!WarningOutput::isAvailable()) {
+    return send_warning_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_unavailable\"}");
+  }
+  if (!WarningOutput::enqueue(command)) {
+    return send_warning_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_busy\"}");
+  }
+  return send_warning_json(req, "200 OK", "{\"status\":\"accepted\"}");
+}
+
 bool startCameraServer() {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.max_uri_handlers = 16;
@@ -757,6 +828,19 @@ bool startCameraServer() {
     .uri = "/drivealert/disconnect",
     .method = HTTP_POST,
     .handler = drivealert_disconnect_handler,
+    .user_ctx = NULL
+#ifdef CONFIG_HTTPD_WS_SUPPORT
+    ,
+    .is_websocket = true,
+    .handle_ws_control_frames = false,
+    .supported_subprotocol = NULL
+#endif
+  };
+
+  httpd_uri_t drivealert_warning_uri = {
+    .uri = "/drivealert/warning",
+    .method = HTTP_POST,
+    .handler = drivealert_warning_handler,
     .user_ctx = NULL
 #ifdef CONFIG_HTTPD_WS_SUPPORT
     ,
@@ -861,6 +945,7 @@ bool startCameraServer() {
     httpd_register_uri_handler(camera_httpd, &pll_uri);
     httpd_register_uri_handler(camera_httpd, &win_uri);
     httpd_register_uri_handler(camera_httpd, &drivealert_disconnect_uri);
+    httpd_register_uri_handler(camera_httpd, &drivealert_warning_uri);
   }
 
   config.server_port += 1;

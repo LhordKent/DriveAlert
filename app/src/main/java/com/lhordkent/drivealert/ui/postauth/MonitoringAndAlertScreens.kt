@@ -392,7 +392,7 @@ fun Stage3SyncRecordDetailScreen(record: Stage3SyncRecord, onBack: () -> Unit) {
 
 private fun warningOutputDescription(stage: WarningStage, delivery: WarningDeliveryStatus): String = when (stage) {
     WarningStage.STAGE_1 -> "Selected warning sound requested. ${delivery.label}."
-    WarningStage.STAGE_2 -> "Selected warning sound and the fixed rest advisory requested. ${delivery.label}."
+    WarningStage.STAGE_2 -> "Selected warning sound requested. The fixed rest advisory remains pending a voice-only Stage 2 SD track. ${delivery.label}."
     WarningStage.STAGE_3 -> "Maximum Driver warning requested. ${delivery.label}. Eligible Stage 3 boundary records are queued separately."
 }
 

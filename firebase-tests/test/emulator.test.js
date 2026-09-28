@@ -310,4 +310,74 @@ describe("DriveAlert Firestore connection codes", () => {
       stage3Data(driver, "legacy-persistence", { recordType: "STAGE3_PERSISTENCE" }),
     );
   });
+
+  it("allows an approved Trusted Contact to read an eligible Stage 3 record", async () => {
+    const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
+    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
+    apps.push(driver.app, trusted.app);
+    const data = requestData(driver, trusted, driver, trusted.code);
+    await setDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), data);
+    const trustedConnection = doc(trusted.firestore, "trustedContactConnections", data.connectionId);
+    await updateDoc(trustedConnection, { status: "APPROVED", approvedAt: serverTimestamp() });
+    const approvedAt = (await getDoc(trustedConnection)).data().approvedAt.toMillis();
+    await setDoc(
+      doc(driver.firestore, "users", driver.uid, "stageSyncRecords", "eligible"),
+      stage3Data(driver, "eligible", { periodStartedAt: new Date(approvedAt + 1000) }),
+    );
+    const shared = await getDoc(doc(trusted.firestore, "users", driver.uid, "stageSyncRecords", "eligible"));
+    assert.equal(shared.data().stageSyncRecordId, "eligible");
+  });
+
+  it("denies a Trusted Contact access to a pre-approval Stage 3 record", async () => {
+    const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
+    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
+    apps.push(driver.app, trusted.app);
+    const data = requestData(driver, trusted, driver, trusted.code);
+    await setDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), data);
+    const trustedConnection = doc(trusted.firestore, "trustedContactConnections", data.connectionId);
+    await updateDoc(trustedConnection, { status: "APPROVED", approvedAt: serverTimestamp() });
+    const approvedAt = (await getDoc(trustedConnection)).data().approvedAt.toMillis();
+    await setDoc(
+      doc(driver.firestore, "users", driver.uid, "stageSyncRecords", "before-approval"),
+      stage3Data(driver, "before-approval", { periodStartedAt: new Date(approvedAt - 1000) }),
+    );
+    await assert.rejects(getDoc(doc(trusted.firestore, "users", driver.uid, "stageSyncRecords", "before-approval")));
+  });
+
+  it("removes shared-record access as soon as the relationship is revoked", async () => {
+    const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
+    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
+    apps.push(driver.app, trusted.app);
+    const data = requestData(driver, trusted, driver, trusted.code);
+    await setDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), data);
+    const trustedConnection = doc(trusted.firestore, "trustedContactConnections", data.connectionId);
+    await updateDoc(trustedConnection, { status: "APPROVED", approvedAt: serverTimestamp() });
+    const approvedAt = (await getDoc(trustedConnection)).data().approvedAt.toMillis();
+    const driverRecord = doc(driver.firestore, "users", driver.uid, "stageSyncRecords", "revoked-record");
+    await setDoc(driverRecord, stage3Data(driver, "revoked-record", { periodStartedAt: new Date(approvedAt + 1000) }));
+    assert.equal((await getDoc(doc(trusted.firestore, "users", driver.uid, "stageSyncRecords", "revoked-record"))).exists(), true);
+    await updateDoc(trustedConnection, { status: "REVOKED", revokedAt: serverTimestamp() });
+    await assert.rejects(getDoc(doc(trusted.firestore, "users", driver.uid, "stageSyncRecords", "revoked-record")));
+  });
+
+  it("denies unrelated Trusted Contacts and denies Trusted Contact Stage 3 writes", async () => {
+    const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
+    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
+    const other = await createClient("Other", "DA456789ABCDEFGHJKLMNPQRSTUV");
+    apps.push(driver.app, trusted.app, other.app);
+    const data = requestData(driver, trusted, driver, trusted.code);
+    await setDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), data);
+    const trustedConnection = doc(trusted.firestore, "trustedContactConnections", data.connectionId);
+    await updateDoc(trustedConnection, { status: "APPROVED", approvedAt: serverTimestamp() });
+    const approvedAt = (await getDoc(trustedConnection)).data().approvedAt.toMillis();
+    await setDoc(
+      doc(driver.firestore, "users", driver.uid, "stageSyncRecords", "private-record"),
+      stage3Data(driver, "private-record", { periodStartedAt: new Date(approvedAt + 1000) }),
+    );
+    await assert.rejects(getDoc(doc(other.firestore, "users", driver.uid, "stageSyncRecords", "private-record")));
+    await assert.rejects(setDoc(
+      doc(trusted.firestore, "users", driver.uid, "stageSyncRecords", "forged-by-trusted"),
+      stage3Data(driver, "forged-by-trusted", { periodStartedAt: new Date(approvedAt + 2000) }),
+    ));
+  });
 });

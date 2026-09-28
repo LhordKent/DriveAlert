@@ -10,7 +10,7 @@
         },
         {
           "fieldPath": "periodStartedAt",
-          "order": "ASCENDING"
+          "order": "DESCENDING"
         }
       ]
     }

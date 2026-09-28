@@ -38,7 +38,10 @@ fun interface WarningOutputGateway {
     suspend fun activate(command: WarningOutputCommand): WarningDeliveryStatus
 }
 
-/** Hardware command transport is intentionally not claimed until Android-to-ESP32 output exists. */
+suspend fun WarningOutputGateway.activateSafely(command: WarningOutputCommand): WarningDeliveryStatus =
+    runCatching { activate(command) }.getOrElse { WarningDeliveryStatus.FAILED }
+
+/** Legacy fallback for previews/tests that intentionally do not perform physical delivery. */
 class PendingHardwareWarningOutputGateway : WarningOutputGateway {
     override suspend fun activate(command: WarningOutputCommand) = WarningDeliveryStatus.HARDWARE_PENDING
 }

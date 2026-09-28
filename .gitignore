@@ -58,7 +58,9 @@ yarn-error.log*
 /firebase-tests/node_modules/
 /firebase-export-*/
 /tmp/
-/dist/
+**/dist/
+**/playwright-report/
+**/test-results/
 
 # Never version server credentials. app/google-services.json remains allowed
 # because it is Firebase Android client configuration, not an Admin key.

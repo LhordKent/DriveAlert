@@ -160,10 +160,10 @@ data class ConnectedDriver(
 )
 
 enum class WarningSound(val label: String) {
+    DIGITAL_BEEP("Digital Beep"),
     ROOSTER_CALL("Rooster Call"),
     ALARM_CLOCK("Alarm Clock"),
-    DIGITAL_BEEP("Digital Beep"),
-    SIREN_PULSE("Siren Pulse"),
+    DIGITAL_BEEP_2("Digital Beep 2"),
     BELL_CHIME("Bell Chime"),
 }
 
@@ -197,9 +197,16 @@ data class PostAuthUiState(
     val monitoringScenario: MonitoringScenario = MonitoringScenario.NORMAL,
     val activeWarningStage: WarningStage? = null,
     val profileDisplayName: String = "",
+    val profileFirstName: String = "",
+    val profileMiddleName: String = "",
+    val profileLastName: String = "",
+    val profilePhoneNumber: String = "",
     val connectionCode: String = "",
     val profileErrorMessage: String? = null,
     val isProfileLoading: Boolean = true,
+    val isProfileUpdating: Boolean = false,
+    val profileUpdateSuccessMessage: String? = null,
+    val profileUpdateErrorMessage: String? = null,
     val userRole: UserRole? = null,
     val alertFilter: WarningStage? = null,
     val driverAlerts: List<AlertEvent> = emptyList(),

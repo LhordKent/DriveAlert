@@ -6,6 +6,7 @@
 #include <esp_system.h>
 
 #include "board_config.h"
+#include "warning_output.h"
 #include "wifi_provisioning.h"
 
 bool startCameraServer();
@@ -25,6 +26,12 @@ bool mdnsActive = false;
 bool mdnsAttemptedForConnection = false;
 unsigned long wifiLostAtMs = 0;
 unsigned long lastReconnectAttemptMs = 0;
+
+
+
+
+
+
 
 void startMdnsOnceForConnection() {
   if (mdnsActive || mdnsAttemptedForConnection) return;
@@ -179,6 +186,7 @@ void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
   Serial.println();
+  WarningOutput::begin();
   const bool appAuthorizedCameraHandoff =
     esp_reset_reason() == ESP_RST_SW && cameraHandoffAuthorization == CAMERA_HANDOFF_MAGIC;
   cameraHandoffAuthorization = 0;
@@ -202,6 +210,7 @@ void clearWifiCredentials() {
 }
 
 void loop() {
+  WarningOutput::loop();
   wifiProvisioning.loop();
   if (manualDisconnectRequested) {
     normalModeActive = false;

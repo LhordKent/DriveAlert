@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #121011; color: #f5eff0; font-synthesis: none; text-rendering: optimizeLegibility; }
+* { box-sizing: border-box; }
+html { min-width: 320px; background: #121011; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #121011; }
+button, input { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid #ef3340; outline-offset: 3px; }
+::selection { background: #4b2025; color: #f5eff0; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+@layer components {
+  .page-title { @apply text-2xl font-bold leading-tight tracking-[-0.02em] text-primary sm:text-[1.75rem]; }
+  .section-title { @apply text-base font-semibold text-primary; }
+  .surface { @apply rounded-panel border border-border-soft bg-control; }
+  .field { @apply min-h-12 w-full rounded-control border border-border bg-ink px-3.5 py-2.5 text-primary placeholder:text-muted hover:border-secondary focus:border-signal focus:outline-none focus:ring-2 focus:ring-signal/20 disabled:cursor-not-allowed disabled:opacity-60; }
+  .field-label { @apply mb-1.5 block text-sm font-medium text-secondary; }
+}

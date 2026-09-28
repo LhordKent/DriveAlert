@@ -1,6 +1,10 @@
 package com.lhordkent.drivealert.ui.postauth
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -31,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lhordkent.drivealert.provisioning.BlePermissionPolicy
+import com.lhordkent.drivealert.provisioning.ProvisioningState
 import com.lhordkent.drivealert.provisioning.ProvisioningStage
 import com.lhordkent.drivealert.provisioning.WifiProvisioningViewModel
 import com.lhordkent.drivealert.detection.DriverVisionUiState
@@ -48,10 +53,13 @@ fun WifiProvisioningPanel(
     onDisconnect: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val bluetoothAdapter = remember {
+        context.getSystemService(BluetoothManager::class.java)?.adapter
+    }
     val state by provisioningViewModel.state.collectAsState()
     var ssid by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    var useDifferentNetwork by rememberSaveable { mutableStateOf(false) }
+    var showHotspotPrompt by rememberSaveable { mutableStateOf(false) }
     val permissions = remember { BlePermissionPolicy.runtimePermissions() }
     val streamState = vision?.streamState
     val connectionVerified = streamState == StreamConnectionState.CONNECTED
@@ -62,11 +70,24 @@ fun WifiProvisioningPanel(
         streamState == StreamConnectionState.RECONNECTING -> "RECONNECTING"
         else -> "VERIFYING"
     }
+    val bluetoothEnableLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        if (bluetoothAdapter?.isEnabled == true) {
+            provisioningViewModel.startScan()
+        } else {
+            provisioningViewModel.bluetoothDisabled()
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { results ->
         if (permissions.all { results[it] == true || ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) {
-            provisioningViewModel.startScan()
+            if (bluetoothAdapter?.isEnabled == true) {
+                provisioningViewModel.startScan()
+            } else {
+                bluetoothEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            }
         } else {
             provisioningViewModel.permissionDenied()
         }
@@ -76,13 +97,26 @@ fun WifiProvisioningPanel(
         val missing = permissions.filter {
             ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
         }
-        if (missing.isEmpty()) provisioningViewModel.startScan()
-        else permissionLauncher.launch(missing.toTypedArray())
+        if (missing.isNotEmpty()) {
+            permissionLauncher.launch(missing.toTypedArray())
+        } else if (bluetoothAdapter?.isEnabled == true) {
+            provisioningViewModel.startScan()
+        } else {
+            bluetoothEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+        }
     }
 
     LaunchedEffect(state.stage) {
-        if (state.stage == ProvisioningStage.PROVISIONED) password = ""
-        if (state.stage != ProvisioningStage.CONNECTED_BLE) useDifferentNetwork = false
+        if (state.stage == ProvisioningStage.IDLE || state.stage == ProvisioningStage.PROVISIONED) {
+            ssid = ""
+            password = ""
+        }
+    }
+
+    LaunchedEffect(state.stage, state.credentialStatusKnown) {
+        if (state.stage == ProvisioningStage.CONNECTED_BLE && state.credentialStatusKnown) {
+            showHotspotPrompt = true
+        }
     }
 
     GroupSurface {
@@ -135,65 +169,69 @@ fun WifiProvisioningPanel(
                 }
             }
             ProvisioningStage.CONNECTED_BLE -> {
-                when {
-                    !state.credentialStatusKnown -> Text(
+                if (!wifiCredentialFieldsAvailable(state)) {
+                    Text(
                         "Reading the saved network from your DriveAlert device.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                     )
-                    state.savedNetworkSsid != null && !useDifferentNetwork -> {
-                        Text("Saved network", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+                } else {
+                    state.savedNetworkSsid?.let { savedSsid ->
+                        Text("Saved on this ESP32", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
                         Spacer(Modifier.height(4.dp))
-                        Text("\u201c${state.savedNetworkSsid}\u201d", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                        Text("\u201c$savedSsid\u201d", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "The ESP32 will remain offline until you press Connect.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        PrimaryButton("Connect", provisioningViewModel::connectUsingSavedCredentials)
-                        Spacer(Modifier.height(8.dp))
-                        SecondaryButton("Use a different network", onClick = { useDifferentNetwork = true })
-                    }
-                    else -> {
-                        Text(
-                            "Enable your hotspot, then enter its details. The network name is sent exactly as entered.",
+                            "This network belongs to the device, not the signed-in DriveAlert account.",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary,
                         )
                         Spacer(Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = ssid,
-                            onValueChange = { ssid = it },
-                            label = { Text("Wi-Fi or hotspot SSID") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        if (ssid.firstOrNull()?.isWhitespace() == true || ssid.lastOrNull()?.isWhitespace() == true) {
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                "This network name includes a space at the beginning or end. It will be sent exactly as entered.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary,
-                            )
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        OutlinedTextField(
-                            value = password,
-                            onValueChange = { password = it },
-                            label = { Text("Wi-Fi password") },
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        PrimaryButton("Connect", onClick = { provisioningViewModel.submit(ssid, password) })
-                        if (state.savedNetworkSsid != null) {
-                            Spacer(Modifier.height(8.dp))
-                            SecondaryButton("Use saved network", onClick = { useDifferentNetwork = false })
-                        }
+                        SecondaryButton("Connect using saved network", provisioningViewModel::connectUsingSavedCredentials)
+                        Spacer(Modifier.height(20.dp))
                     }
+
+                    Text(
+                        if (state.savedNetworkSsid == null) "Connect this ESP32 to a network" else "Replace the saved network",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Enable your hotspot or Wi-Fi, then enter its details. The network name is sent exactly as entered.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = ssid,
+                        onValueChange = { ssid = it },
+                        label = { Text("Wi-Fi or hotspot SSID") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (ssid.firstOrNull()?.isWhitespace() == true || ssid.lastOrNull()?.isWhitespace() == true) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "This network name includes a space at the beginning or end. It will be sent exactly as entered.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary,
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Wi-Fi password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    PrimaryButton(
+                        if (state.savedNetworkSsid == null) "Save and connect" else "Replace network and connect",
+                        onClick = { provisioningViewModel.submit(ssid, password) },
+                    )
                 }
             }
             ProvisioningStage.PROVISIONED -> {
@@ -238,4 +276,26 @@ fun WifiProvisioningPanel(
             else -> Unit
         }
     }
+
+    if (showHotspotPrompt) {
+        ConfirmDialog(
+            title = "Turn on your hotspot",
+            body = "Before connecting the ESP32, turn on this phone's mobile hotspot and keep it enabled. Then return to DriveAlert and enter the hotspot name and password.",
+            confirmLabel = "Open hotspot settings",
+            onConfirm = {
+                showHotspotPrompt = false
+                val hotspotSettings = Intent("android.settings.TETHER_SETTINGS")
+                val destination = if (hotspotSettings.resolveActivity(context.packageManager) != null) {
+                    hotspotSettings
+                } else {
+                    Intent(Settings.ACTION_WIRELESS_SETTINGS)
+                }
+                context.startActivity(destination)
+            },
+            onDismiss = { showHotspotPrompt = false },
+        )
+    }
 }
+
+internal fun wifiCredentialFieldsAvailable(state: ProvisioningState): Boolean =
+    state.stage == ProvisioningStage.CONNECTED_BLE && state.credentialStatusKnown

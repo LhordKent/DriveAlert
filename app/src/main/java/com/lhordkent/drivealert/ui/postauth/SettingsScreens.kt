@@ -2,6 +2,7 @@ package com.lhordkent.drivealert.ui.postauth
 
 import android.content.Intent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,15 +30,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.lhordkent.drivealert.BuildConfig
 import com.lhordkent.drivealert.data.connection.ConnectionCode
+import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.postauth.NotificationPreferences
 import com.lhordkent.drivealert.postauth.PreferredVolume
 import com.lhordkent.drivealert.postauth.UserView
 import com.lhordkent.drivealert.postauth.WarningSound
+import com.lhordkent.drivealert.postauth.WarningStage
+import com.lhordkent.drivealert.ui.auth.AuthTextField
 import com.lhordkent.drivealert.ui.theme.Border
 import com.lhordkent.drivealert.ui.theme.DriveRed
 import com.lhordkent.drivealert.ui.theme.DriveRedSoft
+import com.lhordkent.drivealert.ui.theme.Success
 import com.lhordkent.drivealert.ui.theme.TextMuted
 import com.lhordkent.drivealert.ui.theme.TextPrimary
 import com.lhordkent.drivealert.ui.theme.TextSecondary
@@ -85,25 +93,135 @@ fun SettingsScreen(
 
 @Composable
 fun AccountScreen(
+    firstName: String,
+    middleName: String,
+    lastName: String,
+    phoneNumber: String,
     displayName: String,
     email: String,
     connectionCode: String,
     profileErrorMessage: String?,
+    isProfileUpdating: Boolean,
+    profileUpdateSuccessMessage: String?,
+    profileUpdateErrorMessage: String?,
+    onUpdateProfile: (String, String, String, String) -> Unit,
     onBack: () -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     var copied by rememberSaveable { mutableStateOf(false) }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var draftFirstName by rememberSaveable { mutableStateOf(firstName) }
+    var draftMiddleName by rememberSaveable { mutableStateOf(middleName) }
+    var draftLastName by rememberSaveable { mutableStateOf(lastName) }
+    var draftPhoneNumber by rememberSaveable { mutableStateOf(phoneNumber) }
+    var attemptedSave by rememberSaveable { mutableStateOf(false) }
     val formattedCode = ConnectionCode.format(connectionCode)
+
+    LaunchedEffect(firstName, middleName, lastName, phoneNumber, editing) {
+        if (!editing) {
+            draftFirstName = firstName
+            draftMiddleName = middleName
+            draftLastName = lastName
+            draftPhoneNumber = phoneNumber
+        }
+    }
+    LaunchedEffect(profileUpdateSuccessMessage) {
+        if (profileUpdateSuccessMessage != null) editing = false
+    }
+
     ScrollableScreen(title = "Account", onBack = onBack) {
         Text("Account profile", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(8.dp))
         Text("This profile is linked to your signed-in DriveAlert account.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(24.dp))
-        KeyValueRow("Name", displayName.ifBlank { "Not available" })
-        HorizontalDivider(color = Border)
-        KeyValueRow("Email", email.ifBlank { "Not available" })
-        HorizontalDivider(color = Border)
+        if (editing) {
+            AuthTextField(
+                value = draftFirstName,
+                onValueChange = { draftFirstName = it },
+                label = "First name",
+                error = if (attemptedSave && draftFirstName.isBlank()) "First name is required" else null,
+                enabled = !isProfileUpdating,
+            )
+            Spacer(Modifier.height(12.dp))
+            AuthTextField(
+                value = draftMiddleName,
+                onValueChange = { draftMiddleName = it },
+                label = "Middle name (optional)",
+                enabled = !isProfileUpdating,
+            )
+            Spacer(Modifier.height(12.dp))
+            AuthTextField(
+                value = draftLastName,
+                onValueChange = { draftLastName = it },
+                label = "Last name",
+                error = if (attemptedSave && draftLastName.isBlank()) "Last name is required" else null,
+                enabled = !isProfileUpdating,
+            )
+            Spacer(Modifier.height(12.dp))
+            AuthTextField(
+                value = draftPhoneNumber,
+                onValueChange = { draftPhoneNumber = it },
+                label = "Phone number (optional)",
+                enabled = !isProfileUpdating,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "Signed in as ${email.ifBlank { "an unavailable email address" }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+            )
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SecondaryButton(
+                    text = "Cancel",
+                    onClick = {
+                        draftFirstName = firstName
+                        draftMiddleName = middleName
+                        draftLastName = lastName
+                        draftPhoneNumber = phoneNumber
+                        attemptedSave = false
+                        editing = false
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isProfileUpdating,
+                )
+                PrimaryButton(
+                    text = if (isProfileUpdating) "Saving…" else "Save changes",
+                    onClick = {
+                        attemptedSave = true
+                        if (draftFirstName.isNotBlank() && draftLastName.isNotBlank()) {
+                            onUpdateProfile(draftFirstName, draftMiddleName, draftLastName, draftPhoneNumber)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isProfileUpdating,
+                )
+            }
+        } else {
+            KeyValueRow("Name", displayName.ifBlank { "Not available" })
+            HorizontalDivider(color = Border)
+            KeyValueRow("Email", email.ifBlank { "Not available" })
+            HorizontalDivider(color = Border)
+            KeyValueRow("Phone", phoneNumber.ifBlank { "Not provided" })
+            Spacer(Modifier.height(18.dp))
+            SecondaryButton(
+                text = "Edit profile",
+                onClick = {
+                    attemptedSave = false
+                    editing = true
+                },
+            )
+        }
+        profileUpdateSuccessMessage?.let {
+            Spacer(Modifier.height(12.dp))
+            Text(it, style = MaterialTheme.typography.bodySmall, color = Success)
+        }
+        profileUpdateErrorMessage?.let {
+            Spacer(Modifier.height(12.dp))
+            Text(it, style = MaterialTheme.typography.bodySmall, color = DriveRed)
+        }
         Spacer(Modifier.height(26.dp))
         SectionTitle("My connection code")
         Spacer(Modifier.height(8.dp))
@@ -150,8 +268,6 @@ fun AccountScreen(
                 color = if (profileErrorMessage == null) TextMuted else DriveRed,
             )
         }
-        Spacer(Modifier.height(22.dp))
-        Text("Profile editing is not available in this backend phase.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -239,34 +355,69 @@ fun WarningSoundScreen(
     onSoundSelected: (WarningSound) -> Unit,
     onVolumeSelected: (PreferredVolume) -> Unit,
     onBack: () -> Unit,
+    debugDelivery: WarningDeliveryStatus? = null,
+    onTestWarning: (WarningStage) -> Unit = {},
+    onPreviewSelection: (WarningSound, PreferredVolume) -> Unit = { _, _ -> },
 ) {
     ScrollableScreen(title = "Warning Sound", onBack = onBack) {
         Text(
-            "Choose the preferred sound and global device volume. This screen does not play audio or control hardware.",
+            "Choose the preferred sound and device volume. Each selection is played through the connected DriveAlert speaker so you can hear it immediately.",
             style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
         )
         Spacer(Modifier.height(22.dp))
         SectionTitle("Sound")
         WarningSound.values().forEach { sound ->
-            RadioChoice(sound.label, selectedSound == sound) { onSoundSelected(sound) }
+            RadioChoice(sound.label, selectedSound == sound) {
+                onSoundSelected(sound)
+                onPreviewSelection(sound, selectedVolume)
+            }
         }
         Spacer(Modifier.height(22.dp))
         SectionTitle("Preferred device volume")
         PreferredVolume.values().forEach { volume ->
-            RadioChoice(volume.label, selectedVolume == volume) { onVolumeSelected(volume) }
+            RadioChoice(volume.label, selectedVolume == volume) {
+                onVolumeSelected(volume)
+                onPreviewSelection(selectedSound, volume)
+            }
         }
         Spacer(Modifier.height(16.dp))
         GroupSurface {
             Text("Device application", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
             Spacer(Modifier.height(5.dp))
-            Text("The selected sound and volume are saved for this session and will be applied when hardware control is connected.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            Text("The selected sound and volume are saved and sent to the connected ESP32 for an immediate speaker preview. Previewing does not create an Alert or change the current Warning Stage.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        }
+        debugDelivery?.let { delivery ->
+            Spacer(Modifier.height(8.dp))
+            Text("Speaker preview: ${delivery.label}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
         Spacer(Modifier.height(16.dp))
         GroupSurface {
             Text("Minimum is enforced", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
             Spacer(Modifier.height(5.dp))
             Text("The warning cannot be muted or reduced below Minimum during active monitoring. No fixed dBA value is assigned.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        }
+        if (BuildConfig.DEBUG) {
+            Spacer(Modifier.height(16.dp))
+            GroupSurface {
+                Text("Debug speaker test", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    "Sends the selected sound and volume directly to the connected device. It does not create an Alert or change warning-stage state.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
+                Spacer(Modifier.height(12.dp))
+                val debugStages = listOf(
+                    WarningStage.STAGE_1 to "Test normal track (Stage 1)",
+                    WarningStage.STAGE_2 to "Test Stage 2 limitation",
+                    WarningStage.STAGE_3 to "Test mixed track (Stage 3)",
+                )
+                debugStages.forEach { (stage, label) ->
+                    SecondaryButton(label, { onTestWarning(stage) })
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
         }
         Spacer(Modifier.height(24.dp))
     }
