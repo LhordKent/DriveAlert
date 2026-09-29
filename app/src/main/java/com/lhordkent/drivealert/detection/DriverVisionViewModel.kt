@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.lhordkent.drivealert.DriveAlertApplication
 import com.lhordkent.drivealert.data.repository.CalibrationRepository
 import com.lhordkent.drivealert.data.repository.AlertRepository
@@ -26,7 +25,9 @@ import com.lhordkent.drivealert.detection.frame.StreamConnectionState
 import com.lhordkent.drivealert.detection.model.CalibrationProgress
 import com.lhordkent.drivealert.detection.model.CalibrationResult
 import com.lhordkent.drivealert.detection.model.CalibrationStatus
+import com.lhordkent.drivealert.detection.model.FaceAttributeResult
 import com.lhordkent.drivealert.detection.model.MonitoringDetectionResult
+import com.lhordkent.drivealert.detection.model.RegionalVisibility
 import com.lhordkent.drivealert.detection.model.SignType
 import com.lhordkent.drivealert.detection.model.TemporalState
 import com.lhordkent.drivealert.monitoring.ActiveMonitoringState
@@ -34,10 +35,16 @@ import com.lhordkent.drivealert.monitoring.MonitoringEffect
 import com.lhordkent.drivealert.monitoring.MonitoringSessionController
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.monitoring.WarningOutputGateway
+import com.lhordkent.drivealert.monitoring.VisibilityAlertController
+import com.lhordkent.drivealert.monitoring.VisibilityAlertEffect
+import com.lhordkent.drivealert.monitoring.VisibilityIssue
+import com.lhordkent.drivealert.monitoring.VisibilityOutputCommand
+import com.lhordkent.drivealert.monitoring.VisibilityOutputGateway
 import com.lhordkent.drivealert.monitoring.activateSafely
 import com.lhordkent.drivealert.monitoring.warningOutputCommand
 import com.lhordkent.drivealert.monitoring.toVisibleSign
 import com.lhordkent.drivealert.notification.DriverWarningNotificationCoordinator
+import com.lhordkent.drivealert.notification.DriverVisibilityNotificationCoordinator
 import com.lhordkent.drivealert.postauth.PreferredVolume
 import com.lhordkent.drivealert.postauth.WarningSound
 import com.lhordkent.drivealert.postauth.WarningStage
@@ -46,6 +53,7 @@ import com.lhordkent.drivealert.device.DriveAlertEndpointResolver
 import com.lhordkent.drivealert.device.DriveAlertSessionController
 import com.lhordkent.drivealert.device.HttpDriveAlertSessionController
 import com.lhordkent.drivealert.device.HttpWarningOutputGateway
+import com.lhordkent.drivealert.device.HttpVisibilityOutputGateway
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -62,6 +70,7 @@ data class DriverVisionUiState(
     val faceDetected: Boolean? = null,
     val alignmentConfirmed: Boolean = false,
     val detection: MonitoringDetectionResult? = null,
+    val faceAttributes: FaceAttributeResult? = null,
     val calibrationProgress: CalibrationProgress? = null,
     val calibrationInProgress: Boolean = false,
     val activeCalibration: CalibrationResult? = null,
@@ -86,8 +95,11 @@ class DriverVisionViewModel @JvmOverloads constructor(
     private val stageSyncRepository: StageSyncRepository =
         (application as DriveAlertApplication).container.stageSyncRepository,
     warningOutputGateway: WarningOutputGateway? = null,
+    visibilityOutputGateway: VisibilityOutputGateway? = null,
     private val notificationCoordinator: DriverWarningNotificationCoordinator =
         (application as DriveAlertApplication).container.driverWarningNotificationCoordinator,
+    private val visibilityNotificationCoordinator: DriverVisibilityNotificationCoordinator =
+        (application as DriveAlertApplication).container.driverVisibilityNotificationCoordinator,
     private val elapsedClock: () -> Long = SystemClock::elapsedRealtime,
     private val wallClock: () -> Long = System::currentTimeMillis,
 ) : AndroidViewModel(application), Closeable {
@@ -98,15 +110,30 @@ class DriverVisionViewModel @JvmOverloads constructor(
     private var engine = DriveAlertDetectionEngine()
     private val processor = MediaPipeFaceLandmarkerProcessor(
         context = application,
-        onObservation = { timestamp, observation ->
-            val result = engine.process(timestamp, observation)
-            viewModelScope.launch { acceptDetection(result) }
+        onObservation = { timestamp, observation, faceAttributes ->
+            val result = engine.process(
+                timestamp,
+                observation,
+                RegionalVisibility(
+                    lowerFaceObstructed = faceAttributes.lowerFaceObstructed == true,
+                    eyeRegionObstructed = faceAttributes.eyeRegionObstructed == true,
+                ),
+            )
+            viewModelScope.launch { acceptDetection(result, faceAttributes) }
         },
         onError = { error -> mutableState.update { it.copy(errorMessage = error.message ?: "Face processing stopped.") } },
     )
     private var boundDriverId: String? = null
     private var activeDevice: ProvisionedDevice? = null
     private val warningOutputGateway: WarningOutputGateway = warningOutputGateway ?: HttpWarningOutputGateway(
+        deviceProvider = { activeDevice },
+        endpointResolver = endpointResolver,
+        onDeviceResolved = { resolved ->
+            activeDevice = resolved
+            deviceRepository.saveActive(resolved)
+        },
+    )
+    private val visibilityOutputGateway: VisibilityOutputGateway = visibilityOutputGateway ?: HttpVisibilityOutputGateway(
         deviceProvider = { activeDevice },
         endpointResolver = endpointResolver,
         onDeviceResolved = { resolved ->
@@ -125,6 +152,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
     private val inferenceGate = MonotonicFrameGate(INFERENCE_INTERVAL_MS)
     private var persistedCalibrationId: String? = null
     private val monitoringController = MonitoringSessionController(elapsedClock)
+    private val visibilityAlertController = VisibilityAlertController()
     private var monitoringStarting = false
     private var sessionStartedAtElapsedMs: Long? = null
     private var sessionStartedAtEpochMillis: Long? = null
@@ -289,6 +317,8 @@ class DriverVisionViewModel @JvmOverloads constructor(
                     ),
                 )
                 monitoringController.start(sessionId)
+                visibilityAlertController.reset()
+                visibilityNotificationCoordinator.clear()
                 sessionStartedAtElapsedMs = monitoringController.state.startedAtElapsedMs
                 sessionStartedAtEpochMillis = startedAtEpoch
                 highestPersistedStage = null
@@ -323,6 +353,8 @@ class DriverVisionViewModel @JvmOverloads constructor(
         val sessionId = monitoringController.state.sessionId
         val driverId = boundDriverId
         monitoringController.stop()
+        visibilityAlertController.reset()
+        visibilityNotificationCoordinator.clear()
         publishMonitoringState()
         sessionStartedAtElapsedMs = null
         sessionStartedAtEpochMillis = null
@@ -395,28 +427,26 @@ class DriverVisionViewModel @JvmOverloads constructor(
             width = packet.width,
             height = packet.height,
             timestampMs = packet.timestampMs,
-            imageFactory = {
-                // MediaPipe owns its MPImage. Isolate its pixels from the Bitmap
-                // retained by Compose, but only after the processor accepts work.
-                val bitmap = inferenceSource.bitmap.copy(Bitmap.Config.ARGB_8888, false)
+            bitmapFactory = {
+                // Isolate inference pixels from the Bitmap retained by Compose,
+                // but only after the processor accepts the work.
+                inferenceSource.bitmap.copy(Bitmap.Config.ARGB_8888, false)
                     ?: error("Camera frame could not be copied for face processing.")
-                try {
-                    BitmapImageBuilder(bitmap).build()
-                } catch (error: Throwable) {
-                    bitmap.recycle()
-                    throw error
-                }
             },
             releaseSource = inferenceSource::release,
         )
     }
 
-    private suspend fun acceptDetection(result: MonitoringDetectionResult) {
+    private suspend fun acceptDetection(
+        result: MonitoringDetectionResult,
+        faceAttributes: FaceAttributeResult,
+    ) {
         val calibrationCompleted = mutableState.value.calibrationInProgress && result.calibration.status == CalibrationStatus.COMPLETE
         mutableState.update {
             it.copy(
                 faceDetected = result.faceDetected,
                 detection = result,
+                faceAttributes = faceAttributes,
                 calibrationProgress = if (it.calibrationInProgress) result.calibration else it.calibrationProgress,
                 calibrationInProgress = if (calibrationCompleted) false else it.calibrationInProgress,
                 activeCalibration = result.activeCalibration ?: it.activeCalibration,
@@ -430,10 +460,44 @@ class DriverVisionViewModel @JvmOverloads constructor(
         }
         val sessionId = monitoringController.state.sessionId
         if (sessionId != null) {
+            handleVisibilityEffects(
+                visibilityAlertController.update(
+                    timestampMs = result.timestampMs,
+                    issue = when {
+                        !result.faceDetected -> VisibilityIssue.FACE_UNAVAILABLE
+                        faceAttributes.probabilities?.let { probabilities ->
+                            probabilities.mask >= REGIONAL_ALERT_THRESHOLD &&
+                                probabilities.sunglasses >= REGIONAL_ALERT_THRESHOLD
+                        } == true -> VisibilityIssue.BOTH_REGIONS_OBSTRUCTED
+                        faceAttributes.probabilities?.sunglasses?.let { it >= REGIONAL_ALERT_THRESHOLD } == true ->
+                            VisibilityIssue.EYE_REGION_OBSTRUCTED
+                        faceAttributes.probabilities?.mask?.let { it >= REGIONAL_ALERT_THRESHOLD } == true ->
+                            VisibilityIssue.LOWER_FACE_OBSTRUCTED
+                        else -> null
+                    },
+                ),
+            )
             val effects = monitoringController.accept(result.events, result.currentlyConfirmedSigns())
             handleMonitoringEffects(effects, userId, sessionId)
             persistHighestStage(userId, sessionId)
             publishMonitoringState()
+        }
+    }
+
+    private suspend fun handleVisibilityEffects(effects: List<VisibilityAlertEffect>) {
+        effects.forEach { effect ->
+            when (effect) {
+                is VisibilityAlertEffect.Notify -> {
+                    visibilityOutputGateway.activateSafely(
+                        VisibilityOutputCommand(effect.issue, monitoringVolume),
+                    )
+                    visibilityNotificationCoordinator.notify(
+                        issue = effect.issue,
+                        enabled = monitoringNotificationsEnabled,
+                    )
+                }
+                VisibilityAlertEffect.Clear -> visibilityNotificationCoordinator.clear()
+            }
         }
     }
 
@@ -544,6 +608,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         mutableState.update {
             it.copy(
                 faceDetected = null,
+                faceAttributes = null,
                 alignmentConfirmed = if (resetAlignment) false else it.alignmentConfirmed,
             )
         }
@@ -560,6 +625,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
     companion object {
         private const val INFERENCE_INTERVAL_MS = 100L
         private const val MONITORING_TICK_MS = 250L
+        private const val REGIONAL_ALERT_THRESHOLD = 0.80f
     }
 }
 

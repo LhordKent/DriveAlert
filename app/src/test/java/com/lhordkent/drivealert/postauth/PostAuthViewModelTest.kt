@@ -25,6 +25,7 @@ class PostAuthViewModelTest {
         assertTrue(MonitoringScenario.EYE_UNAVAILABLE.presentation().yawningAvailable)
         assertFalse(MonitoringScenario.YAWNING_UNAVAILABLE.presentation().yawningAvailable)
         assertEquals("Monitoring paused", MonitoringScenario.EYE_AND_YAWNING_UNAVAILABLE.presentation().headline)
+        assertFalse(MonitoringScenario.EYE_AND_YAWNING_UNAVAILABLE.presentation().headAvailable)
         assertFalse(MonitoringScenario.FACE_TRACKING_UNAVAILABLE.presentation().headAvailable)
     }
 

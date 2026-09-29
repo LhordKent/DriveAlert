@@ -64,11 +64,12 @@ class AndroidBleProvisioningClient(
             // relying on the phone's controller-level UUID filter.
             val scanRecord = result.scanRecord
             val advertisedName = scanRecord?.deviceName
+            val cachedDeviceName = result.device.name
             val advertisesDriveAlertService = scanRecord?.serviceUuids
                 ?.any { it.uuid == ProvisioningProtocol.serviceUuid } == true
-            if (!isDriveAlertAdvertisement(advertisedName) && !advertisesDriveAlertService) return
-            val name = advertisedName
-                ?: result.device.name?.takeIf(::isDriveAlertAdvertisement)
+            if (!shouldAcceptAdvertisement(advertisedName, cachedDeviceName, advertisesDriveAlertService)) return
+            val name = advertisedName?.takeIf(::isDriveAlertAdvertisement)
+                ?: cachedDeviceName?.takeIf(::isDriveAlertAdvertisement)
                 ?: DEFAULT_DEVICE_NAME
 
             // Advertisements repeat several times per second. Emitting every RSSI
@@ -434,5 +435,13 @@ class AndroidBleProvisioningClient(
 
         internal fun isDriveAlertAdvertisement(name: String?): Boolean =
             name?.startsWith(ProvisioningProtocol.advertisedNamePrefix) == true
+
+        internal fun shouldAcceptAdvertisement(
+            scanRecordName: String?,
+            cachedDeviceName: String?,
+            advertisesDriveAlertService: Boolean,
+        ): Boolean = advertisesDriveAlertService ||
+            isDriveAlertAdvertisement(scanRecordName) ||
+            isDriveAlertAdvertisement(cachedDeviceName)
     }
 }

@@ -32,6 +32,9 @@ android {
         buildConfig = true
         compose = true
     }
+    androidResources {
+        noCompress += "tflite"
+    }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
@@ -64,6 +67,7 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation("com.google.mediapipe:tasks-vision:1.0.0")
+    implementation(libs.tensorflow.lite)
     kapt(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

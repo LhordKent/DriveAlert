@@ -23,6 +23,40 @@ No CameraX dependency, phone-camera source, `PreviewView`, `ImageAnalysis`, or A
 
 Inference runs on a dedicated single-thread executor. If an inference is already active, a newly submitted stale frame is released and dropped. Closing the processor queues MediaPipe resource closure on the same executor.
 
+## FaceAttribNet lower-face visibility
+
+The Android processor also packages Qualcomm's universal W8A8 FaceAttribNet
+TensorFlow Lite export. It runs diagnostically at most once every 500 ms on a
+128 x 128 padded face crop from the same bitmap already accepted for MediaPipe.
+The ESP32 performs no additional inference and the MJPEG frame is not decoded a
+second time.
+
+The five independent outputs are left-eye openness, right-eye openness,
+eyeglasses, mask, and sunglasses. Validation on the operational ESP32-CAM feed
+showed mask probabilities of 0.996 for a shirt or hand over the lower face,
+0.000-0.020 for a clear face, and at most 0.400 for an uncovered open mouth.
+DriveAlert therefore interprets this output as lower-face obstruction: two
+samples at or above 0.80 disable MAR/yawning, and three samples below 0.50
+restore it. Sunglasses were also validated on the operational feed and use the
+same 0.80 activation and 0.50 recovery thresholds to disable EAR/eye-closure
+monitoring. When both regions are obstructed, head-pose monitoring is disabled
+as well and monitoring is paused. Cached results expire after two seconds.
+Eyeglasses remain diagnostic because clear eyeglasses have not been tested.
+
+A lower-face obstruction sustained for two seconds produces a mobile visibility
+notification and a dedicated spoken request to the onboard speaker without
+creating a drowsiness event or changing warning-stage history. Eye obstruction
+uses "Eyes blocked", lower-face obstruction uses "Mouth blocked", and combined
+obstruction or face loss uses "Face not visible". The spoken request repeats
+every 30 seconds while the same obstruction remains active.
+Complete face loss uses a one-second notification delay. The visibility
+notification clears after one continuous second of recovery. Sunglasses alone
+use the same two-second delay as lower-face obstruction; simultaneous eye and
+lower-face obstruction uses the one-second pause delay.
+
+Model provenance and tensor metadata are recorded in
+`app/src/main/assets/FACE_ATTRIB_NET.md`.
+
 ## Paper-locked operational rules
 
 - EAR uses landmarks `(362, 385, 387, 263, 373, 380)` and `(33, 160, 158, 133, 153, 144)`. Normalized coordinates are scaled to image pixels before Euclidean distances are calculated. The two eye ratios are averaged.
@@ -46,10 +80,14 @@ Calibration follows `NEUTRAL -> EYES_CLOSED -> MOUTH_OPEN -> HEAD_DOWN`. Each ph
 
 ## Integration boundaries
 
-- Regional obstruction/reliability logic remains experimental and non-operational.
+- Lower-face obstruction disables yawning, sunglasses disable eye monitoring,
+  and simultaneous obstruction pauses all facial-sign channels.
 - Warning Stages 1/2/3, Room Alert History, Stage 3 synchronization, and the Android-to-ESP32 warning-command transport are downstream consumers of `ConfirmedSignEvent`; they do not alter detection behavior.
 - Physical Android-to-speaker playback requires manual hardware verification even when the software builds and transport tests pass.
-- No Hand Landmarker, YOLO, CNN, classifier, dataset collection, or training code is included.
+- No Hand Landmarker, YOLO, dataset collection, or training code is included.
+- FaceAttribNet is validated for lower-face obstruction and sunglasses on the
+  current driver/device setup. It does not establish arbitrary eye-region
+  obstruction from hands, hair, or other unknown objects.
 
 ## Verification
 

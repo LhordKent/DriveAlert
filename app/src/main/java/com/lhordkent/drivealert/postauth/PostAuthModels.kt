@@ -73,7 +73,7 @@ fun MonitoringScenario.presentation(): MonitoringPresentation = when (this) {
         guidance = "Insufficient facial information is available. Restore a clear view of the eyes and mouth.",
         eyeAvailable = false,
         yawningAvailable = false,
-        headAvailable = true,
+        headAvailable = false,
     )
     MonitoringScenario.FACE_TRACKING_UNAVAILABLE -> MonitoringPresentation(
         headline = "Monitoring paused",

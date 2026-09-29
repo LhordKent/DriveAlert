@@ -29,6 +29,8 @@ import com.lhordkent.drivealert.data.sync.WorkManagerStageSyncScheduler
 import com.lhordkent.drivealert.data.sync.FirestoreSharedStage3Repository
 import com.lhordkent.drivealert.data.sync.SharedStage3Repository
 import com.lhordkent.drivealert.notification.AndroidDriverWarningNotificationGateway
+import com.lhordkent.drivealert.notification.AndroidDriverVisibilityNotificationGateway
+import com.lhordkent.drivealert.notification.DriverVisibilityNotificationCoordinator
 import com.lhordkent.drivealert.notification.DriverWarningNotificationCoordinator
 
 class DriveAlertApplication : Application() {
@@ -37,6 +39,7 @@ class DriveAlertApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         AndroidDriverWarningNotificationGateway.createChannel(this)
+        AndroidDriverVisibilityNotificationGateway.createChannel(this)
     }
 }
 
@@ -52,6 +55,9 @@ class AppContainer(application: Application) {
     val alertRepository: AlertRepository = RoomAlertRepository(database.alertDao())
     val driverWarningNotificationCoordinator = DriverWarningNotificationCoordinator(
         AndroidDriverWarningNotificationGateway(application),
+    )
+    val driverVisibilityNotificationCoordinator = DriverVisibilityNotificationCoordinator(
+        AndroidDriverVisibilityNotificationGateway(application),
     )
     val monitoringSessionRepository: MonitoringSessionRepository =
         RoomMonitoringSessionRepository(database.monitoringSessionDao())

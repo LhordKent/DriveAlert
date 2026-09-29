@@ -30,4 +30,26 @@ class AndroidBleProvisioningClientTest {
         assertFalse(AndroidBleProvisioningClient.isDriveAlertAdvertisement("OtherDevice-A1B2"))
         assertFalse(AndroidBleProvisioningClient.isDriveAlertAdvertisement(null))
     }
+
+    @Test
+    fun `older phone cached device name is accepted when scan response omits identity`() {
+        assertTrue(
+            AndroidBleProvisioningClient.shouldAcceptAdvertisement(
+                scanRecordName = null,
+                cachedDeviceName = "DriveAlert-A1B2",
+                advertisesDriveAlertService = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `unrelated anonymous BLE devices remain filtered out`() {
+        assertFalse(
+            AndroidBleProvisioningClient.shouldAcceptAdvertisement(
+                scanRecordName = null,
+                cachedDeviceName = "OtherDevice-A1B2",
+                advertisesDriveAlertService = false,
+            ),
+        )
+    }
 }

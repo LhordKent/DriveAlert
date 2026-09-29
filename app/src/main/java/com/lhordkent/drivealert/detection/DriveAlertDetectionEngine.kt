@@ -9,6 +9,7 @@ import com.lhordkent.drivealert.detection.model.DetectionChannelStatus
 import com.lhordkent.drivealert.detection.model.FaceObservation
 import com.lhordkent.drivealert.detection.model.FacialMeasurements
 import com.lhordkent.drivealert.detection.model.MonitoringDetectionResult
+import com.lhordkent.drivealert.detection.model.RegionalVisibility
 import com.lhordkent.drivealert.detection.model.TemporalState
 import com.lhordkent.drivealert.detection.temporal.EyeClosureDetector
 import com.lhordkent.drivealert.detection.temporal.HeadDownDetector
@@ -57,14 +58,21 @@ class DriveAlertDetectionEngine(
     }
 
     @Synchronized
-    fun process(observation: FaceObservation?): MonitoringDetectionResult {
+    fun process(
+        observation: FaceObservation?,
+        regionalVisibility: RegionalVisibility = RegionalVisibility(),
+    ): MonitoringDetectionResult {
         val timestampMs = observation?.timestampMs
             ?: requireNotNull(lastTimestampMs) { "A timestamp is required before reporting a missing face." }
-        return process(timestampMs, observation)
+        return process(timestampMs, observation, regionalVisibility)
     }
 
     @Synchronized
-    fun process(timestampMs: Long, observation: FaceObservation?): MonitoringDetectionResult {
+    fun process(
+        timestampMs: Long,
+        observation: FaceObservation?,
+        regionalVisibility: RegionalVisibility = RegionalVisibility(),
+    ): MonitoringDetectionResult {
         require(lastTimestampMs == null || timestampMs >= checkNotNull(lastTimestampMs)) {
             "Frame timestamps must be monotonic."
         }
@@ -85,7 +93,14 @@ class DriveAlertDetectionEngine(
         }
         require(observation.timestampMs == timestampMs) { "Observation and frame timestamps must match." }
 
-        val measurements = FacialMeasurementCalculator.calculate(observation)
+        val calculatedMeasurements = FacialMeasurementCalculator.calculate(observation)
+        val pauseAllFacialSigns = regionalVisibility.lowerFaceObstructed &&
+            regionalVisibility.eyeRegionObstructed
+        val measurements = calculatedMeasurements.copy(
+            ear = if (regionalVisibility.eyeRegionObstructed) null else calculatedMeasurements.ear,
+            mar = if (regionalVisibility.lowerFaceObstructed) null else calculatedMeasurements.mar,
+            rawHeadPitchDegrees = if (pauseAllFacialSigns) null else calculatedMeasurements.rawHeadPitchDegrees,
+        )
         calibration.update(timestampMs, measurements)
         if (calibration.status == CalibrationStatus.COMPLETE && activeCalibration == null) {
             activateCalibration(calibration.buildResult(timestampMs))

@@ -19,6 +19,12 @@ enum class Volume : uint8_t {
   HIGH_LEVEL,
 };
 
+enum class VisibilityIssue : uint8_t {
+  EYES,
+  MOUTH,
+  FACE,
+};
+
 enum class State : uint8_t {
   STARTING,
   READY,
@@ -28,6 +34,11 @@ enum class State : uint8_t {
 struct Command {
   uint8_t stage;
   Sound sound;
+  Volume volume;
+};
+
+struct VisibilityCommand {
+  VisibilityIssue issue;
   Volume volume;
 };
 
@@ -46,6 +57,9 @@ constexpr uint16_t ROOSTER_CALL_STAGE_3_TRACK = 7;
 constexpr uint16_t ALARM_CLOCK_STAGE_3_TRACK = 8;
 constexpr uint16_t DIGITAL_BEEP_2_STAGE_3_TRACK = 9;
 constexpr uint16_t BELL_CHIME_STAGE_3_TRACK = 10;
+constexpr uint16_t EYES_BLOCKED_TRACK = 11;
+constexpr uint16_t MOUTH_BLOCKED_TRACK = 12;
+constexpr uint16_t FACE_NOT_VISIBLE_TRACK = 13;
 
 constexpr uint8_t MINIMUM_VOLUME = 22;
 constexpr uint8_t MEDIUM_VOLUME = 26;
@@ -73,6 +87,13 @@ constexpr uint16_t trackForStage(uint8_t stage, Sound sound) {
   return stage == 3 ? stage3TrackForSound(sound) : normalTrackForSound(sound);
 }
 
+constexpr uint16_t trackForVisibilityIssue(VisibilityIssue issue) {
+  return issue == VisibilityIssue::EYES ? EYES_BLOCKED_TRACK
+       : issue == VisibilityIssue::MOUTH ? MOUTH_BLOCKED_TRACK
+       : issue == VisibilityIssue::FACE ? FACE_NOT_VISIBLE_TRACK
+       : 0;
+}
+
 constexpr uint8_t valueForVolume(Volume volume) {
   return volume == Volume::MINIMUM_LEVEL ? MINIMUM_VOLUME
        : volume == Volume::MEDIUM_LEVEL ? MEDIUM_VOLUME
@@ -93,8 +114,11 @@ State state();
 bool isAvailable();
 bool parseSound(const char *value, Sound *sound);
 bool parseVolume(const char *value, Volume *volume);
+bool parseVisibilityIssue(const char *value, VisibilityIssue *issue);
 bool isValid(const Command &command);
+bool isValid(const VisibilityCommand &command);
 bool enqueue(const Command &command);
+bool enqueue(const VisibilityCommand &command);
 
 }  // namespace WarningOutput
 

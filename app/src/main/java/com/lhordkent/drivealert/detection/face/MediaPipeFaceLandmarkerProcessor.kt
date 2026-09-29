@@ -1,11 +1,12 @@
 package com.lhordkent.drivealert.detection.face
 
 import android.content.Context
-import com.google.mediapipe.framework.image.MPImage
+import android.graphics.Bitmap
+import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
-import com.lhordkent.drivealert.detection.frame.FramePacket
+import com.lhordkent.drivealert.detection.model.FaceAttributeResult
 import com.lhordkent.drivealert.detection.model.FaceObservation
 import com.lhordkent.drivealert.detection.model.NormalizedLandmark
 import java.io.Closeable
@@ -18,7 +19,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class MediaPipeFaceLandmarkerProcessor(
     context: Context,
-    private val onObservation: (timestampMs: Long, observation: FaceObservation?) -> Unit,
+    private val onObservation: (
+        timestampMs: Long,
+        observation: FaceObservation?,
+        faceAttributes: FaceAttributeResult,
+    ) -> Unit,
     private val onError: (Throwable) -> Unit = {},
     modelAssetPath: String = MODEL_ASSET_PATH,
 ) : Closeable {
@@ -28,6 +33,10 @@ class MediaPipeFaceLandmarkerProcessor(
     private val busy = AtomicBoolean(false)
     private val closed = AtomicBoolean(false)
     private val landmarker: FaceLandmarker
+    private val attributeTracker = FaceAttributeShadowTracker()
+    private var attributeClassifier: FaceAttribNetClassifier? = null
+    private var attributeFailureReason: String? = null
+    private var lastAttributeAttemptTimestampMs: Long? = null
 
     init {
         val baseOptions = BaseOptions.builder()
@@ -41,24 +50,9 @@ class MediaPipeFaceLandmarkerProcessor(
             .setOutputFacialTransformationMatrixes(true)
             .build()
         landmarker = FaceLandmarker.createFromOptions(context.applicationContext, options)
-    }
-
-    /** Returns false when the frame was intentionally dropped because inference is busy. */
-    fun submit(frame: FramePacket<MPImage>): Boolean {
-        if (closed.get() || !busy.compareAndSet(false, true)) {
-            frame.release()
-            return false
-        }
-        return enqueue(
-            work = {
-                try {
-                    process(frame)
-                } finally {
-                    frame.release()
-                }
-            },
-            onRejected = frame.release,
-        )
+        runCatching { FaceAttribNetClassifier(context.applicationContext) }
+            .onSuccess { attributeClassifier = it }
+            .onFailure { attributeFailureReason = it.message ?: "FaceAttribNet could not be initialized." }
     }
 
     /**
@@ -69,7 +63,7 @@ class MediaPipeFaceLandmarkerProcessor(
         width: Int,
         height: Int,
         timestampMs: Long,
-        imageFactory: () -> MPImage,
+        bitmapFactory: () -> Bitmap,
         releaseSource: () -> Unit,
     ): Boolean {
         if (closed.get() || !busy.compareAndSet(false, true)) {
@@ -78,20 +72,13 @@ class MediaPipeFaceLandmarkerProcessor(
         }
         return enqueue(
             work = {
-                var image: MPImage? = null
+                var bitmap: Bitmap? = null
                 try {
-                    image = imageFactory()
-                    process(
-                        FramePacket(
-                            payload = image,
-                            width = width,
-                            height = height,
-                            timestampMs = timestampMs,
-                        ),
-                    )
+                    bitmap = bitmapFactory()
+                    process(bitmap, width, height, timestampMs)
                 } finally {
                     try {
-                        image?.close()
+                        bitmap?.recycle()
                     } finally {
                         releaseSource()
                     }
@@ -121,32 +108,69 @@ class MediaPipeFaceLandmarkerProcessor(
         }
     }
 
-    private fun process(frame: FramePacket<MPImage>) {
-        val result = landmarker.detectForVideo(frame.payload, frame.timestampMs)
-        val landmarks = result.faceLandmarks().firstOrNull()?.map {
-            NormalizedLandmark(it.x().toDouble(), it.y().toDouble())
+    private fun process(bitmap: Bitmap, width: Int, height: Int, timestampMs: Long) {
+        val image = BitmapImageBuilder(bitmap).build()
+        try {
+            val result = landmarker.detectForVideo(image, timestampMs)
+            val landmarks = result.faceLandmarks().firstOrNull()?.map { landmark ->
+                NormalizedLandmark(landmark.x().toDouble(), landmark.y().toDouble())
+            }
+            val observation = landmarks?.let {
+                FaceObservation(
+                    timestampMs = timestampMs,
+                    frameWidth = width,
+                    frameHeight = height,
+                    landmarks = it,
+                    facialTransformationMatrix = result.facialTransformationMatrixes()
+                        .orElse(emptyList())
+                        .firstOrNull(),
+                )
+            }
+            val attributes = processFaceAttributes(bitmap, landmarks, width, height, timestampMs)
+            onObservation(timestampMs, observation, attributes)
+        } finally {
+            image.close()
         }
-        val observation = landmarks?.let {
-            FaceObservation(
-                timestampMs = frame.timestampMs,
-                frameWidth = frame.width,
-                frameHeight = frame.height,
-                landmarks = it,
-                facialTransformationMatrix = result.facialTransformationMatrixes()
-                    .orElse(emptyList())
-                    .firstOrNull(),
-            )
+    }
+
+    private fun processFaceAttributes(
+        bitmap: Bitmap,
+        landmarks: List<NormalizedLandmark>?,
+        width: Int,
+        height: Int,
+        timestampMs: Long,
+    ): FaceAttributeResult {
+        attributeFailureReason?.let { return attributeTracker.disable(it) }
+        val classifier = attributeClassifier
+            ?: return attributeTracker.disable("FaceAttribNet is unavailable.")
+        val lastAttempt = lastAttributeAttemptTimestampMs
+        val due = lastAttempt == null || timestampMs - lastAttempt >= ATTRIBUTE_INTERVAL_MS
+        if (landmarks == null || !due) return attributeTracker.snapshot(timestampMs)
+        lastAttributeAttemptTimestampMs = timestampMs
+        return try {
+            val inference = classifier.infer(bitmap, landmarks, width, height)
+                ?: return attributeTracker.snapshot(timestampMs)
+            attributeTracker.accept(timestampMs, inference.probabilities, inference.durationMs)
+        } catch (error: Throwable) {
+            runCatching { classifier.close() }
+            attributeClassifier = null
+            attributeFailureReason = error.message ?: "FaceAttribNet inference failed."
+            attributeTracker.disable(checkNotNull(attributeFailureReason))
         }
-        onObservation(frame.timestampMs, observation)
     }
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
-        executor.execute { landmarker.close() }
+        executor.execute {
+            attributeClassifier?.close()
+            attributeClassifier = null
+            landmarker.close()
+        }
         executor.shutdown()
     }
 
     companion object {
         const val MODEL_ASSET_PATH = "face_landmarker.task"
+        private const val ATTRIBUTE_INTERVAL_MS = 500L
     }
 }

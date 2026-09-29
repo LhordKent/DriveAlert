@@ -390,6 +390,7 @@ fun DriveAlertApp(
                     monitoring = visionState.monitoring,
                     onExit = navController::popBackStack,
                     detectionResult = visionState.detection,
+                    faceAttributes = visionState.faceAttributes,
                 )
             }
             composable(PostAuthRoutes.DRIVER_ALERTS) {

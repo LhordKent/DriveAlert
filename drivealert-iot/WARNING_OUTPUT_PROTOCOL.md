@@ -34,6 +34,25 @@ Android treats only the exact `200 OK` accepted response as `DELIVERED`. Network
 errors, timeouts, other status codes, and malformed response bodies are `FAILED`.
 There are no automatic retries, preventing unintentional duplicate playback.
 
+## Visibility speech request
+
+Visibility guidance uses a separate endpoint and never changes warning-stage
+state:
+
+```http
+POST /drivealert/visibility HTTP/1.1
+Content-Type: application/x-www-form-urlencoded; charset=utf-8
+Accept: application/json
+
+issue=EYES&volume=MEDIUM
+```
+
+The body contains exactly `issue` and `volume`. `issue` is `EYES`, `MOUTH`, or
+`FACE`; volume uses the same identifiers as warning commands. Android sends the
+first request after the visibility delay and repeats it every 30 seconds while
+the condition remains active. The endpoint uses the same response contract as
+`/drivealert/warning`.
+
 ## Firmware mapping
 
 | Application sound | Stage 1/2 normal file | Stage 3 mixed file |
@@ -44,6 +63,12 @@ There are no automatic retries, preventing unintentional duplicate playback.
 | `DIGITAL_BEEP_2` | `/mp3/0004.mp3` | `/mp3/0009.mp3` |
 | `BELL_CHIME` | `/mp3/0005.mp3` | `/mp3/0010.mp3` |
 
+| Visibility intent | File | Spoken message |
+|---|---|---|
+| `EYES` | `/mp3/0011.mp3` | Eyes blocked. Remove the obstruction. |
+| `MOUTH` | `/mp3/0012.mp3` | Mouth blocked. Remove the obstruction. |
+| `FACE` | `/mp3/0013.mp3` | Face not visible. Restore camera view. |
+
 | Logical volume | DFPlayer volume |
 |---|---:|
 | `MINIMUM` | 22 |
@@ -53,6 +78,11 @@ There are no automatic retries, preventing unintentional duplicate playback.
 The final files use `/mp3/NNNN.mp3` and `player.playMp3Folder(trackNumber)`.
 Stage 3 tracks 6-10 already contain the warning and spoken rest advisory mixed
 together, so firmware plays exactly one file.
+
+Warning commands have queue priority over visibility speech. A pending
+visibility command may be replaced by a drowsiness warning; visibility speech
+never replaces a pending warning. The three speech MP3 files must be created and
+copied to the DFPlayer microSD card before hardware testing.
 
 The current card has no separate voice-only advisory file. Stage 2 retains its
 domain advisory request, but the physical output can only play the selected

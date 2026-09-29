@@ -685,7 +685,7 @@ static esp_err_t drivealert_disconnect_handler(httpd_req_t *req) {
   return response;
 }
 
-static esp_err_t send_warning_json(httpd_req_t *req, const char *status, const char *body) {
+static esp_err_t send_output_json(httpd_req_t *req, const char *status, const char *body) {
   httpd_resp_set_status(req, status);
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
@@ -729,14 +729,14 @@ static bool parse_warning_body(char *body, WarningOutput::Command *command) {
 static esp_err_t drivealert_warning_handler(httpd_req_t *req) {
   constexpr size_t MAX_WARNING_BODY_BYTES = 160;
   if (req->content_len == 0 || req->content_len > MAX_WARNING_BODY_BYTES) {
-    return send_warning_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+    return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
   }
   char body[MAX_WARNING_BODY_BYTES + 1];
   size_t received = 0;
   while (received < req->content_len) {
     const int count = httpd_req_recv(req, body + received, req->content_len - received);
     if (count <= 0) {
-      return send_warning_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+      return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
     }
     received += static_cast<size_t>(count);
   }
@@ -744,15 +744,70 @@ static esp_err_t drivealert_warning_handler(httpd_req_t *req) {
 
   WarningOutput::Command command = {};
   if (!parse_warning_body(body, &command)) {
-    return send_warning_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+    return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
   }
   if (!WarningOutput::isAvailable()) {
-    return send_warning_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_unavailable\"}");
+    return send_output_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_unavailable\"}");
   }
   if (!WarningOutput::enqueue(command)) {
-    return send_warning_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_busy\"}");
+    return send_output_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_busy\"}");
   }
-  return send_warning_json(req, "200 OK", "{\"status\":\"accepted\"}");
+  return send_output_json(req, "200 OK", "{\"status\":\"accepted\"}");
+}
+
+static bool parse_visibility_body(char *body, WarningOutput::VisibilityCommand *command) {
+  if (body == NULL || command == NULL) return false;
+  bool issueSeen = false;
+  bool volumeSeen = false;
+  unsigned fieldCount = 0;
+  char *save = NULL;
+  for (char *field = strtok_r(body, "&", &save); field != NULL; field = strtok_r(NULL, "&", &save)) {
+    ++fieldCount;
+    char *separator = strchr(field, '=');
+    if (separator == NULL || strchr(separator + 1, '=') != NULL) return false;
+    *separator = '\0';
+    const char *key = field;
+    const char *value = separator + 1;
+    if (!strcmp(key, "issue") && !issueSeen) {
+      if (!WarningOutput::parseVisibilityIssue(value, &command->issue)) return false;
+      issueSeen = true;
+    } else if (!strcmp(key, "volume") && !volumeSeen) {
+      if (!WarningOutput::parseVolume(value, &command->volume)) return false;
+      volumeSeen = true;
+    } else {
+      return false;
+    }
+  }
+  return fieldCount == 2 && issueSeen && volumeSeen && WarningOutput::isValid(*command);
+}
+
+static esp_err_t drivealert_visibility_handler(httpd_req_t *req) {
+  constexpr size_t MAX_VISIBILITY_BODY_BYTES = 120;
+  if (req->content_len == 0 || req->content_len > MAX_VISIBILITY_BODY_BYTES) {
+    return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+  }
+  char body[MAX_VISIBILITY_BODY_BYTES + 1];
+  size_t received = 0;
+  while (received < req->content_len) {
+    const int count = httpd_req_recv(req, body + received, req->content_len - received);
+    if (count <= 0) {
+      return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+    }
+    received += static_cast<size_t>(count);
+  }
+  body[received] = '\0';
+
+  WarningOutput::VisibilityCommand command = {};
+  if (!parse_visibility_body(body, &command)) {
+    return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+  }
+  if (!WarningOutput::isAvailable()) {
+    return send_output_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_unavailable\"}");
+  }
+  if (!WarningOutput::enqueue(command)) {
+    return send_output_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_busy\"}");
+  }
+  return send_output_json(req, "200 OK", "{\"status\":\"accepted\"}");
 }
 
 bool startCameraServer() {
@@ -841,6 +896,19 @@ bool startCameraServer() {
     .uri = "/drivealert/warning",
     .method = HTTP_POST,
     .handler = drivealert_warning_handler,
+    .user_ctx = NULL
+#ifdef CONFIG_HTTPD_WS_SUPPORT
+    ,
+    .is_websocket = true,
+    .handle_ws_control_frames = false,
+    .supported_subprotocol = NULL
+#endif
+  };
+
+  httpd_uri_t drivealert_visibility_uri = {
+    .uri = "/drivealert/visibility",
+    .method = HTTP_POST,
+    .handler = drivealert_visibility_handler,
     .user_ctx = NULL
 #ifdef CONFIG_HTTPD_WS_SUPPORT
     ,
@@ -946,6 +1014,7 @@ bool startCameraServer() {
     httpd_register_uri_handler(camera_httpd, &win_uri);
     httpd_register_uri_handler(camera_httpd, &drivealert_disconnect_uri);
     httpd_register_uri_handler(camera_httpd, &drivealert_warning_uri);
+    httpd_register_uri_handler(camera_httpd, &drivealert_visibility_uri);
   }
 
   config.server_port += 1;

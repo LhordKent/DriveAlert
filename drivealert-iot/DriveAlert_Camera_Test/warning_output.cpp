@@ -21,14 +21,19 @@ DFRobotDFPlayerMini player;
 StartupStep startupStep = StartupStep::WAIT_FOR_PLAYER;
 unsigned long stepStartedAtMs = 0;
 portMUX_TYPE commandMux = portMUX_INITIALIZER_UNLOCKED;
-Command pendingCommand = {};
+struct PlaybackCommand {
+  uint16_t track;
+  Volume volume;
+  bool highPriority;
+};
+PlaybackCommand pendingCommand = {};
 volatile bool commandPending = false;
 
 bool elapsed(unsigned long now, unsigned long startedAt, unsigned long duration) {
   return now - startedAt >= duration;
 }
 
-bool takePending(Command *command) {
+bool takePending(PlaybackCommand *command) {
   bool available = false;
   portENTER_CRITICAL(&commandMux);
   if (commandPending) {
@@ -38,6 +43,19 @@ bool takePending(Command *command) {
   }
   portEXIT_CRITICAL(&commandMux);
   return available;
+}
+
+bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority) {
+  if (!isAvailable() || track == 0 || valueForVolume(volume) == 0) return false;
+  bool accepted = false;
+  portENTER_CRITICAL(&commandMux);
+  if (!commandPending || (highPriority && !pendingCommand.highPriority)) {
+    pendingCommand = {track, volume, highPriority};
+    commandPending = true;
+    accepted = true;
+  }
+  portEXIT_CRITICAL(&commandMux);
+  return accepted;
 }
 }  // namespace
 
@@ -64,6 +82,9 @@ static_assert(!isValidValues(1, Sound::ROOSTER_CALL, static_cast<Volume>(255)), 
 static_assert(isValidValues(1, Sound::ROOSTER_CALL, Volume::MINIMUM_LEVEL), "Stage 1 must be valid");
 static_assert(isValidValues(2, Sound::ROOSTER_CALL, Volume::MINIMUM_LEVEL), "Stage 2 must be valid");
 static_assert(isValidValues(3, Sound::ROOSTER_CALL, Volume::MINIMUM_LEVEL), "Stage 3 must be valid");
+static_assert(trackForVisibilityIssue(VisibilityIssue::EYES) == 11, "Eye obstruction track changed");
+static_assert(trackForVisibilityIssue(VisibilityIssue::MOUTH) == 12, "Mouth obstruction track changed");
+static_assert(trackForVisibilityIssue(VisibilityIssue::FACE) == 13, "Face visibility track changed");
 
 void begin() {
   // This is the physically verified one-way UART configuration. Initialization
@@ -110,10 +131,10 @@ void loop() {
       return;
   }
 
-  Command command;
+  PlaybackCommand command;
   if (!takePending(&command)) return;
   player.volume(valueForVolume(command.volume));
-  player.playMp3Folder(trackForStage(command.stage, command.sound));
+  player.playMp3Folder(command.track);
 }
 
 State state() {
@@ -146,21 +167,31 @@ bool parseVolume(const char *value, Volume *volume) {
   return true;
 }
 
+bool parseVisibilityIssue(const char *value, VisibilityIssue *issue) {
+  if (value == nullptr || issue == nullptr) return false;
+  if (!strcmp(value, "EYES")) *issue = VisibilityIssue::EYES;
+  else if (!strcmp(value, "MOUTH")) *issue = VisibilityIssue::MOUTH;
+  else if (!strcmp(value, "FACE")) *issue = VisibilityIssue::FACE;
+  else return false;
+  return true;
+}
+
 bool isValid(const Command &command) {
   return isValidValues(command.stage, command.sound, command.volume);
 }
 
+bool isValid(const VisibilityCommand &command) {
+  return trackForVisibilityIssue(command.issue) != 0 && valueForVolume(command.volume) != 0;
+}
+
 bool enqueue(const Command &command) {
-  if (!isAvailable() || !isValid(command)) return false;
-  bool accepted = false;
-  portENTER_CRITICAL(&commandMux);
-  if (!commandPending) {
-    pendingCommand = command;
-    commandPending = true;
-    accepted = true;
-  }
-  portEXIT_CRITICAL(&commandMux);
-  return accepted;
+  if (!isValid(command)) return false;
+  return enqueuePlayback(trackForStage(command.stage, command.sound), command.volume, true);
+}
+
+bool enqueue(const VisibilityCommand &command) {
+  if (!isValid(command)) return false;
+  return enqueuePlayback(trackForVisibilityIssue(command.issue), command.volume, false);
 }
 
 }  // namespace WarningOutput

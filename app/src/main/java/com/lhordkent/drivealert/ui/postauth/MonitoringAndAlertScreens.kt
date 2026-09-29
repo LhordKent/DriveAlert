@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.lhordkent.drivealert.BuildConfig
+import com.lhordkent.drivealert.detection.model.FaceAttributeResult
 import com.lhordkent.drivealert.detection.model.MonitoringDetectionResult
 import com.lhordkent.drivealert.monitoring.ActiveMonitoringState
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
@@ -58,6 +60,7 @@ fun MonitoringPreviewScreen(
     monitoring: ActiveMonitoringState = ActiveMonitoringState(),
     onExit: () -> Unit,
     detectionResult: MonitoringDetectionResult? = null,
+    faceAttributes: FaceAttributeResult? = null,
 ) {
     val presentation = scenario.presentation()
     val activeWarningStage = monitoring.currentStage
@@ -106,6 +109,26 @@ fun MonitoringPreviewScreen(
                 Text(warningOutputDescription(activeWarningStage, monitoring.warningDelivery), style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             }
         }
+        if (BuildConfig.DEBUG) {
+            Spacer(Modifier.height(24.dp))
+            SectionTitle("FaceAttribNet shadow diagnostics")
+            Spacer(Modifier.height(8.dp))
+            GroupSurface {
+                val probabilities = faceAttributes?.probabilities
+                KeyValueRow("Shadow status", if (faceAttributes?.available == true) "Available" else "Unavailable")
+                KeyValueRow("Left eye open", probabilities?.leftEyeOpen.probabilityText())
+                KeyValueRow("Right eye open", probabilities?.rightEyeOpen.probabilityText())
+                KeyValueRow("Eyeglasses", probabilities?.eyeglasses.probabilityText())
+                KeyValueRow("Mask", probabilities?.mask.probabilityText())
+                KeyValueRow("Sunglasses", probabilities?.sunglasses.probabilityText())
+                KeyValueRow("Stable eyeglasses", faceAttributes?.stableEyeglasses.shadowStateText())
+                KeyValueRow("Lower-face obstruction", faceAttributes?.lowerFaceObstructed.shadowStateText())
+                KeyValueRow("Eye-region obstruction", faceAttributes?.eyeRegionObstructed.shadowStateText())
+                KeyValueRow("Inference", faceAttributes?.inferenceDurationMs.metricText(" ms"))
+                KeyValueRow("Result age", faceAttributes?.ageMs?.let { "$it ms" } ?: "Unavailable")
+                faceAttributes?.errorReason?.let { KeyValueRow("Shadow detail", it) }
+            }
+        }
         Spacer(Modifier.height(24.dp))
         SectionTitle("Monitoring availability")
         Spacer(Modifier.height(8.dp))
@@ -150,6 +173,14 @@ fun MonitoringPreviewScreen(
 
 private fun Double?.metricText(suffix: String = ""): String =
     this?.let { "%.4f%s".format(it, suffix) } ?: "Unavailable"
+
+private fun Float?.probabilityText(): String = this?.let { "%.3f".format(it) } ?: "Unavailable"
+
+private fun Boolean?.shadowStateText(): String = when (this) {
+    true -> "Detected"
+    false -> "Not detected"
+    null -> "Unavailable"
+}
 
 @Composable
 private fun AvailabilityRow(label: String, available: Boolean) {
