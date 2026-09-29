@@ -54,6 +54,13 @@ enum class StageSyncStatus {
     FAILED,
 }
 
+enum class NotificationDispatchStatus {
+    OPEN,
+    PENDING,
+    DELIVERED,
+    TERMINAL,
+}
+
 enum class ConnectionStatus {
     PENDING,
     APPROVED,

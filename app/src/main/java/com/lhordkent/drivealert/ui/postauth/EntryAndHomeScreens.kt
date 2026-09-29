@@ -27,18 +27,27 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Router
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.lhordkent.drivealert.R
 import com.lhordkent.drivealert.detection.DriverVisionUiState
 import com.lhordkent.drivealert.detection.frame.StreamConnectionState
+import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
 import com.lhordkent.drivealert.postauth.PostAuthUiState
 import com.lhordkent.drivealert.ui.theme.Border
 import com.lhordkent.drivealert.ui.theme.Ink
@@ -230,12 +239,14 @@ private fun SetupStep(
 fun DriverHomeScreen(
     state: PostAuthUiState,
     vision: DriverVisionUiState = DriverVisionUiState(),
-    onStartMonitoring: () -> Unit,
+    onStartMonitoring: (DriverAccessoryMode) -> Unit,
     onStopMonitoring: () -> Unit,
     onOpenMonitoringActivity: () -> Unit,
     onSetupDevice: () -> Unit,
     onOpenAlerts: () -> Unit,
 ) {
+    var showAccessoryDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedAccessory by rememberSaveable { mutableStateOf(DriverAccessoryMode.NONE) }
     val latest = state.driverAlerts.maxByOrNull { it.occurredAt }
     val todayCount = state.driverAlerts.count { it.occurredAt.toLocalDate() == java.time.LocalDate.now() }
 
@@ -277,11 +288,21 @@ fun DriverHomeScreen(
             Spacer(Modifier.height(18.dp))
             PrimaryButton(
                 text = if (monitoringActive) "Stop Monitoring" else "Start Monitoring",
-                onClick = if (monitoringActive) onStopMonitoring else onStartMonitoring,
+                onClick = if (monitoringActive) onStopMonitoring else ({
+                    if (monitoringReady) {
+                        selectedAccessory = DriverAccessoryMode.NONE
+                        showAccessoryDialog = true
+                    } else onStartMonitoring(DriverAccessoryMode.NONE)
+                }),
                 containerColor = if (monitoringActive) Success else com.lhordkent.drivealert.ui.theme.DriveRed,
                 contentColor = if (monitoringActive) Ink else TextPrimary,
             )
             Spacer(Modifier.height(10.dp))
+            if (monitoringActive) {
+                KeyValueRow("Session visibility setup", vision.accessoryMode.label)
+                Text(vision.accessoryMode.monitoringSummary, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Spacer(Modifier.height(10.dp))
+            }
             SecondaryButton("Monitoring Activity", onOpenMonitoringActivity)
             Spacer(Modifier.height(10.dp))
             SecondaryButton("Setup & Device", onSetupDevice)
@@ -310,6 +331,57 @@ fun DriverHomeScreen(
         )
         Spacer(Modifier.height(24.dp))
     }
+    if (showAccessoryDialog) {
+        AccessorySelectionDialog(
+            selected = selectedAccessory,
+            onSelected = { selectedAccessory = it },
+            onStart = {
+                showAccessoryDialog = false
+                onStartMonitoring(selectedAccessory)
+            },
+            onDismiss = { showAccessoryDialog = false },
+        )
+    }
+}
+
+@Composable
+private fun AccessorySelectionDialog(
+    selected: DriverAccessoryMode,
+    onSelected: (DriverAccessoryMode) -> Unit,
+    onStart: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Before monitoring") },
+        text = {
+            Column {
+                Text(
+                    "Select anything currently affecting facial visibility. This choice applies only to this monitoring session.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
+                Spacer(Modifier.height(12.dp))
+                DriverAccessoryMode.entries.forEach { mode ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(role = Role.RadioButton) { onSelected(mode) }
+                            .padding(vertical = 7.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        RadioButton(selected = selected == mode, onClick = { onSelected(mode) })
+                        Column(Modifier.weight(1f).padding(top = 3.dp)) {
+                            Text(mode.label, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                            Text(mode.monitoringSummary, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onStart) { Text("Start monitoring") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 internal data class SetupConnectionStatus(val label: String, val tone: StatusTone)

@@ -45,6 +45,12 @@ abstract class StageSyncRecordDao {
     @Query("SELECT * FROM stage_sync_records WHERE driverUserId = :driverUserId AND eligibility = 'PENDING_EVALUATION' ORDER BY createdAtEpochMillis ASC LIMIT :limit")
     abstract suspend fun getRecordsAwaitingEvaluation(driverUserId: String, limit: Int): List<StageSyncRecordWithSigns>
 
+    @Query("SELECT COUNT(*) FROM stage_sync_records WHERE driverUserId = :driverUserId AND syncStatus IN ('PENDING', 'FAILED')")
+    abstract suspend fun readyCount(driverUserId: String): Int
+
+    @Query("SELECT COUNT(*) FROM stage_sync_records WHERE driverUserId = :driverUserId AND eligibility = 'PENDING_EVALUATION'")
+    abstract suspend fun awaitingEvaluationCount(driverUserId: String): Int
+
     @Query(
         """
         UPDATE stage_sync_records

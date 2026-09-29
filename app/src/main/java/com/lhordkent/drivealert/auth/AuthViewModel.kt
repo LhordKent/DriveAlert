@@ -16,10 +16,12 @@ import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.lhordkent.drivealert.data.profile.NewUserProfile
 import com.lhordkent.drivealert.data.profile.UserProfileRepository
+import com.lhordkent.drivealert.notification.TrustedContactDeviceRegistrar
 import kotlinx.coroutines.launch
 
 class AuthViewModel(
     private val userProfileRepository: UserProfileRepository? = null,
+    private val deviceRegistrar: TrustedContactDeviceRegistrar? = null,
 ) : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private var hasResolvedInitialSession = false
@@ -168,9 +170,12 @@ class AuthViewModel(
     }
 
     private fun signOut() {
-        auth.signOut()
-        pendingAuthenticationEntry = null
-        state = AuthOperationState()
+        viewModelScope.launch {
+            runCatching { deviceRegistrar?.unregisterCurrentDevice() }
+            auth.signOut()
+            pendingAuthenticationEntry = null
+            state = AuthOperationState()
+        }
     }
 
     override fun onCleared() {
@@ -181,11 +186,12 @@ class AuthViewModel(
 
 class AuthViewModelFactory(
     private val userProfileRepository: UserProfileRepository,
+    private val deviceRegistrar: TrustedContactDeviceRegistrar? = null,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         require(modelClass.isAssignableFrom(AuthViewModel::class.java))
-        return AuthViewModel(userProfileRepository) as T
+        return AuthViewModel(userProfileRepository, deviceRegistrar) as T
     }
 }
 

@@ -95,6 +95,8 @@ export interface DriverRecordState {
   status: 'loading' | 'ready' | 'error'
   records: StageSyncRecord[]
   error: PortalError | null
+  lastViewedAt: Timestamp | null
+  unreadCount: number
 }
 
 export type PortalErrorKind = 'permission' | 'offline' | 'not-found' | 'invalid-data' | 'backend' | 'conflict'

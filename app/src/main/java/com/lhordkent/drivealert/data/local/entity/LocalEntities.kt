@@ -204,6 +204,45 @@ data class StageSyncRecordSignEntity(
 )
 
 @Entity(
+    tableName = "stage_notification_groups",
+    indices = [
+        Index("driverUserId"),
+        Index(value = ["driverUserId", "status"]),
+    ],
+)
+data class StageNotificationGroupEntity(
+    @androidx.room.PrimaryKey val dispatchGroupId: String,
+    val driverUserId: String,
+    val status: NotificationDispatchStatus,
+    val expectedRecordCount: Int,
+    val expectedChunkCount: Int,
+    val attemptCount: Int,
+    val lastAttemptAtEpochMillis: Long?,
+    val lastErrorCode: String?,
+    val createdAtEpochMillis: Long,
+    val completedAtEpochMillis: Long?,
+)
+
+@Entity(
+    tableName = "stage_notification_group_records",
+    primaryKeys = ["dispatchGroupId", "stageSyncRecordId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = StageNotificationGroupEntity::class,
+            parentColumns = ["dispatchGroupId"],
+            childColumns = ["dispatchGroupId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("dispatchGroupId"), Index("stageSyncRecordId")],
+)
+data class StageNotificationGroupRecordEntity(
+    val dispatchGroupId: String,
+    val stageSyncRecordId: String,
+    val ordinal: Int,
+)
+
+@Entity(
     tableName = "trusted_contact_connection_projection",
     indices = [
         Index("driverUserId"),

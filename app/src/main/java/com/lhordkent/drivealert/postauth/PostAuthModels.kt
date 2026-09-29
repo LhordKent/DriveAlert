@@ -70,7 +70,7 @@ fun MonitoringScenario.presentation(): MonitoringPresentation = when (this) {
     )
     MonitoringScenario.EYE_AND_YAWNING_UNAVAILABLE -> MonitoringPresentation(
         headline = "Monitoring paused",
-        guidance = "Insufficient facial information is available. Restore a clear view of the eyes and mouth.",
+        guidance = "Two or more monitoring signs are unavailable. Restore visibility until at least two signs are reliable.",
         eyeAvailable = false,
         yawningAvailable = false,
         headAvailable = false,
@@ -112,6 +112,7 @@ data class Stage3SyncRecord(
     val sourceDriverName: String? = null,
     val receivedAt: LocalDateTime? = null,
     val sessionId: String? = null,
+    val eventCount: Int = 1,
 )
 
 enum class AlertTrend(val label: String) {
@@ -157,6 +158,8 @@ data class ConnectedDriver(
     val connectionId: String = id,
     val sharedRecordsLoading: Boolean = true,
     val sharedRecordsErrorMessage: String? = null,
+    val lastViewedAt: LocalDateTime? = null,
+    val unreadRecordCount: Int = 0,
 )
 
 enum class WarningSound(val label: String) {

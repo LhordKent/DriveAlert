@@ -14,7 +14,7 @@ import com.lhordkent.drivealert.data.repository.ProvisionedDeviceRepository
 import com.lhordkent.drivealert.data.repository.RoomProvisionedDeviceRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
-import com.google.firebase.firestore.MemoryCacheSettings
+import com.google.firebase.firestore.PersistentCacheSettings
 import com.lhordkent.drivealert.data.profile.FirestoreUserProfileRepository
 import com.lhordkent.drivealert.data.profile.UserProfileRepository
 import com.lhordkent.drivealert.data.connection.FirestoreTrustedContactRepository
@@ -26,12 +26,16 @@ import com.lhordkent.drivealert.data.sync.StageSyncRemoteDataSource
 import com.lhordkent.drivealert.data.sync.StageSyncRepository
 import com.lhordkent.drivealert.data.sync.StageSyncScheduler
 import com.lhordkent.drivealert.data.sync.WorkManagerStageSyncScheduler
+import com.lhordkent.drivealert.data.sync.CloudflareStageNotificationRemoteDataSource
+import com.lhordkent.drivealert.data.sync.StageNotificationDispatcher
 import com.lhordkent.drivealert.data.sync.FirestoreSharedStage3Repository
 import com.lhordkent.drivealert.data.sync.SharedStage3Repository
 import com.lhordkent.drivealert.notification.AndroidDriverWarningNotificationGateway
 import com.lhordkent.drivealert.notification.AndroidDriverVisibilityNotificationGateway
 import com.lhordkent.drivealert.notification.DriverVisibilityNotificationCoordinator
 import com.lhordkent.drivealert.notification.DriverWarningNotificationCoordinator
+import com.lhordkent.drivealert.notification.DriveAlertMessagingService
+import com.lhordkent.drivealert.notification.TrustedContactDeviceRegistrar
 
 class DriveAlertApplication : Application() {
     val container: AppContainer by lazy { AppContainer(this) }
@@ -40,6 +44,7 @@ class DriveAlertApplication : Application() {
         super.onCreate()
         AndroidDriverWarningNotificationGateway.createChannel(this)
         AndroidDriverVisibilityNotificationGateway.createChannel(this)
+        DriveAlertMessagingService.createChannels(this)
     }
 }
 
@@ -48,7 +53,7 @@ class AppContainer(application: Application) {
     val firestore: FirebaseFirestore by lazy {
         FirebaseFirestore.getInstance().apply {
             firestoreSettings = FirebaseFirestoreSettings.Builder()
-                .setLocalCacheSettings(MemoryCacheSettings.newBuilder().build())
+                .setLocalCacheSettings(PersistentCacheSettings.newBuilder().build())
                 .build()
         }
     }
@@ -59,6 +64,7 @@ class AppContainer(application: Application) {
     val driverVisibilityNotificationCoordinator = DriverVisibilityNotificationCoordinator(
         AndroidDriverVisibilityNotificationGateway(application),
     )
+    val trustedContactDeviceRegistrar = TrustedContactDeviceRegistrar(application)
     val monitoringSessionRepository: MonitoringSessionRepository =
         RoomMonitoringSessionRepository(database.monitoringSessionDao())
     val driverPreferenceRepository: DriverPreferenceRepository =
@@ -76,7 +82,17 @@ class AppContainer(application: Application) {
     val stageSyncScheduler: StageSyncScheduler by lazy { WorkManagerStageSyncScheduler(application) }
     val stageSyncRemoteDataSource: StageSyncRemoteDataSource by lazy { FirestoreStageSyncRemoteDataSource(firestore) }
     val stageSyncProcessor: StageSyncProcessor by lazy {
-        StageSyncProcessor(database.stageSyncRecordDao(), stageSyncRemoteDataSource)
+        StageSyncProcessor(
+            database.stageSyncRecordDao(),
+            stageSyncRemoteDataSource,
+            database.stageNotificationGroupDao(),
+        )
+    }
+    val stageNotificationDispatcher: StageNotificationDispatcher by lazy {
+        StageNotificationDispatcher(
+            database.stageNotificationGroupDao(),
+            CloudflareStageNotificationRemoteDataSource(),
+        )
     }
     val stageSyncRepository: StageSyncRepository by lazy {
         RoomStageSyncRepository(database.stageSyncRecordDao(), stageSyncScheduler)

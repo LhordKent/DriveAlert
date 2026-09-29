@@ -23,7 +23,9 @@ class StageSyncWorker(
         if (FirebaseAuth.getInstance().currentUser?.uid != driverUserId) return Result.failure()
         val application = applicationContext as DriveAlertApplication
         return try {
-            if (application.container.stageSyncProcessor.synchronize(driverUserId)) Result.success() else Result.retry()
+            val recordsComplete = application.container.stageSyncProcessor.synchronize(driverUserId)
+            val notificationsComplete = application.container.stageNotificationDispatcher.dispatchPending(driverUserId)
+            if (recordsComplete && notificationsComplete) Result.success() else Result.retry()
         } catch (_: Exception) {
             Result.retry()
         }

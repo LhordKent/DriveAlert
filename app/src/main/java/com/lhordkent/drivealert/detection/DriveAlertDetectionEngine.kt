@@ -94,13 +94,22 @@ class DriveAlertDetectionEngine(
         require(observation.timestampMs == timestampMs) { "Observation and frame timestamps must match." }
 
         val calculatedMeasurements = FacialMeasurementCalculator.calculate(observation)
-        val pauseAllFacialSigns = regionalVisibility.lowerFaceObstructed &&
-            regionalVisibility.eyeRegionObstructed
-        val measurements = calculatedMeasurements.copy(
+        val regionFilteredMeasurements = calculatedMeasurements.copy(
             ear = if (regionalVisibility.eyeRegionObstructed) null else calculatedMeasurements.ear,
             mar = if (regionalVisibility.lowerFaceObstructed) null else calculatedMeasurements.mar,
-            rawHeadPitchDegrees = if (pauseAllFacialSigns) null else calculatedMeasurements.rawHeadPitchDegrees,
         )
+        val availableSignCount = listOf(
+            regionFilteredMeasurements.ear,
+            regionFilteredMeasurements.mar,
+            regionFilteredMeasurements.rawHeadPitchDegrees,
+        ).count { it != null }
+        val hasSufficientSigns = availableSignCount >= MINIMUM_AVAILABLE_SIGNS
+        if (!hasSufficientSigns) clearDetectorEvidence()
+        val measurements = if (hasSufficientSigns) {
+            regionFilteredMeasurements
+        } else {
+            FacialMeasurements(ear = null, mar = null, rawHeadPitchDegrees = null)
+        }
         calibration.update(timestampMs, measurements)
         if (calibration.status == CalibrationStatus.COMPLETE && activeCalibration == null) {
             activateCalibration(calibration.buildResult(timestampMs))
@@ -198,5 +207,9 @@ class DriveAlertDetectionEngine(
         eyeDetector = null
         yawnDetector = null
         headDetector = null
+    }
+
+    companion object {
+        private const val MINIMUM_AVAILABLE_SIGNS = 2
     }
 }

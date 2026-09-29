@@ -2,6 +2,7 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <Ticker.h>
 #include <esp_attr.h>
 #include <esp_system.h>
 
@@ -17,21 +18,39 @@ RTC_NOINIT_ATTR uint32_t cameraHandoffAuthorization;
 namespace {
 constexpr unsigned long WIFI_RECONNECT_INTERVAL_MS = 5000;
 constexpr unsigned long WIFI_RECONFIGURE_AFTER_MS = 90000;
+constexpr unsigned long CONNECTION_LED_BLINK_INTERVAL_MS = 500;
 constexpr uint32_t CAMERA_HANDOFF_MAGIC = 0xDA17CA4E;
+constexpr uint8_t CONNECTION_LED_GPIO = 14;
+constexpr uint8_t CONNECTION_LED_ON = HIGH;
+constexpr uint8_t CONNECTION_LED_OFF = LOW;
 
 WifiProvisioningManager wifiProvisioning;
+Ticker connectionLedTicker;
 bool normalModeActive = false;
 volatile bool manualDisconnectRequested = false;
 bool mdnsActive = false;
 bool mdnsAttemptedForConnection = false;
+bool connectionLedOn = false;
 unsigned long wifiLostAtMs = 0;
 unsigned long lastReconnectAttemptMs = 0;
 
+void updateConnectionLed() {
+  if (WiFi.status() == WL_CONNECTED) {
+    connectionLedOn = false;
+  } else {
+    connectionLedOn = !connectionLedOn;
+  }
+  digitalWrite(
+    CONNECTION_LED_GPIO,
+    connectionLedOn ? CONNECTION_LED_ON : CONNECTION_LED_OFF);
+}
 
-
-
-
-
+void startConnectionLedHeartbeat() {
+  pinMode(CONNECTION_LED_GPIO, OUTPUT);
+  connectionLedOn = true;
+  digitalWrite(CONNECTION_LED_GPIO, CONNECTION_LED_ON);
+  connectionLedTicker.attach_ms(CONNECTION_LED_BLINK_INTERVAL_MS, updateConnectionLed);
+}
 
 void startMdnsOnceForConnection() {
   if (mdnsActive || mdnsAttemptedForConnection) return;
@@ -186,6 +205,7 @@ void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
   Serial.println();
+  startConnectionLedHeartbeat();
   WarningOutput::begin();
   const bool appAuthorizedCameraHandoff =
     esp_reset_reason() == ESP_RST_SW && cameraHandoffAuthorization == CAMERA_HANDOFF_MAGIC;

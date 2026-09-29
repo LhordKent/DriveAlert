@@ -10,12 +10,18 @@ import java.time.ZoneId
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import com.google.firebase.firestore.FieldValue
+import kotlinx.coroutines.tasks.await
+
+data class TrustedDriverViewState(val lastViewedAtEpochMillis: Long? = null)
 
 interface SharedStage3Repository {
     fun observeSharedRecords(
         driverUserId: String,
         approvedAtEpochMillis: Long,
     ): Flow<List<Stage3SyncRecord>>
+    fun observeViewState(trustedContactUserId: String, driverUserId: String): Flow<TrustedDriverViewState>
+    suspend fun markViewed(trustedContactUserId: String, driverUserId: String)
 }
 
 class FirestoreSharedStage3Repository(
@@ -48,12 +54,38 @@ class FirestoreSharedStage3Repository(
                             sharingState = SharingState.SHARED,
                             sourceDriverId = driverUserId,
                             receivedAt = document.getTimestamp("uploadedAt")?.toLocalDateTime(zoneId),
+                            eventCount = document.getLong("eventCount")?.toInt()?.coerceAtLeast(1) ?: 1,
                         )
                     }.sortedByDescending { it.occurredAt }
                     trySend(records)
                 }
             }
         awaitClose { registration.remove() }
+    }
+
+    override fun observeViewState(
+        trustedContactUserId: String,
+        driverUserId: String,
+    ): Flow<TrustedDriverViewState> = callbackFlow {
+        val registration = firestore.collection("users").document(trustedContactUserId)
+            .collection("trustedDriverStates").document(driverUserId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) close(error)
+                else trySend(TrustedDriverViewState(snapshot?.getTimestamp("lastViewedAt")?.toDate()?.time))
+            }
+        awaitClose { registration.remove() }
+    }
+
+    override suspend fun markViewed(trustedContactUserId: String, driverUserId: String) {
+        firestore.collection("users").document(trustedContactUserId)
+            .collection("trustedDriverStates").document(driverUserId)
+            .set(
+                mapOf(
+                    "driverUserId" to driverUserId,
+                    "lastViewedAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+            ).await()
     }
 }
 

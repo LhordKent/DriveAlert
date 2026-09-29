@@ -1,4 +1,4 @@
-import type { TrustedContactConnection } from '../models/domain'
+import type { StageSyncRecord, TrustedContactConnection } from '../models/domain'
 
 export function deterministicRelationshipId(driverUserId: string, trustedContactUserId: string): string {
   if (!driverUserId || !trustedContactUserId) throw new Error('Both participant IDs are required.')
@@ -32,4 +32,8 @@ export function signLabel(sign: string): string {
 
 export function recordTypeLabel(type: 'STAGE_3_TRANSITION' | 'STAGE_3_PERSISTENCE'): string {
   return type === 'STAGE_3_TRANSITION' ? 'Entered Stage 3' : 'Continued Stage 3 period'
+}
+
+export function isDelayedRecord(record: StageSyncRecord): boolean {
+  return record.uploadedAt != null && record.uploadedAt.toMillis() - record.periodStartedAt.toMillis() > 5 * 60 * 1000
 }

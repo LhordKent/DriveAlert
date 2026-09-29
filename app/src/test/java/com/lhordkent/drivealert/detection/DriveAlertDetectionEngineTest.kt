@@ -132,6 +132,103 @@ class DriveAlertDetectionEngineTest {
         assertTrue(result.events.isEmpty())
     }
 
+    @Test
+    fun `missing head and obstructed mouth pause every sign`() {
+        val engine = calibratedEngine()
+
+        val result = engine.process(
+            timestampMs = 100,
+            observation = face(100, ear = 0.10, mar = 0.90, pitch = 30.0).copy(
+                facialTransformationMatrix = null,
+            ),
+            regionalVisibility = RegionalVisibility(lowerFaceObstructed = true),
+        )
+
+        assertEquals(TemporalState.UNAVAILABLE, result.eye.state)
+        assertEquals(TemporalState.UNAVAILABLE, result.yawn.state)
+        assertEquals(TemporalState.UNAVAILABLE, result.head.state)
+        assertTrue(result.events.isEmpty())
+    }
+
+    @Test
+    fun `missing head and obstructed eyes pause every sign`() {
+        val engine = calibratedEngine()
+
+        val result = engine.process(
+            timestampMs = 100,
+            observation = face(100, ear = 0.10, mar = 0.90, pitch = 30.0).copy(
+                facialTransformationMatrix = null,
+            ),
+            regionalVisibility = RegionalVisibility(eyeRegionObstructed = true),
+        )
+
+        assertEquals(TemporalState.UNAVAILABLE, result.eye.state)
+        assertEquals(TemporalState.UNAVAILABLE, result.yawn.state)
+        assertEquals(TemporalState.UNAVAILABLE, result.head.state)
+        assertTrue(result.events.isEmpty())
+    }
+
+    @Test
+    fun `eye closure evidence restarts after insufficient visibility`() {
+        val engine = calibratedEngine()
+
+        engine.process(face(0, ear = 0.10, mar = 0.10, pitch = 4.0))
+        engine.process(face(1_000, ear = 0.10, mar = 0.10, pitch = 4.0))
+        engine.process(
+            timestampMs = 1_500,
+            observation = face(1_500, ear = 0.10, mar = 0.10, pitch = 4.0),
+            regionalVisibility = RegionalVisibility(lowerFaceObstructed = true, eyeRegionObstructed = true),
+        )
+
+        assertTrue(engine.process(face(1_600, ear = 0.10, mar = 0.10, pitch = 4.0)).events.isEmpty())
+        assertTrue(engine.process(face(3_500, ear = 0.10, mar = 0.10, pitch = 4.0)).events.isEmpty())
+        assertEquals(
+            SignType.PROLONGED_EYE_CLOSURE,
+            engine.process(face(3_600, ear = 0.10, mar = 0.10, pitch = 4.0)).events.single().type,
+        )
+    }
+
+    @Test
+    fun `yawn evidence restarts after insufficient visibility`() {
+        val engine = calibratedEngine()
+
+        engine.process(face(0, ear = 0.25, mar = 0.90, pitch = 4.0))
+        engine.process(face(1_500, ear = 0.25, mar = 0.90, pitch = 4.0))
+        engine.process(
+            timestampMs = 2_000,
+            observation = face(2_000, ear = 0.25, mar = 0.90, pitch = 4.0),
+            regionalVisibility = RegionalVisibility(lowerFaceObstructed = true, eyeRegionObstructed = true),
+        )
+
+        assertTrue(engine.process(face(2_100, ear = 0.25, mar = 0.90, pitch = 4.0)).events.isEmpty())
+        assertTrue(engine.process(face(5_000, ear = 0.25, mar = 0.90, pitch = 4.0)).events.isEmpty())
+        assertEquals(
+            SignType.YAWNING,
+            engine.process(face(5_100, ear = 0.25, mar = 0.90, pitch = 4.0)).events.single().type,
+        )
+    }
+
+    @Test
+    fun `head pose window restarts after insufficient visibility`() {
+        val engine = calibratedEngine()
+
+        engine.process(face(0, ear = 0.25, mar = 0.10, pitch = 30.0))
+        engine.process(face(1_000, ear = 0.25, mar = 0.10, pitch = 30.0))
+        engine.process(face(2_000, ear = 0.25, mar = 0.10, pitch = 30.0))
+        engine.process(
+            timestampMs = 2_500,
+            observation = face(2_500, ear = 0.25, mar = 0.10, pitch = 30.0),
+            regionalVisibility = RegionalVisibility(lowerFaceObstructed = true, eyeRegionObstructed = true),
+        )
+
+        assertTrue(engine.process(face(2_600, ear = 0.25, mar = 0.10, pitch = 30.0)).events.isEmpty())
+        assertTrue(engine.process(face(5_500, ear = 0.25, mar = 0.10, pitch = 30.0)).events.isEmpty())
+        assertEquals(
+            SignType.HEAD_NODDING,
+            engine.process(face(5_600, ear = 0.25, mar = 0.10, pitch = 30.0)).events.single().type,
+        )
+    }
+
     private fun collect(
         engine: DriveAlertDetectionEngine,
         startMs: Long,

@@ -178,6 +178,21 @@ service cloud.firestore {
         allow read: if isSelf(userId) || (signedIn() && resource.data.driverUserId == userId && approvedConnection());
         allow update, delete: if false;
       }
+
+      match /trustedDriverStates/{driverId} {
+        function validTrustedDriverState() {
+          let data = request.resource.data;
+          return data.keys().hasAll(['driverUserId', 'lastViewedAt', 'updatedAt'])
+            && data.keys().hasOnly(['driverUserId', 'lastViewedAt', 'updatedAt'])
+            && data.driverUserId == driverId
+            && data.driverUserId is string
+            && data.lastViewedAt == request.time
+            && data.updatedAt == request.time;
+        }
+        allow read: if isSelf(userId);
+        allow create, update: if isSelf(userId) && validTrustedDriverState();
+        allow delete: if false;
+      }
     }
 
     match /connectionCodes/{connectionCode} {

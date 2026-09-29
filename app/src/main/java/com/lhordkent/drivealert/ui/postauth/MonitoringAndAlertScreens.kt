@@ -18,10 +18,12 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +35,8 @@ import com.lhordkent.drivealert.detection.model.FaceAttributeResult
 import com.lhordkent.drivealert.detection.model.MonitoringDetectionResult
 import com.lhordkent.drivealert.monitoring.ActiveMonitoringState
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
+import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
+import com.lhordkent.drivealert.monitoring.VisibilityIssue
 import com.lhordkent.drivealert.postauth.AlertEvent
 import com.lhordkent.drivealert.postauth.AlertHistoryInsights
 import com.lhordkent.drivealert.postauth.MonitoringSessionSummary
@@ -61,6 +65,7 @@ fun MonitoringPreviewScreen(
     onExit: () -> Unit,
     detectionResult: MonitoringDetectionResult? = null,
     faceAttributes: FaceAttributeResult? = null,
+    accessoryMode: DriverAccessoryMode = DriverAccessoryMode.NONE,
 ) {
     val presentation = scenario.presentation()
     val activeWarningStage = monitoring.currentStage
@@ -100,6 +105,7 @@ fun MonitoringPreviewScreen(
             }
             KeyValueRow("Confirmed events", monitoring.confirmedEventCount.toString())
             KeyValueRow("Latest event", monitoring.latestSigns.joinToString { it.label }.ifEmpty { "None" })
+            KeyValueRow("Session visibility setup", accessoryMode.label)
         }
         if (activeWarningStage != null) {
             Spacer(Modifier.height(16.dp))
@@ -169,6 +175,37 @@ fun MonitoringPreviewScreen(
         SecondaryButton("Back to Driver Home", onExit)
         Spacer(Modifier.height(16.dp))
     }
+}
+
+@Composable
+fun VisibilityAcknowledgementDialog(
+    issue: VisibilityIssue,
+    onContinueLimited: () -> Unit,
+    onRestoreVisibility: () -> Unit,
+) {
+    val detail = when (issue) {
+        VisibilityIssue.LOWER_FACE_OBSTRUCTED ->
+            "The mouth region is obstructed. Yawning monitoring is unavailable; eye and head monitoring can continue."
+        VisibilityIssue.EYE_REGION_OBSTRUCTED ->
+            "The eye region is obstructed. Eye-closure monitoring is unavailable; yawning and head monitoring can continue."
+        VisibilityIssue.BOTH_REGIONS_OBSTRUCTED ->
+            "The eyes and mouth are obstructed. Monitoring is paused because fewer than two reliable signs remain."
+        VisibilityIssue.FACE_UNAVAILABLE ->
+            "The face is unavailable. Restore camera visibility before relying on monitoring."
+    }
+    AlertDialog(
+        onDismissRequest = onRestoreVisibility,
+        title = { Text("Limited monitoring") },
+        text = {
+            Text(
+                "$detail This acknowledgement lasts only for the current monitoring session.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+            )
+        },
+        confirmButton = { TextButton(onClick = onContinueLimited) { Text("Continue limited") } },
+        dismissButton = { TextButton(onClick = onRestoreVisibility) { Text("Restore visibility") } },
+    )
 }
 
 private fun Double?.metricText(suffix: String = ""): String =
@@ -404,6 +441,7 @@ fun Stage3SyncRecordDetailScreen(record: Stage3SyncRecord, onBack: () -> Unit) {
         SectionTitle("Stage 3 synchronization")
         Spacer(Modifier.height(8.dp))
         KeyValueRow("Record type", record.kind.label)
+        KeyValueRow("Events in period", record.eventCount.toString())
         KeyValueRow("Detected visible sign(s)", record.signs.joinToString { it.label })
         Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Warning Stage", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -414,6 +452,10 @@ fun Stage3SyncRecordDetailScreen(record: Stage3SyncRecord, onBack: () -> Unit) {
         record.receivedAt?.let {
             Spacer(Modifier.height(8.dp))
             Text("Received ${it.format(DateTimeFormatter.ofPattern("MMMM d, yyyy 'at' h:mm a"))}", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            if (java.time.Duration.between(record.occurredAt, it).toMinutes() > 5) {
+                Spacer(Modifier.height(6.dp))
+                StatusPill("Delayed synchronization", StatusTone.INFO)
+            }
         }
         Spacer(Modifier.height(18.dp))
         Text("This record reports a Stage 3 transition or continued Stage 3 period. It is an intervention record, not a diagnosis or measurement of drowsiness severity.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)

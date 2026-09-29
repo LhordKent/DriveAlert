@@ -45,6 +45,7 @@ class PostAuthViewModel(
     private var accountEmail: String = ""
     private var boundDriverUserId: String? = null
     private var boundProfileUserId: String? = null
+    private var boundConnectionUserId: String? = null
     private var localDataJob: Job? = null
     private var profileJob: Job? = null
     private var preferenceJob: Job? = null
@@ -52,6 +53,7 @@ class PostAuthViewModel(
     private var trustedConnectionsJob: Job? = null
     private var syncRecordsJob: Job? = null
     private val sharedRecordJobs = mutableMapOf<String, Job>()
+    private val sharedViewStateJobs = mutableMapOf<String, Job>()
 
     var state by mutableStateOf(initialState)
         private set
@@ -92,30 +94,41 @@ class PostAuthViewModel(
         profileJob?.cancel()
         state = state.copy(isProfileLoading = true)
         profileJob = viewModelScope.launch {
-            runCatching { repository.ensureProfile(userId, displayName, email) }
-                .onFailure {
-                    state = state.copy(profileErrorMessage = "Your connection code is unavailable. Check your internet connection and try again.")
-                }
-            repository.observe(userId)
-                .catch {
-                    state = state.copy(isProfileLoading = false, profileErrorMessage = "Your cloud profile is unavailable. Check your internet connection and try again.")
-                }
-                .collect { profile ->
-                    if (profile != null) {
+            launch {
+                repository.observe(userId)
+                    .catch {
                         state = state.copy(
-                            profileDisplayName = profile.fullName.ifBlank { state.profileDisplayName },
-                            profileFirstName = profile.firstName,
-                            profileMiddleName = profile.middleName.orEmpty(),
-                            profileLastName = profile.lastName,
-                            profilePhoneNumber = profile.phoneNumber.orEmpty(),
-                            userRole = profile.userRole,
-                            activeView = if (profile.userRole == UserRole.TRUSTED_CONTACT) UserView.TRUSTED_CONTACT else UserView.DRIVER,
-                            connectionCode = profile.connectionCode,
                             isProfileLoading = false,
-                            profileErrorMessage = null,
+                            profileErrorMessage = "Your saved profile is unavailable. Connect once, then try again.",
                         )
                     }
-                }
+                    .collect { profile ->
+                        if (profile != null) {
+                            state = state.copy(
+                                profileDisplayName = profile.fullName.ifBlank { state.profileDisplayName },
+                                profileFirstName = profile.firstName,
+                                profileMiddleName = profile.middleName.orEmpty(),
+                                profileLastName = profile.lastName,
+                                profilePhoneNumber = profile.phoneNumber.orEmpty(),
+                                userRole = profile.userRole,
+                                activeView = if (profile.userRole == UserRole.TRUSTED_CONTACT) UserView.TRUSTED_CONTACT else UserView.DRIVER,
+                                connectionCode = profile.connectionCode,
+                                isProfileLoading = false,
+                                profileErrorMessage = null,
+                            )
+                        }
+                    }
+            }
+            launch {
+                runCatching { repository.ensureProfile(userId, displayName, email) }
+                    .onFailure {
+                        if (state.userRole == null) {
+                            state = state.copy(
+                                profileErrorMessage = "Your connection code is unavailable while offline.",
+                            )
+                        }
+                    }
+            }
         }
     }
 
@@ -181,6 +194,7 @@ class PostAuthViewModel(
 
     fun bindConnections(userId: String) {
         val repository = trustedContactRepository ?: return
+        boundConnectionUserId = userId
         driverConnectionsJob?.cancel()
         trustedConnectionsJob?.cancel()
         state = state.copy(driverConnectionsLoading = true, trustedConnectionsLoading = true, cloudConnectionErrorMessage = null)
@@ -207,6 +221,9 @@ class PostAuthViewModel(
         sharedRecordJobs.keys.filterNot(activeDriverIds::contains).forEach { removedId ->
             sharedRecordJobs.remove(removedId)?.cancel()
         }
+        sharedViewStateJobs.keys.filterNot(activeDriverIds::contains).forEach { removedId ->
+            sharedViewStateJobs.remove(removedId)?.cancel()
+        }
         state.connectedDrivers.filterNot { sharedRecordJobs.containsKey(it.id) }.forEach { driver ->
             val driverId = driver.id
             state = state.copy(connectedDrivers = state.connectedDrivers.map {
@@ -225,6 +242,7 @@ class PostAuthViewModel(
                             connectedDrivers = state.connectedDrivers.map { driver ->
                                 if (driver.id == driverId) driver.copy(
                                     sharedRecords = records.map { it.copy(sourceDriverName = driver.name) },
+                                    unreadRecordCount = unreadCount(records, driver.lastViewedAt),
                                     sharedRecordsLoading = false,
                                     sharedRecordsErrorMessage = null,
                                 ) else driver
@@ -232,7 +250,29 @@ class PostAuthViewModel(
                         )
                     }
             }
+            val trustedUserId = boundConnectionUserId ?: return@forEach
+            sharedViewStateJobs[driverId] = viewModelScope.launch {
+                repository.observeViewState(trustedUserId, driverId)
+                    .catch { emit(com.lhordkent.drivealert.data.sync.TrustedDriverViewState()) }
+                    .collect { viewState ->
+                        val lastViewedAt = viewState.lastViewedAtEpochMillis?.let {
+                            Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDateTime()
+                        }
+                        state = state.copy(connectedDrivers = state.connectedDrivers.map { current ->
+                            if (current.id == driverId) current.copy(
+                                lastViewedAt = lastViewedAt,
+                                unreadRecordCount = unreadCount(current.sharedRecords, lastViewedAt),
+                            ) else current
+                        })
+                    }
+            }
         }
+    }
+
+    fun markSharedRecordsViewed(driverUserId: String) {
+        val trustedUserId = boundConnectionUserId ?: return
+        val repository = sharedStage3Repository ?: return
+        viewModelScope.launch { runCatching { repository.markViewed(trustedUserId, driverUserId) } }
     }
 
     fun bindStageSyncRecords(userId: String) {
@@ -483,8 +523,11 @@ class PostAuthViewModel(
         syncRecordsJob = null
         sharedRecordJobs.values.forEach(Job::cancel)
         sharedRecordJobs.clear()
+        sharedViewStateJobs.values.forEach(Job::cancel)
+        sharedViewStateJobs.clear()
         boundDriverUserId = null
         boundProfileUserId = null
+        boundConnectionUserId = null
         accountEmail = ""
         state = if (alertRepository == null) seedState() else PostAuthUiState()
     }
@@ -559,6 +602,14 @@ class PostAuthViewModelFactory(
     }
 }
 
+private fun unreadCount(records: List<Stage3SyncRecord>, lastViewedAt: LocalDateTime?): Int {
+    val viewedMillis = lastViewedAt?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli() ?: Long.MIN_VALUE
+    return records.count { record ->
+        val receivedMillis = record.receivedAt?.atZone(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
+        receivedMillis == null || receivedMillis > viewedMillis
+    }
+}
+
 internal fun PostAuthUiState.withDriverConnections(
     connections: List<TrustedContactConnection>,
 ): PostAuthUiState {
@@ -599,15 +650,18 @@ internal fun PostAuthUiState.withTrustedConnections(
     connections: List<TrustedContactConnection>,
 ): PostAuthUiState {
     val drivers = connections.filter { it.status == ConnectionStatus.APPROVED }.map { connection ->
+        val previous = connectedDrivers.firstOrNull { it.id == connection.driverUserId }
         ConnectedDriver(
             id = connection.driverUserId,
             name = connection.driverName,
             email = connection.driverEmail,
             connectedAt = connection.approvedAtEpochMillis.toLocalDateTimeOrNow(),
-            sharedRecords = connectedDrivers.firstOrNull { it.id == connection.driverUserId }?.sharedRecords.orEmpty(),
+            sharedRecords = previous?.sharedRecords.orEmpty(),
             connectionId = connection.connectionId,
-            sharedRecordsLoading = connectedDrivers.firstOrNull { it.id == connection.driverUserId }?.sharedRecordsLoading ?: true,
-            sharedRecordsErrorMessage = connectedDrivers.firstOrNull { it.id == connection.driverUserId }?.sharedRecordsErrorMessage,
+            sharedRecordsLoading = previous?.sharedRecordsLoading ?: true,
+            sharedRecordsErrorMessage = previous?.sharedRecordsErrorMessage,
+            lastViewedAt = previous?.lastViewedAt,
+            unreadRecordCount = previous?.unreadRecordCount ?: 0,
         )
     }
     val pending = connections.filter { it.status == ConnectionStatus.PENDING }

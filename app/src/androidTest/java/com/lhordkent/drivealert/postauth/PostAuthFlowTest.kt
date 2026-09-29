@@ -124,6 +124,7 @@ class PostAuthFlowTest {
         var startCount = 0
         var stopCount = 0
         var activityCount = 0
+        var accessoryMode = com.lhordkent.drivealert.monitoring.DriverAccessoryMode.NONE
         val active = mutableStateOf(false)
         val calibration = CalibrationResult(
             calibrationId = "test", schemaVersion = 3, calibratedAtTimestampMs = 1,
@@ -140,7 +141,7 @@ class PostAuthFlowTest {
                         activeCalibration = calibration,
                         monitoring = ActiveMonitoringState(isActive = active.value),
                     ),
-                    onStartMonitoring = { startCount++; active.value = true },
+                    onStartMonitoring = { selected -> accessoryMode = selected; startCount++; active.value = true },
                     onStopMonitoring = { stopCount++; active.value = false },
                     onOpenMonitoringActivity = { activityCount++ },
                     onSetupDevice = {},
@@ -150,6 +151,8 @@ class PostAuthFlowTest {
         }
 
         composeRule.onNodeWithText("Start Monitoring").performClick()
+        composeRule.onNodeWithText("Face mask").performClick()
+        composeRule.onNodeWithText("Start monitoring").performClick()
         composeRule.onNodeWithText("Stop Monitoring").assertIsDisplayed()
         composeRule.onNodeWithText("Monitoring Activity").performClick()
         composeRule.onNodeWithText("Stop Monitoring").performClick()
@@ -157,6 +160,7 @@ class PostAuthFlowTest {
             assertEquals(1, startCount)
             assertEquals(1, activityCount)
             assertEquals(1, stopCount)
+            assertEquals(com.lhordkent.drivealert.monitoring.DriverAccessoryMode.MASK, accessoryMode)
         }
     }
 

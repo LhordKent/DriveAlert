@@ -15,6 +15,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        val notificationWorkerUrl = providers.gradleProperty("DRIVEALERT_NOTIFICATION_WORKER_URL")
+            .orElse("")
+            .get()
+        buildConfigField("String", "NOTIFICATION_WORKER_URL", "\"${notificationWorkerUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -65,6 +69,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.messaging)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation("com.google.mediapipe:tasks-vision:1.0.0")
     implementation(libs.tensorflow.lite)

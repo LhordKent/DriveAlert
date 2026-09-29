@@ -46,6 +46,7 @@ import com.lhordkent.drivealert.ui.theme.TextMuted
 import com.lhordkent.drivealert.ui.theme.TextPrimary
 import com.lhordkent.drivealert.ui.theme.TextSecondary
 import java.time.format.DateTimeFormatter
+import java.time.Duration
 
 @Composable
 fun DriverContactsScreen(
@@ -157,6 +158,10 @@ fun TrustedDriversScreen(
                     Text(driver.email, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
                 StatusPill(if (driver.sharedRecordsLoading) "Loading…" else "${driver.sharedRecords.size} shared", StatusTone.INFO)
+                if (driver.unreadRecordCount > 0) {
+                    Spacer(Modifier.height(4.dp))
+                    StatusPill("${driver.unreadRecordCount} new", StatusTone.WARNING)
+                }
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -391,6 +396,7 @@ fun SharedRecordsScreen(
         Spacer(Modifier.height(18.dp))
         GroupSurface {
             KeyValueRow("Received records", driver.sharedRecords.size.toString())
+            KeyValueRow("Unread records", driver.unreadRecordCount.toString())
             KeyValueRow("Latest received", driver.sharedRecords.maxByOrNull { it.receivedAt ?: it.occurredAt }?.receivedAt?.format(DateTimeFormatter.ofPattern("MMM d, h:mm a")) ?: "None")
         }
         Spacer(Modifier.height(22.dp))
@@ -401,7 +407,7 @@ fun SharedRecordsScreen(
             LoadingMessage("Loading shared records…")
         } else if (driver.sharedRecords.isEmpty() && driver.sharedRecordsErrorMessage == null) {
             EmptyState("No shared records", "Future eligible Stage 3 transition or persistence records will appear after they are received.")
-        } else driver.sharedRecords.sortedByDescending { it.occurredAt }.forEach { record ->
+        } else driver.sharedRecords.sortedByDescending { it.receivedAt ?: it.occurredAt }.forEach { record ->
             Stage3SyncRecordRow(record, onClick = { onEventSelected(record.id) })
             HorizontalDivider(color = Border)
         }
@@ -415,11 +421,23 @@ private fun Stage3SyncRecordRow(record: Stage3SyncRecord, onClick: () -> Unit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(record.kind.label, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                Text(record.occurredAt.format(DateTimeFormatter.ofPattern("MMM d, h:mm a")), style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                Text("Warning ${record.occurredAt.format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                record.receivedAt?.let { received ->
+                    Text("Received ${received.format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                }
             }
-            SharingPill(record.sharingState)
+            Column(horizontalAlignment = Alignment.End) {
+                SharingPill(record.sharingState)
+                if (record.isDelayedSynchronization()) {
+                    Spacer(Modifier.height(4.dp))
+                    StatusPill("Delayed sync", StatusTone.INFO)
+                }
+            }
         }
         Spacer(Modifier.height(7.dp))
-        Text(record.signs.joinToString { it.label }, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text("${record.eventCount} event${if (record.eventCount == 1) "" else "s"} · ${record.signs.joinToString { it.label }}", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
     }
 }
+
+private fun Stage3SyncRecord.isDelayedSynchronization(): Boolean =
+    receivedAt?.let { Duration.between(occurredAt, it).toMinutes() > 5 } == true

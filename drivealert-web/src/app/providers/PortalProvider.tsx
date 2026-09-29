@@ -4,6 +4,7 @@ import { useAuth } from './authContext'
 import { profileRepository } from '../../repositories/profileRepository'
 import { connectionRepository } from '../../repositories/connectionRepository'
 import { stageRecordRepository } from '../../repositories/stageRecordRepository'
+import { trustedDriverStateRepository } from '../../repositories/trustedDriverStateRepository'
 import { requestDirection } from '../../lib/domain'
 import {
   type DriverRecordState,
@@ -24,6 +25,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const [connectionsError, setConnectionsError] = useState<PortalError | null>(null)
   const [recordsByDriver, setRecordsByDriver] = useState<Record<string, DriverRecordState>>({})
   const recordSubscriptions = useRef(new Map<string, { approvedAtMillis: number; unsubscribe: Unsubscribe }>())
+  const viewStateSubscriptions = useRef(new Map<string, Unsubscribe>())
 
   const refreshProfile = useCallback(() => setProfileVersion((value) => value + 1), [])
 
@@ -71,6 +73,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
   const approvedDrivers = useMemo(() => connections.filter((connection) => connection.status === 'APPROVED'), [connections])
 
+  const withUnread = useCallback((state: DriverRecordState): DriverRecordState => ({
+    ...state,
+    unreadCount: state.records.filter((record) => {
+      const receivedAt = record.uploadedAt
+      return receivedAt != null && (state.lastViewedAt == null || receivedAt.toMillis() > state.lastViewedAt.toMillis())
+    }).length,
+  }), [])
+
   useEffect(() => {
     const active = new Set(approvedDrivers.map((connection) => connection.driverUserId))
     recordSubscriptions.current.forEach((subscription, driverId) => {
@@ -82,6 +92,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           delete next[driverId]
           return next
         })
+        viewStateSubscriptions.current.get(driverId)?.()
+        viewStateSubscriptions.current.delete(driverId)
       }
     })
 
@@ -93,28 +105,51 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       currentSubscription?.unsubscribe()
       setRecordsByDriver((current) => ({
         ...current,
-        [driverId]: { status: 'loading', records: [], error: null },
+        [driverId]: { status: 'loading', records: [], error: null, lastViewedAt: current[driverId]?.lastViewedAt ?? null, unreadCount: 0 },
       }))
       const unsubscribe = stageRecordRepository.observeForDriver(
         driverId,
         approvedAtMillis,
-        (records) => setRecordsByDriver((current) => ({
-          ...current,
-          [driverId]: { status: 'ready', records, error: null },
-        })),
+        (records) => setRecordsByDriver((current) => {
+          const prior = current[driverId]
+          return {
+            ...current,
+            [driverId]: withUnread({ status: 'ready', records, error: null, lastViewedAt: prior?.lastViewedAt ?? null, unreadCount: 0 }),
+          }
+        }),
         (error) => setRecordsByDriver((current) => ({
           ...current,
-          [driverId]: { status: 'error', records: current[driverId]?.records ?? [], error },
+          [driverId]: { status: 'error', records: current[driverId]?.records ?? [], error, lastViewedAt: current[driverId]?.lastViewedAt ?? null, unreadCount: current[driverId]?.unreadCount ?? 0 },
         })),
       )
       recordSubscriptions.current.set(driverId, { approvedAtMillis, unsubscribe })
+      viewStateSubscriptions.current.get(driverId)?.()
+      if (user) {
+        viewStateSubscriptions.current.set(driverId, trustedDriverStateRepository.observe(
+          user.uid,
+          driverId,
+          (lastViewedAt) => setRecordsByDriver((current) => {
+            const prior = current[driverId]
+            if (!prior) return current
+            return { ...current, [driverId]: withUnread({ ...prior, lastViewedAt }) }
+          }),
+          () => undefined,
+        ))
+      }
     })
-  }, [approvedDrivers])
+  }, [approvedDrivers, user, withUnread])
 
   useEffect(() => () => {
     recordSubscriptions.current.forEach(({ unsubscribe }) => unsubscribe())
     recordSubscriptions.current.clear()
+    viewStateSubscriptions.current.forEach((unsubscribe) => unsubscribe())
+    viewStateSubscriptions.current.clear()
   }, [])
+
+  const markDriverViewed = useCallback(async (driverUid: string) => {
+    if (!user) return
+    await trustedDriverStateRepository.markViewed(user.uid, driverUid)
+  }, [user])
 
   const requests = useMemo(() => connections
     .filter((connection) => connection.status === 'PENDING')
@@ -131,8 +166,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     incomingRequests: requests.filter((request) => request.direction === 'INCOMING'),
     outgoingRequests: requests.filter((request) => request.direction === 'OUTGOING'),
     recordsByDriver,
+    markDriverViewed,
     refreshProfile,
-  }), [profile, profileStatus, profileError, connections, connectionsStatus, connectionsError, approvedDrivers, requests, recordsByDriver, refreshProfile])
+  }), [profile, profileStatus, profileError, connections, connectionsStatus, connectionsError, approvedDrivers, requests, recordsByDriver, markDriverViewed, refreshProfile])
 
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>
 }

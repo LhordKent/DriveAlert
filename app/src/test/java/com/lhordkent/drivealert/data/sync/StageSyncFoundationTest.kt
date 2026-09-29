@@ -126,6 +126,29 @@ class StageSyncFoundationTest {
         assertEquals(StageSyncStatus.NOT_QUEUED, stored?.syncStatus)
         assertTrue(remote.uploaded.isEmpty())
     }
+
+    @Test
+    fun `processor drains more than three batches without leaving later records stuck`() = runTest {
+        val dao = FakeStageSyncRecordDao()
+        repeat(65) { index ->
+            val value = record("sync-${index + 1}")
+            dao.seed(value)
+        }
+        val remote = FakeRemote(eligible = true)
+
+        assertTrue(StageSyncProcessor(dao, remote, clock = { 10_000L }).synchronize("driver-a"))
+        assertEquals(65, remote.uploaded.size)
+        assertEquals(65, remote.uploaded.distinct().size)
+    }
+
+    @Test
+    fun `sixty five record notification group becomes four stable chunks`() {
+        val chunks = buildNotificationDispatchChunks("group-a", (1..65).map { "sync-$it" })
+
+        assertEquals(listOf(20, 20, 20, 5), chunks.map { it.recordIds.size })
+        assertTrue(chunks.all { it.dispatchGroupId == "group-a" && it.chunkCount == 4 })
+        assertEquals(listOf(0, 1, 2, 3), chunks.map { it.chunkIndex })
+    }
 }
 
 private class FakeScheduler : StageSyncScheduler {
@@ -159,6 +182,11 @@ private class FakeStageSyncRecordDao(initial: StageSyncRecordWithSigns? = null) 
         }
     }
 
+    suspend fun seed(value: StageSyncRecordWithSigns) {
+        insertEntity(value.record)
+        insertSigns(value.signs)
+    }
+
     override suspend fun insertEntity(record: StageSyncRecordEntity) {
         records[record.stageSyncRecordId] = record
         publish()
@@ -183,6 +211,14 @@ private class FakeStageSyncRecordDao(initial: StageSyncRecordWithSigns? = null) 
         .filter { it.driverUserId == driverUserId && it.eligibility == StageSyncEligibility.PENDING_EVALUATION }
         .take(limit)
         .map(::withSigns)
+
+    override suspend fun awaitingEvaluationCount(driverUserId: String): Int = records.values.count {
+        it.driverUserId == driverUserId && it.eligibility == StageSyncEligibility.PENDING_EVALUATION
+    }
+
+    override suspend fun readyCount(driverUserId: String): Int = records.values.count {
+        it.driverUserId == driverUserId && it.syncStatus in setOf(StageSyncStatus.PENDING, StageSyncStatus.FAILED)
+    }
 
     override suspend fun updateEligibility(
         driverUserId: String,
@@ -234,9 +270,9 @@ private class FakeStageSyncRecordDao(initial: StageSyncRecordWithSigns? = null) 
     private fun publish() { state.value = records.values.map(::withSigns) }
 }
 
-private fun record() = StageSyncRecordWithSigns(
+private fun record(id: String = "sync-1") = StageSyncRecordWithSigns(
     record = StageSyncRecordEntity(
-        stageSyncRecordId = "sync-1",
+        stageSyncRecordId = id,
         sessionId = "session-1",
         driverUserId = "driver-a",
         recordType = StageSyncRecordType.STAGE3_TRANSITION,
@@ -250,8 +286,8 @@ private fun record() = StageSyncRecordWithSigns(
         syncedAtEpochMillis = null,
         syncErrorCode = null,
         syncErrorMessage = null,
-        firestoreDocumentId = "sync-1",
+        firestoreDocumentId = id,
         createdAtEpochMillis = 5_000L,
     ),
-    signs = listOf(StageSyncRecordSignEntity("sync-1", StoredVisibleSign.YAWNING)),
+    signs = listOf(StageSyncRecordSignEntity(id, StoredVisibleSign.YAWNING)),
 )

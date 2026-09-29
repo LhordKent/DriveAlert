@@ -380,4 +380,29 @@ describe("DriveAlert Firestore connection codes", () => {
       stage3Data(driver, "forged-by-trusted", { periodStartedAt: new Date(approvedAt + 2000) }),
     ));
   });
+
+  it("allows only the owner to read and update a trusted Driver view state with server timestamps", async () => {
+    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
+    const other = await createClient("Other", "DA456789ABCDEFGHJKLMNPQRSTUV");
+    apps.push(trusted.app, other.app);
+    const driverId = "driver-1";
+    const ownerRef = doc(trusted.firestore, "users", trusted.uid, "trustedDriverStates", driverId);
+    await setDoc(ownerRef, {
+      driverUserId: driverId,
+      lastViewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    assert.equal((await getDoc(ownerRef)).data().driverUserId, driverId);
+    await assert.rejects(getDoc(doc(other.firestore, "users", trusted.uid, "trustedDriverStates", driverId)));
+    await assert.rejects(setDoc(doc(other.firestore, "users", trusted.uid, "trustedDriverStates", driverId), {
+      driverUserId: driverId,
+      lastViewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+    await assert.rejects(setDoc(doc(trusted.firestore, "users", trusted.uid, "trustedDriverStates", "driver-2"), {
+      driverUserId: "spoofed-driver",
+      lastViewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }));
+  });
 });

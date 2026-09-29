@@ -12,6 +12,7 @@ import com.lhordkent.drivealert.data.local.dao.CalibrationDao
 import com.lhordkent.drivealert.data.local.dao.DriverPreferenceDao
 import com.lhordkent.drivealert.data.local.dao.MonitoringSessionDao
 import com.lhordkent.drivealert.data.local.dao.StageSyncRecordDao
+import com.lhordkent.drivealert.data.local.dao.StageNotificationGroupDao
 import com.lhordkent.drivealert.data.local.dao.TrustedContactConnectionProjectionDao
 import com.lhordkent.drivealert.data.local.dao.ProvisionedDeviceDao
 import com.lhordkent.drivealert.data.local.entity.AlertEntity
@@ -21,6 +22,8 @@ import com.lhordkent.drivealert.data.local.entity.DriverPreferenceEntity
 import com.lhordkent.drivealert.data.local.entity.MonitoringSessionEntity
 import com.lhordkent.drivealert.data.local.entity.StageSyncRecordEntity
 import com.lhordkent.drivealert.data.local.entity.StageSyncRecordSignEntity
+import com.lhordkent.drivealert.data.local.entity.StageNotificationGroupEntity
+import com.lhordkent.drivealert.data.local.entity.StageNotificationGroupRecordEntity
 import com.lhordkent.drivealert.data.local.entity.TrustedContactConnectionProjectionEntity
 import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
 
@@ -35,8 +38,10 @@ import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
         StageSyncRecordSignEntity::class,
         TrustedContactConnectionProjectionEntity::class,
         ProvisionedDeviceEntity::class,
+        StageNotificationGroupEntity::class,
+        StageNotificationGroupRecordEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(DriveAlertTypeConverters::class)
@@ -46,6 +51,7 @@ abstract class DriveAlertDatabase : RoomDatabase() {
     abstract fun calibrationDao(): CalibrationDao
     abstract fun driverPreferenceDao(): DriverPreferenceDao
     abstract fun stageSyncRecordDao(): StageSyncRecordDao
+    abstract fun stageNotificationGroupDao(): StageNotificationGroupDao
     abstract fun trustedContactConnectionProjectionDao(): TrustedContactConnectionProjectionDao
     abstract fun provisionedDeviceDao(): ProvisionedDeviceDao
 
@@ -59,7 +65,7 @@ abstract class DriveAlertDatabase : RoomDatabase() {
                 context.applicationContext,
                 DriveAlertDatabase::class.java,
                 DATABASE_NAME,
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
         }
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -92,6 +98,35 @@ abstract class DriveAlertDatabase : RoomDatabase() {
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE driver_preferences ADD COLUMN warningAlertsEnabled INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS stage_notification_groups (
+                    dispatchGroupId TEXT NOT NULL,
+                    driverUserId TEXT NOT NULL,
+                    status TEXT NOT NULL,
+	                    expectedRecordCount INTEGER NOT NULL,
+	                    expectedChunkCount INTEGER NOT NULL,
+                    attemptCount INTEGER NOT NULL,
+                    lastAttemptAtEpochMillis INTEGER,
+                    lastErrorCode TEXT,
+                    createdAtEpochMillis INTEGER NOT NULL,
+                    completedAtEpochMillis INTEGER,
+                    PRIMARY KEY(dispatchGroupId)
+                )""".trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stage_notification_groups_driverUserId ON stage_notification_groups(driverUserId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stage_notification_groups_driverUserId_status ON stage_notification_groups(driverUserId, status)")
+                db.execSQL("""CREATE TABLE IF NOT EXISTS stage_notification_group_records (
+                    dispatchGroupId TEXT NOT NULL,
+                    stageSyncRecordId TEXT NOT NULL,
+                    ordinal INTEGER NOT NULL,
+                    PRIMARY KEY(dispatchGroupId, stageSyncRecordId),
+                    FOREIGN KEY(dispatchGroupId) REFERENCES stage_notification_groups(dispatchGroupId) ON UPDATE NO ACTION ON DELETE CASCADE
+                )""".trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stage_notification_group_records_dispatchGroupId ON stage_notification_group_records(dispatchGroupId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stage_notification_group_records_stageSyncRecordId ON stage_notification_group_records(stageSyncRecordId)")
             }
         }
     }

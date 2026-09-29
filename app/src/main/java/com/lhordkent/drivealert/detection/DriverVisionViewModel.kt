@@ -37,6 +37,8 @@ import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.monitoring.WarningOutputGateway
 import com.lhordkent.drivealert.monitoring.VisibilityAlertController
 import com.lhordkent.drivealert.monitoring.VisibilityAlertEffect
+import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
+import com.lhordkent.drivealert.monitoring.declaredIssue
 import com.lhordkent.drivealert.monitoring.VisibilityIssue
 import com.lhordkent.drivealert.monitoring.VisibilityOutputCommand
 import com.lhordkent.drivealert.monitoring.VisibilityOutputGateway
@@ -76,6 +78,9 @@ data class DriverVisionUiState(
     val activeCalibration: CalibrationResult? = null,
     val disconnectInProgress: Boolean = false,
     val monitoring: ActiveMonitoringState = ActiveMonitoringState(),
+    val accessoryMode: DriverAccessoryMode = DriverAccessoryMode.NONE,
+    val visibilityIssue: VisibilityIssue? = null,
+    val visibilityAcknowledgementRequired: VisibilityIssue? = null,
     val debugWarningDelivery: WarningDeliveryStatus? = null,
     val errorMessage: String? = null,
 )
@@ -114,10 +119,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
             val result = engine.process(
                 timestamp,
                 observation,
-                RegionalVisibility(
-                    lowerFaceObstructed = faceAttributes.lowerFaceObstructed == true,
-                    eyeRegionObstructed = faceAttributes.eyeRegionObstructed == true,
-                ),
+                effectiveRegionalVisibility(faceAttributes),
             )
             viewModelScope.launch { acceptDetection(result, faceAttributes) }
         },
@@ -159,6 +161,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
     private var monitoringSound: WarningSound = WarningSound.DIGITAL_BEEP
     private var monitoringVolume: PreferredVolume = PreferredVolume.MEDIUM
     private var monitoringNotificationsEnabled: Boolean = true
+    private var monitoringAccessoryMode: DriverAccessoryMode = DriverAccessoryMode.NONE
     private var highestPersistedStage: WarningStage? = null
     private var activeAlertId: String? = null
 
@@ -295,6 +298,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         sound: WarningSound = WarningSound.DIGITAL_BEEP,
         volume: PreferredVolume = PreferredVolume.MEDIUM,
         notificationsEnabled: Boolean = true,
+        accessoryMode: DriverAccessoryMode = DriverAccessoryMode.NONE,
     ) {
         if (monitoringController.state.isActive || monitoringStarting) return
         val driverId = boundDriverId ?: return
@@ -305,6 +309,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         monitoringSound = sound
         monitoringVolume = volume
         monitoringNotificationsEnabled = notificationsEnabled
+        monitoringAccessoryMode = accessoryMode
         monitoringStartJob = viewModelScope.launch {
             try {
                 val startedAtEpoch = wallClock()
@@ -317,12 +322,19 @@ class DriverVisionViewModel @JvmOverloads constructor(
                     ),
                 )
                 monitoringController.start(sessionId)
-                visibilityAlertController.reset()
+                visibilityAlertController.beginSession(accessoryMode)
                 visibilityNotificationCoordinator.clear()
                 sessionStartedAtElapsedMs = monitoringController.state.startedAtElapsedMs
                 sessionStartedAtEpochMillis = startedAtEpoch
                 highestPersistedStage = null
                 activeAlertId = null
+                mutableState.update {
+                    it.copy(
+                        accessoryMode = accessoryMode,
+                        visibilityIssue = accessoryMode.declaredIssue(),
+                        visibilityAcknowledgementRequired = null,
+                    )
+                }
                 publishMonitoringState()
                 monitoringJob?.cancel()
                 monitoringJob = viewModelScope.launch {
@@ -355,6 +367,14 @@ class DriverVisionViewModel @JvmOverloads constructor(
         monitoringController.stop()
         visibilityAlertController.reset()
         visibilityNotificationCoordinator.clear()
+        monitoringAccessoryMode = DriverAccessoryMode.NONE
+        mutableState.update {
+            it.copy(
+                accessoryMode = DriverAccessoryMode.NONE,
+                visibilityIssue = null,
+                visibilityAcknowledgementRequired = null,
+            )
+        }
         publishMonitoringState()
         sessionStartedAtElapsedMs = null
         sessionStartedAtEpochMillis = null
@@ -442,6 +462,17 @@ class DriverVisionViewModel @JvmOverloads constructor(
         faceAttributes: FaceAttributeResult,
     ) {
         val calibrationCompleted = mutableState.value.calibrationInProgress && result.calibration.status == CalibrationStatus.COMPLETE
+        val regionalVisibility = effectiveRegionalVisibility(faceAttributes)
+        val visibilityIssue = if (monitoringController.state.isActive) {
+            when {
+                !result.faceDetected -> VisibilityIssue.FACE_UNAVAILABLE
+                regionalVisibility.lowerFaceObstructed && regionalVisibility.eyeRegionObstructed ->
+                    VisibilityIssue.BOTH_REGIONS_OBSTRUCTED
+                regionalVisibility.eyeRegionObstructed -> VisibilityIssue.EYE_REGION_OBSTRUCTED
+                regionalVisibility.lowerFaceObstructed -> VisibilityIssue.LOWER_FACE_OBSTRUCTED
+                else -> null
+            }
+        } else null
         mutableState.update {
             it.copy(
                 faceDetected = result.faceDetected,
@@ -450,6 +481,10 @@ class DriverVisionViewModel @JvmOverloads constructor(
                 calibrationProgress = if (it.calibrationInProgress) result.calibration else it.calibrationProgress,
                 calibrationInProgress = if (calibrationCompleted) false else it.calibrationInProgress,
                 activeCalibration = result.activeCalibration ?: it.activeCalibration,
+                visibilityIssue = visibilityIssue,
+                visibilityAcknowledgementRequired = it.visibilityAcknowledgementRequired?.takeIf { pending ->
+                    pending == visibilityIssue
+                },
             )
         }
         val calibration = result.activeCalibration ?: return
@@ -463,18 +498,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
             handleVisibilityEffects(
                 visibilityAlertController.update(
                     timestampMs = result.timestampMs,
-                    issue = when {
-                        !result.faceDetected -> VisibilityIssue.FACE_UNAVAILABLE
-                        faceAttributes.probabilities?.let { probabilities ->
-                            probabilities.mask >= REGIONAL_ALERT_THRESHOLD &&
-                                probabilities.sunglasses >= REGIONAL_ALERT_THRESHOLD
-                        } == true -> VisibilityIssue.BOTH_REGIONS_OBSTRUCTED
-                        faceAttributes.probabilities?.sunglasses?.let { it >= REGIONAL_ALERT_THRESHOLD } == true ->
-                            VisibilityIssue.EYE_REGION_OBSTRUCTED
-                        faceAttributes.probabilities?.mask?.let { it >= REGIONAL_ALERT_THRESHOLD } == true ->
-                            VisibilityIssue.LOWER_FACE_OBSTRUCTED
-                        else -> null
-                    },
+                    issue = visibilityIssue,
                 ),
             )
             val effects = monitoringController.accept(result.events, result.currentlyConfirmedSigns())
@@ -488,6 +512,9 @@ class DriverVisionViewModel @JvmOverloads constructor(
         effects.forEach { effect ->
             when (effect) {
                 is VisibilityAlertEffect.Notify -> {
+                    if (effect.issue != VisibilityIssue.FACE_UNAVAILABLE) {
+                        mutableState.update { it.copy(visibilityAcknowledgementRequired = effect.issue) }
+                    }
                     visibilityOutputGateway.activateSafely(
                         VisibilityOutputCommand(effect.issue, monitoringVolume),
                     )
@@ -496,10 +523,31 @@ class DriverVisionViewModel @JvmOverloads constructor(
                         enabled = monitoringNotificationsEnabled,
                     )
                 }
-                VisibilityAlertEffect.Clear -> visibilityNotificationCoordinator.clear()
+                VisibilityAlertEffect.Clear -> {
+                    visibilityNotificationCoordinator.clear()
+                    mutableState.update { it.copy(visibilityAcknowledgementRequired = null) }
+                }
             }
         }
     }
+
+    fun continueWithDegradedMonitoring() {
+        val issue = mutableState.value.visibilityAcknowledgementRequired ?: return
+        visibilityAlertController.acknowledge(issue)
+        visibilityNotificationCoordinator.clear()
+        mutableState.update { it.copy(visibilityAcknowledgementRequired = null) }
+    }
+
+    fun dismissVisibilityAcknowledgement() {
+        mutableState.update { it.copy(visibilityAcknowledgementRequired = null) }
+    }
+
+    private fun effectiveRegionalVisibility(faceAttributes: FaceAttributeResult): RegionalVisibility = RegionalVisibility(
+        lowerFaceObstructed = monitoringController.state.isActive && monitoringAccessoryMode.declaresLowerFaceObstruction ||
+            faceAttributes.lowerFaceObstructed == true,
+        eyeRegionObstructed = monitoringController.state.isActive && monitoringAccessoryMode.declaresEyeRegionObstruction ||
+            faceAttributes.eyeRegionObstructed == true,
+    )
 
     private suspend fun handleMonitoringEffects(
         effects: List<MonitoringEffect>,
@@ -625,7 +673,6 @@ class DriverVisionViewModel @JvmOverloads constructor(
     companion object {
         private const val INFERENCE_INTERVAL_MS = 100L
         private const val MONITORING_TICK_MS = 250L
-        private const val REGIONAL_ALERT_THRESHOLD = 0.80f
     }
 }
 

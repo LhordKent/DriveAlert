@@ -1,0 +1,13 @@
+name = "drivealert-notifications"
+main = "src/index.ts"
+compatibility_date = "2026-09-29"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "drivealert-notifications"
+database_id = "a9c9d81c-6fe3-429a-bdea-59417369d411"
+migrations_dir = "migrations"
+
+[vars]
+FIREBASE_PROJECT_ID = "drivealert-lhordkent"

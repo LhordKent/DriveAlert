@@ -37,6 +37,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.lhordkent.drivealert.R
 import com.lhordkent.drivealert.DriveAlertApplication
 import com.lhordkent.drivealert.auth.AuthCallbacks
@@ -52,6 +53,7 @@ import com.lhordkent.drivealert.detection.model.MonitoringDetectionResult
 import com.lhordkent.drivealert.detection.model.TemporalState
 import com.lhordkent.drivealert.postauth.MonitoringScenario
 import com.lhordkent.drivealert.provisioning.ProvisioningStage
+import com.lhordkent.drivealert.notification.TrustedContactDeviceRegistrationWorker
 import com.lhordkent.drivealert.provisioning.WifiProvisioningViewModel
 import com.lhordkent.drivealert.postauth.PostAuthUiState
 import com.lhordkent.drivealert.postauth.PostAuthViewModel
@@ -75,6 +77,8 @@ import com.lhordkent.drivealert.ui.postauth.DriverContactsScreen
 import com.lhordkent.drivealert.ui.postauth.DriverHomeScreen
 import com.lhordkent.drivealert.ui.postauth.InviteConnectionScreen
 import com.lhordkent.drivealert.ui.postauth.MonitoringPreviewScreen
+import com.lhordkent.drivealert.ui.postauth.VisibilityAcknowledgementDialog
+import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
 import com.lhordkent.drivealert.ui.postauth.NotificationSettingsScreen
 import com.lhordkent.drivealert.ui.postauth.PostAuthScaffold
 import com.lhordkent.drivealert.ui.postauth.RequestsScreen
@@ -141,7 +145,10 @@ fun DriveAlertApp() {
         ) notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
     val authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModelFactory(application.container.userProfileRepository),
+        factory = AuthViewModelFactory(
+            application.container.userProfileRepository,
+            application.container.trustedContactDeviceRegistrar,
+        ),
     )
     val postAuthViewModel: PostAuthViewModel = viewModel(
         factory = PostAuthViewModelFactory(
@@ -159,6 +166,9 @@ fun DriveAlertApp() {
     val visionState by visionViewModel.state.collectAsState()
     val provisioningState by provisioningViewModel.state.collectAsState()
     LaunchedEffect(authViewModel.sessionState.user?.uid) {
+        if (authViewModel.sessionState.user != null) {
+            TrustedContactDeviceRegistrationWorker.schedule(application)
+        }
         authViewModel.sessionState.user?.uid?.let(postAuthViewModel::bindLocalData)
         authViewModel.sessionState.user?.let { user ->
             postAuthViewModel.bindCloudProfile(user.uid, user.displayName, user.email)
@@ -168,6 +178,11 @@ fun DriveAlertApp() {
         authViewModel.sessionState.user?.uid?.let(postAuthViewModel::bindStageSyncRecords)
         provisioningViewModel.bindDriver(authViewModel.sessionState.user?.uid)
         visionViewModel.bindDriver(authViewModel.sessionState.user?.uid)
+    }
+    LaunchedEffect(authViewModel.sessionState.user?.uid, postAuthViewModel.state.userRole) {
+        if (authViewModel.sessionState.user != null &&
+            postAuthViewModel.state.userRole in setOf(UserRole.TRUSTED_CONTACT, UserRole.BOTH)
+        ) requestNotificationPermission()
     }
     LaunchedEffect(provisioningState.stage) {
         if (provisioningState.stage == ProvisioningStage.PROVISIONED) visionViewModel.startVision()
@@ -186,10 +201,12 @@ fun DriveAlertApp() {
         onBeginCalibrationPhase = visionViewModel::beginCalibrationPhase,
         onRepeatCalibrationPhase = visionViewModel::repeatCalibrationPhase,
         onCancelCalibration = visionViewModel::cancelCalibration,
-        onStartMonitoring = { sound, volume, notificationsEnabled ->
+        onStartMonitoring = { sound, volume, notificationsEnabled, accessoryMode ->
             if (notificationsEnabled) requestNotificationPermission()
-            visionViewModel.startMonitoring(sound, volume, notificationsEnabled)
+            visionViewModel.startMonitoring(sound, volume, notificationsEnabled, accessoryMode)
         },
+        onContinueDegradedMonitoring = visionViewModel::continueWithDegradedMonitoring,
+        onDismissVisibilityAcknowledgement = visionViewModel::dismissVisibilityAcknowledgement,
         onTestWarning = visionViewModel::testWarningOutput,
         onStopMonitoring = { visionViewModel.stopMonitoring() },
         onDisconnectDevice = {
@@ -220,6 +237,7 @@ fun DriveAlertApp() {
         onCancelTrustedOutgoingRequest = postAuthViewModel::cancelTrustedOutgoingRequest,
         onRevokeDriverContact = postAuthViewModel::revokeDriverContact,
         onDisconnectDriver = postAuthViewModel::disconnectDriver,
+        onMarkSharedRecordsViewed = postAuthViewModel::markSharedRecordsViewed,
         onWarningSoundChange = postAuthViewModel::selectWarningSound,
         onVolumeChange = postAuthViewModel::selectPreferredVolume,
         onNotificationsChange = postAuthViewModel::updateNotifications,
@@ -243,7 +261,9 @@ fun DriveAlertApp(
     onBeginCalibrationPhase: () -> Unit = {},
     onRepeatCalibrationPhase: () -> Unit = {},
     onCancelCalibration: () -> Unit = {},
-    onStartMonitoring: (com.lhordkent.drivealert.postauth.WarningSound, com.lhordkent.drivealert.postauth.PreferredVolume, Boolean) -> Unit = { _, _, _ -> },
+    onStartMonitoring: (com.lhordkent.drivealert.postauth.WarningSound, com.lhordkent.drivealert.postauth.PreferredVolume, Boolean, DriverAccessoryMode) -> Unit = { _, _, _, _ -> },
+    onContinueDegradedMonitoring: () -> Unit = {},
+    onDismissVisibilityAcknowledgement: () -> Unit = {},
     onTestWarning: (com.lhordkent.drivealert.postauth.WarningStage, com.lhordkent.drivealert.postauth.WarningSound, com.lhordkent.drivealert.postauth.PreferredVolume) -> Unit = { _, _, _ -> },
     onStopMonitoring: () -> Unit = {},
     onDisconnectDevice: () -> Unit = {},
@@ -267,6 +287,7 @@ fun DriveAlertApp(
     onCancelTrustedOutgoingRequest: (String) -> Unit = {},
     onRevokeDriverContact: (String) -> Unit = {},
     onDisconnectDriver: (String) -> Unit = {},
+    onMarkSharedRecordsViewed: (String) -> Unit = {},
     onWarningSoundChange: (com.lhordkent.drivealert.postauth.WarningSound) -> Unit = {},
     onVolumeChange: (com.lhordkent.drivealert.postauth.PreferredVolume) -> Unit = {},
     onNotificationsChange: (com.lhordkent.drivealert.postauth.NotificationPreferences) -> Unit = {},
@@ -368,12 +389,17 @@ fun DriveAlertApp(
                     DriverHomeScreen(
                         state = postAuthState,
                         vision = visionState,
-                        onStartMonitoring = {
+                        onStartMonitoring = { accessoryMode ->
                             when {
                                 visionState.streamState != com.lhordkent.drivealert.detection.frame.StreamConnectionState.CONNECTED ->
                                     navController.navigate(PostAuthRoutes.DRIVER_DEVICE_CONNECTION)
                                 visionState.activeCalibration == null -> navController.navigate(PostAuthRoutes.DRIVER_CALIBRATION)
-                                else -> onStartMonitoring(postAuthState.warningSound, postAuthState.preferredVolume, postAuthState.notifications.warningAlerts)
+                                else -> onStartMonitoring(
+                                    postAuthState.warningSound,
+                                    postAuthState.preferredVolume,
+                                    postAuthState.notifications.warningAlerts,
+                                    accessoryMode,
+                                )
                             }
                         },
                         onStopMonitoring = onStopMonitoring,
@@ -391,6 +417,7 @@ fun DriveAlertApp(
                     onExit = navController::popBackStack,
                     detectionResult = visionState.detection,
                     faceAttributes = visionState.faceAttributes,
+                    accessoryMode = visionState.accessoryMode,
                 )
             }
             composable(PostAuthRoutes.DRIVER_ALERTS) {
@@ -489,9 +516,11 @@ fun DriveAlertApp(
             composable(
                 route = PostAuthRoutes.TRUSTED_SHARED,
                 arguments = listOf(navArgument("driverId") { type = NavType.StringType }),
+                deepLinks = listOf(navDeepLink { uriPattern = "drivealert://trusted/drivers/{driverId}" }),
             ) { entry ->
                 val driverId = entry.arguments?.getString("driverId")
                 val driver = postAuthState.connectedDrivers.firstOrNull { it.id == driverId }
+                LaunchedEffect(driverId) { driverId?.let(onMarkSharedRecordsViewed) }
                 if (driver != null) SharedRecordsScreen(
                     driver = driver,
                     onEventSelected = { navController.navigate(PostAuthRoutes.trustedAlert(driver.id, it)) },
@@ -598,11 +627,18 @@ fun DriveAlertApp(
             composable(PostAuthRoutes.ABOUT) { AboutDriveAlertScreen(navController::popBackStack) }
         }
     }
+    visionState.visibilityAcknowledgementRequired?.let { issue ->
+        VisibilityAcknowledgementDialog(
+            issue = issue,
+            onContinueLimited = onContinueDegradedMonitoring,
+            onRestoreVisibility = onDismissVisibilityAcknowledgement,
+        )
+    }
 }
 
 private fun MonitoringDetectionResult?.toMonitoringScenario(): MonitoringScenario = when {
     this == null || !faceDetected -> MonitoringScenario.FACE_TRACKING_UNAVAILABLE
-    eye.state == TemporalState.UNAVAILABLE && yawn.state == TemporalState.UNAVAILABLE -> MonitoringScenario.EYE_AND_YAWNING_UNAVAILABLE
+    listOf(eye, yawn, head).count { it.state != TemporalState.UNAVAILABLE } < 2 -> MonitoringScenario.EYE_AND_YAWNING_UNAVAILABLE
     eye.state == TemporalState.UNAVAILABLE -> MonitoringScenario.EYE_UNAVAILABLE
     yawn.state == TemporalState.UNAVAILABLE -> MonitoringScenario.YAWNING_UNAVAILABLE
     else -> MonitoringScenario.NORMAL

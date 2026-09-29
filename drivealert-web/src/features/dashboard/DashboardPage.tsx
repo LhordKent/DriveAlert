@@ -9,6 +9,7 @@ import { formatRelativeTime } from '../../lib/date'
 export function DashboardPage() {
   const { approvedDrivers, incomingRequests, outgoingRequests, recordsByDriver, connectionsStatus, connectionsError } = usePortal()
   const allRecords = approvedDrivers.flatMap((driver) => recordsByDriver[driver.driverUserId]?.records ?? []).sort((a, b) => b.periodStartedAt.toMillis() - a.periodStartedAt.toMillis())
+  const unreadCount = approvedDrivers.reduce((sum, driver) => sum + (recordsByDriver[driver.driverUserId]?.unreadCount ?? 0), 0)
   if (connectionsStatus === 'loading') return <><PageHeader title="Dashboard" description="Your Trusted Contact overview." /><PageSkeleton rows={4} /></>
   if (connectionsStatus === 'error' && connectionsError) return <><PageHeader title="Dashboard" /><ErrorState error={connectionsError} /></>
 
@@ -27,6 +28,7 @@ export function DashboardPage() {
 
   return <>
     <PageHeader eyebrow="Trusted Contact" title="Dashboard" description="Synchronized Stage 3 awareness from approved Drivers. This is historical activity, not live monitoring." />
+    {unreadCount > 0 && <Link to="/drivers" className="mb-5 block rounded-control border border-warning/30 bg-warning-soft p-4 text-sm font-semibold text-warning" role="status">New shared activity: {unreadCount} unread record{unreadCount === 1 ? '' : 's'}. Review connected Drivers.</Link>}
     <section aria-label="Summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {summaries.map(({ label, value, icon: Icon, to }) => <Link key={label} to={to} className="surface flex min-h-28 items-center gap-4 p-5 transition-colors hover:bg-strong"><span className="grid size-10 shrink-0 place-items-center rounded-control bg-strong text-secondary"><Icon className="size-5" aria-hidden="true" /></span><span className="min-w-0"><span className="block truncate text-xl font-bold text-primary">{value}</span><span className="mt-1 block text-sm text-secondary">{label}</span></span></Link>)}
     </section>
@@ -40,5 +42,6 @@ export function DashboardPage() {
         <div className="mt-3 surface divide-y divide-border-soft"><Link to="/requests" className="block min-h-16 p-4 hover:bg-strong"><span className="font-semibold text-primary">Review requests</span><span className="mt-1 block text-sm text-secondary">{incomingRequests.length ? `${incomingRequests.length} waiting for your response` : 'No incoming requests'}</span></Link><Link to="/requests/invite" className="block min-h-16 p-4 hover:bg-strong"><span className="font-semibold text-primary">Invite a Driver</span><span className="mt-1 block text-sm text-secondary">Use their DriveAlert connection code</span></Link></div>
       </aside>
     </div>
+    <p className="mt-8 text-xs leading-5 text-muted">DriveAlert provides secondary awareness only. It is not medical confirmation, emergency response, or a substitute for contacting the Driver when appropriate.</p>
   </>
 }

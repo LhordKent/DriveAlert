@@ -3,6 +3,7 @@ package com.lhordkent.drivealert.data.local
 import androidx.room.TypeConverter
 import com.lhordkent.drivealert.data.local.entity.ConnectionStatus
 import com.lhordkent.drivealert.data.local.entity.MonitoringSessionStatus
+import com.lhordkent.drivealert.data.local.entity.NotificationDispatchStatus
 import com.lhordkent.drivealert.data.local.entity.StageSyncEligibility
 import com.lhordkent.drivealert.data.local.entity.StageSyncRecordType
 import com.lhordkent.drivealert.data.local.entity.StageSyncStatus
@@ -31,4 +32,6 @@ class DriveAlertTypeConverters {
     @TypeConverter fun syncStatus(value: StageSyncStatus) = value.name
     @TypeConverter fun connectionStatus(value: String) = enumValueOf<ConnectionStatus>(value)
     @TypeConverter fun connectionStatus(value: ConnectionStatus) = value.name
+    @TypeConverter fun notificationDispatchStatus(value: String) = enumValueOf<NotificationDispatchStatus>(value)
+    @TypeConverter fun notificationDispatchStatus(value: NotificationDispatchStatus) = value.name
 }

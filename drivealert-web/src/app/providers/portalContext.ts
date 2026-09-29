@@ -13,6 +13,7 @@ export interface PortalContextValue {
   incomingRequests: ConnectionRequestView[]
   outgoingRequests: ConnectionRequestView[]
   recordsByDriver: Record<string, DriverRecordState>
+  markDriverViewed: (driverUid: string) => Promise<void>
   refreshProfile: () => void
 }
 export const PortalContext = createContext<PortalContextValue | null>(null)
