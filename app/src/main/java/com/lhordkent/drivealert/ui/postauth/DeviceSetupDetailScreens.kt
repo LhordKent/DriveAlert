@@ -49,6 +49,7 @@ fun DeviceConnectionScreen(
     provisioningViewModel: com.lhordkent.drivealert.provisioning.WifiProvisioningViewModel? = null,
     vision: DriverVisionUiState? = null,
     onDisconnect: () -> Unit = {},
+    onRetryConnection: () -> Unit = {},
 ) {
     ScrollableScreen(title = "Device Connection", onBack = onBack) {
         Text("Connect your DriveAlert camera", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
@@ -60,9 +61,18 @@ fun DeviceConnectionScreen(
         )
         Spacer(Modifier.height(22.dp))
         if (provisioningViewModel == null) {
-            WifiProvisioningPanel(vision = vision, onDisconnect = onDisconnect)
+            WifiProvisioningPanel(
+                vision = vision,
+                onDisconnect = onDisconnect,
+                onRetryConnection = onRetryConnection,
+            )
         } else {
-            WifiProvisioningPanel(provisioningViewModel, vision, onDisconnect)
+            WifiProvisioningPanel(
+                provisioningViewModel = provisioningViewModel,
+                vision = vision,
+                onDisconnect = onDisconnect,
+                onRetryConnection = onRetryConnection,
+            )
         }
         Spacer(Modifier.height(16.dp))
     }

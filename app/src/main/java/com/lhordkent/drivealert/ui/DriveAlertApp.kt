@@ -361,6 +361,7 @@ fun DriveAlertApp(
                     provisioningViewModel = provisioningViewModel,
                     vision = visionState,
                     onDisconnect = onDisconnectDevice,
+                    onRetryConnection = onStartVision,
                 )
             }
             composable(PostAuthRoutes.DRIVER_ALIGNMENT) {

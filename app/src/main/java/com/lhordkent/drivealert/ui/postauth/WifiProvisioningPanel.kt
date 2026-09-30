@@ -51,6 +51,7 @@ fun WifiProvisioningPanel(
     provisioningViewModel: WifiProvisioningViewModel = viewModel(),
     vision: DriverVisionUiState? = null,
     onDisconnect: () -> Unit = {},
+    onRetryConnection: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val bluetoothAdapter = remember {
@@ -66,6 +67,7 @@ fun WifiProvisioningPanel(
     val displayedStatus = when {
         state.stage != ProvisioningStage.PROVISIONED -> state.stage.name.replace('_', ' ')
         connectionVerified -> "CONNECTED"
+        streamState == StreamConnectionState.UNAVAILABLE -> "CHECK DEVICE"
         else -> "STARTING CAMERA"
     }
     val bluetoothEnableLauncher = rememberLauncherForActivityResult(
@@ -235,6 +237,8 @@ fun WifiProvisioningPanel(
                 Text(
                     if (connectionVerified) {
                         "Live camera connected at ${state.assignedIp ?: "the assigned address"}."
+                    } else if (streamState == StreamConnectionState.UNAVAILABLE) {
+                        "DriveAlert cannot reach the camera at ${state.assignedIp ?: "the assigned address"} yet."
                     } else {
                         "DriveAlert is starting the camera at ${state.assignedIp ?: "the assigned address"}."
                     },
@@ -244,10 +248,18 @@ fun WifiProvisioningPanel(
                 Spacer(Modifier.height(6.dp))
                 if (!connectionVerified) {
                     Text(
-                        "This can take a moment. Keep the ESP32 powered and connected to the same hotspot. DriveAlert will connect automatically.",
+                        if (streamState == StreamConnectionState.UNAVAILABLE) {
+                            "Check that the ESP32 is powered and connected to the same hotspot. DriveAlert will keep trying automatically."
+                        } else {
+                            "This can take a moment. Keep the ESP32 powered and connected to the same hotspot. DriveAlert will connect automatically."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
                     )
+                    if (streamState == StreamConnectionState.UNAVAILABLE) {
+                        Spacer(Modifier.height(12.dp))
+                        SecondaryButton("Try again", onRetryConnection)
+                    }
                 } else {
                     Text("Connection verified through the live stream.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                     Spacer(Modifier.height(12.dp))

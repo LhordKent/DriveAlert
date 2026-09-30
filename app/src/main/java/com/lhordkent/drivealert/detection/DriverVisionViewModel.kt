@@ -148,6 +148,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
     private var monitoringJob: Job? = null
     private var monitoringStartJob: Job? = null
     private var source: Esp32MjpegFrameSource? = null
+    private var sourceStreamUrl: String? = null
     private var latestPreview: SharedBitmapFrame? = null
     private var streamWanted = false
     private var reconnectAttempt = 0
@@ -196,7 +197,13 @@ class DriverVisionViewModel @JvmOverloads constructor(
                         } else updated
                     }
                 }
-                if (streamWanted && device != null) connect(device)
+                val shouldConnect = shouldConnectStreamForDeviceUpdate(
+                    streamWanted = streamWanted,
+                    nextStreamUrl = device?.streamUrl,
+                    activeSourceStreamUrl = sourceStreamUrl,
+                    connectionAttemptActive = reconnectJob?.isActive == true,
+                )
+                if (shouldConnect) device?.let(::connect)
             }
         }
     }
@@ -412,21 +419,29 @@ class DriverVisionViewModel @JvmOverloads constructor(
         reconnectJob?.cancel()
         source?.stop()
         source = null
+        sourceStreamUrl = null
         mutableState.update { it.copy(streamState = StreamConnectionState.CONNECTING, errorMessage = null) }
         reconnectJob = viewModelScope.launch {
-            val resolved = endpointResolver.resolve(device)
-            if (resolved == null) {
-                scheduleReconnect("DriveAlert camera is unavailable on this network.")
-                return@launch
+            try {
+                val resolved = endpointResolver.resolve(device)
+                if (resolved == null) {
+                    scheduleReconnect("DriveAlert camera is unavailable on this network.")
+                    return@launch
+                }
+                if (resolved != device) deviceRepository.saveActive(resolved)
+                val next = Esp32MjpegFrameSource(
+                    streamUrl = resolved.streamUrl,
+                    onState = { status, message -> mutableState.update { it.copy(streamState = status, errorMessage = message) } },
+                    onDisconnected = { error -> scheduleReconnect(error?.message ?: "Camera stream ended.") },
+                )
+                source = next
+                sourceStreamUrl = resolved.streamUrl
+                next.start(::acceptFrame)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                scheduleReconnect(error.message ?: "Camera connection failed.")
             }
-            if (resolved != device) deviceRepository.saveActive(resolved)
-            val next = Esp32MjpegFrameSource(
-                streamUrl = resolved.streamUrl,
-                onState = { status, message -> mutableState.update { it.copy(streamState = status, errorMessage = message) } },
-                onDisconnected = { error -> scheduleReconnect(error?.message ?: "Camera stream ended.") },
-            )
-            source = next
-            next.start(::acceptFrame)
         }
     }
 
@@ -628,6 +643,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
     private fun scheduleReconnect(message: String) {
         source?.stop()
         source = null
+        sourceStreamUrl = null
         if (!streamWanted) return
         mutableState.update {
             it.copy(
@@ -649,6 +665,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         reconnectJob?.cancel()
         source?.stop()
         source = null
+        sourceStreamUrl = null
         latestPreview?.release()
         latestPreview = null
         mutablePreviewFrame.value = null
@@ -680,4 +697,18 @@ private fun MonitoringDetectionResult.currentlyConfirmedSigns() = buildSet {
     if (eye.state == TemporalState.CONFIRMED) add(SignType.PROLONGED_EYE_CLOSURE.toVisibleSign())
     if (yawn.state == TemporalState.CONFIRMED) add(SignType.YAWNING.toVisibleSign())
     if (head.state == TemporalState.CONFIRMED) add(SignType.HEAD_NODDING.toVisibleSign())
+}
+
+internal fun shouldConnectStreamForDeviceUpdate(
+    streamWanted: Boolean,
+    nextStreamUrl: String?,
+    activeSourceStreamUrl: String?,
+    connectionAttemptActive: Boolean,
+): Boolean {
+    if (!streamWanted || nextStreamUrl == null) return false
+    return if (activeSourceStreamUrl != null) {
+        activeSourceStreamUrl != nextStreamUrl
+    } else {
+        !connectionAttemptActive
+    }
 }
