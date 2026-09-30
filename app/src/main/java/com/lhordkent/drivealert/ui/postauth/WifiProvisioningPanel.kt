@@ -66,9 +66,7 @@ fun WifiProvisioningPanel(
     val displayedStatus = when {
         state.stage != ProvisioningStage.PROVISIONED -> state.stage.name.replace('_', ' ')
         connectionVerified -> "CONNECTED"
-        streamState == StreamConnectionState.UNAVAILABLE -> "STREAM UNAVAILABLE"
-        streamState == StreamConnectionState.RECONNECTING -> "RECONNECTING"
-        else -> "VERIFYING"
+        else -> "STARTING CAMERA"
     }
     val bluetoothEnableLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -140,7 +138,6 @@ fun WifiProvisioningPanel(
                 tone = when (state.stage) {
                     ProvisioningStage.PROVISIONED -> when {
                         connectionVerified -> StatusTone.SUCCESS
-                        streamState == StreamConnectionState.UNAVAILABLE -> StatusTone.ERROR
                         else -> StatusTone.WARNING
                     }
                     ProvisioningStage.FAILED -> StatusTone.ERROR
@@ -239,7 +236,7 @@ fun WifiProvisioningPanel(
                     if (connectionVerified) {
                         "Live camera connected at ${state.assignedIp ?: "the assigned address"}."
                     } else {
-                        "The ESP32 reported ${state.assignedIp ?: "an address"}, but the camera stream is not connected."
+                        "DriveAlert is starting the camera at ${state.assignedIp ?: "the assigned address"}."
                     },
                     color = if (connectionVerified) Success else TextSecondary,
                 )
@@ -247,23 +244,19 @@ fun WifiProvisioningPanel(
                 Spacer(Modifier.height(6.dp))
                 if (!connectionVerified) {
                     Text(
-                        vision?.errorMessage ?: "Keep the ESP32 powered and connected to the same hotspot.",
+                        "This can take a moment. Keep the ESP32 powered and connected to the same hotspot. DriveAlert will connect automatically.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (streamState == StreamConnectionState.UNAVAILABLE) DriveRed else TextMuted,
+                        color = TextMuted,
                     )
                 } else {
                     Text("Connection verified through the live stream.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    Spacer(Modifier.height(12.dp))
+                    SecondaryButton(
+                        if (vision?.disconnectInProgress == true) "Disconnecting" else "Disconnect",
+                        onClick = onDisconnect,
+                        enabled = vision?.disconnectInProgress != true,
+                    )
                 }
-                Spacer(Modifier.height(12.dp))
-                SecondaryButton(
-                    when {
-                        vision?.disconnectInProgress == true -> "Disconnecting"
-                        connectionVerified -> "Disconnect"
-                        else -> "Reconnect device"
-                    },
-                    onClick = if (connectionVerified) onDisconnect else ::scanWithPermission,
-                    enabled = vision?.disconnectInProgress != true,
-                )
             }
             ProvisioningStage.FAILED -> {
                 Text(state.message, color = DriveRed, style = MaterialTheme.typography.bodyMedium)
