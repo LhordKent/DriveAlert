@@ -79,6 +79,7 @@ import com.lhordkent.drivealert.ui.postauth.InviteConnectionScreen
 import com.lhordkent.drivealert.ui.postauth.MonitoringPreviewScreen
 import com.lhordkent.drivealert.ui.postauth.VisibilityAcknowledgementDialog
 import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
+import com.lhordkent.drivealert.monitoring.cameraVisibilityPresentation
 import com.lhordkent.drivealert.ui.postauth.NotificationSettingsScreen
 import com.lhordkent.drivealert.ui.postauth.PostAuthScaffold
 import com.lhordkent.drivealert.ui.postauth.RequestsScreen
@@ -212,6 +213,10 @@ fun DriveAlertApp() {
         onDisconnectDevice = {
             visionViewModel.disconnectCurrentSession(provisioningViewModel::resetAfterManualDisconnect)
         },
+        onReturnToBleSetup = {
+            visionViewModel.returnToBleProvisioning()
+            provisioningViewModel.retry()
+        },
         onPrepareSignOut = { onComplete ->
             visionViewModel.prepareForAccountChange {
                 provisioningViewModel.resetAfterManualDisconnect()
@@ -267,6 +272,7 @@ fun DriveAlertApp(
     onTestWarning: (com.lhordkent.drivealert.postauth.WarningStage, com.lhordkent.drivealert.postauth.WarningSound, com.lhordkent.drivealert.postauth.PreferredVolume) -> Unit = { _, _, _ -> },
     onStopMonitoring: () -> Unit = {},
     onDisconnectDevice: () -> Unit = {},
+    onReturnToBleSetup: () -> Unit = {},
     onPrepareSignOut: (() -> Unit) -> Unit = { onComplete -> onComplete() },
     onNavigate: () -> Unit = {},
     onSetAccountEmail: (String) -> Unit = {},
@@ -362,6 +368,7 @@ fun DriveAlertApp(
                     vision = visionState,
                     onDisconnect = onDisconnectDevice,
                     onRetryConnection = onStartVision,
+                    onReturnToBleSetup = onReturnToBleSetup,
                 )
             }
             composable(PostAuthRoutes.DRIVER_ALIGNMENT) {
@@ -419,6 +426,16 @@ fun DriveAlertApp(
                     detectionResult = visionState.detection,
                     faceAttributes = visionState.faceAttributes,
                     accessoryMode = visionState.accessoryMode,
+                    cameraVisibility = cameraVisibilityPresentation(
+                        streamState = visionState.streamState,
+                        scenario = visionState.detection.toMonitoringScenario(),
+                        hasFreshDetection = visionState.detection != null,
+                        lowLight = visionState.lowLight,
+                        pendingIssue = visionState.visibilityIssue,
+                        headAvailable = visionState.detection?.head?.state != TemporalState.UNAVAILABLE,
+                    ),
+                    ambientLuminance = visionState.ambientLuminance,
+                    smoothedLuminance = visionState.smoothedLuminance,
                 )
             }
             composable(PostAuthRoutes.DRIVER_ALERTS) {

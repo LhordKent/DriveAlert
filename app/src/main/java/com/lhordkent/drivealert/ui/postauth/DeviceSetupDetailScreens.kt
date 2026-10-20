@@ -50,6 +50,7 @@ fun DeviceConnectionScreen(
     vision: DriverVisionUiState? = null,
     onDisconnect: () -> Unit = {},
     onRetryConnection: () -> Unit = {},
+    onReturnToBleSetup: () -> Unit = {},
 ) {
     ScrollableScreen(title = "Device Connection", onBack = onBack) {
         Text("Connect your DriveAlert camera", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
@@ -65,6 +66,7 @@ fun DeviceConnectionScreen(
                 vision = vision,
                 onDisconnect = onDisconnect,
                 onRetryConnection = onRetryConnection,
+                onReturnToBleSetup = onReturnToBleSetup,
             )
         } else {
             WifiProvisioningPanel(
@@ -72,6 +74,7 @@ fun DeviceConnectionScreen(
                 vision = vision,
                 onDisconnect = onDisconnect,
                 onRetryConnection = onRetryConnection,
+                onReturnToBleSetup = onReturnToBleSetup,
             )
         }
         Spacer(Modifier.height(16.dp))

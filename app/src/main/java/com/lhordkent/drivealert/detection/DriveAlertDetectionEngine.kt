@@ -197,6 +197,10 @@ class DriveAlertDetectionEngine(
         candidateDurationMs = durationMs,
     )
 
+    /** Discard an interrupted observation without changing saved calibration or alert history. */
+    @Synchronized
+    fun invalidateTracking() = clearDetectorEvidence()
+
     private fun clearDetectorEvidence() {
         eyeDetector?.reset()
         yawnDetector?.reset()

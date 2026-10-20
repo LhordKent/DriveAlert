@@ -229,6 +229,23 @@ class DriveAlertDetectionEngineTest {
         )
     }
 
+    @Test
+    fun `stream interruption resets candidate evidence without removing calibration`() {
+        val engine = calibratedEngine()
+        engine.process(face(0, ear = 0.10, mar = 0.10, pitch = 4.0))
+        engine.process(face(1_000, ear = 0.10, mar = 0.10, pitch = 4.0))
+
+        engine.invalidateTracking()
+
+        assertEquals("stored", engine.calibrationResult()?.calibrationId)
+        assertTrue(engine.process(face(10_000, ear = 0.10, mar = 0.10, pitch = 4.0)).events.isEmpty())
+        assertTrue(engine.process(face(11_999, ear = 0.10, mar = 0.10, pitch = 4.0)).events.isEmpty())
+        assertEquals(
+            SignType.PROLONGED_EYE_CLOSURE,
+            engine.process(face(12_000, ear = 0.10, mar = 0.10, pitch = 4.0)).events.single().type,
+        )
+    }
+
     private fun collect(
         engine: DriveAlertDetectionEngine,
         startMs: Long,

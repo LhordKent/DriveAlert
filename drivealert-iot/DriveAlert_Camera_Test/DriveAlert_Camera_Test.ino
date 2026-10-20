@@ -224,7 +224,7 @@ void setup() {
   wifiProvisioning.startProvisioning();
 }
 
-// Safe maintenance API. No GPIO is assigned until a non-conflicting physical control is validated.
+// Safe maintenance API for clearing saved network credentials.
 void clearWifiCredentials() {
   wifiProvisioning.clearWifiCredentials();
 }

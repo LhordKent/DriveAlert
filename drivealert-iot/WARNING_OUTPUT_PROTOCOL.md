@@ -49,8 +49,10 @@ issue=EYES&volume=MEDIUM
 
 The body contains exactly `issue` and `volume`. `issue` is `EYES`, `MOUTH`, or
 `FACE`; volume uses the same identifiers as warning commands. Android sends the
-first request after the visibility delay and repeats it every 30 seconds while
-the condition remains active. The endpoint uses the same response contract as
+first request after three seconds of sustained visibility loss and repeats it every 30 seconds while
+the condition remains active. The warning clears after two seconds of restored
+visibility. Low-light guidance is shown only in Android; the existing `FACE`
+recording is reused and no new MP3 files are required. The endpoint uses the same response contract as
 `/drivealert/warning`.
 
 ## Firmware mapping

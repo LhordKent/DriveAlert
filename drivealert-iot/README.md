@@ -29,9 +29,12 @@ The established stream implementation is preserved:
 - BMP still: `/bmp`
 - MJPEG stream: `http://<ESP32-DHCP-IP>:81/stream`
 - Warning output: `POST http://<ESP32-DHCP-IP>:80/drivealert/warning`
+- Visibility guidance: `POST http://<ESP32-DHCP-IP>:80/drivealert/visibility`
 - MIME: `multipart/x-mixed-replace;boundary=123456789000000000000987654321`
 
 Frames come from `esp_camera_fb_get()`. Native JPEG buffers are transmitted directly and returned with `esp_camera_fb_return()`. The stream loop and fallback JPEG conversion remain unchanged.
+
+External IR illumination is no longer controlled by DriveAlert. The illumination endpoint, lease, and GPIO2/12/15 output module have been removed. Android samples image brightness only to explain camera visibility; it does not send lighting commands. GPIO4 camera flash, GPIO13 DFPlayer TX, and GPIO14 heartbeat retain their existing roles.
 
 Camera configuration remains JPEG at 20 MHz XCLK, initially UXGA, then QVGA after initialization. With PSRAM, the firmware uses JPEG quality 10, two framebuffers, and `CAMERA_GRAB_LATEST`. The AI-Thinker pin mapping is PWDN 32, XCLK 0, SDA 26, SCL 27, Y9..Y2 35/34/39/36/21/19/18/5, VSYNC 25, HREF 23, PCLK 22, and LED 4.
 
@@ -44,7 +47,6 @@ Preferences namespace and keys:
 - Namespace: `drivealert_wifi`
 - Active SSID: `ssid`
 - Active password: `password`
-- Device-specific BLE pairing PIN: `ble_pin`
 
 Every boot enters BLE provisioning mode without initializing the camera or HTTP servers. Stored credentials are loaded only so Android can query whether a network is available for an explicit `CONNECT_SAVED` command. The firmware never calls `WiFi.begin()` at boot merely because NVS credentials exist.
 
@@ -59,13 +61,13 @@ mDNS startup is attempted once per Wi-Fi connection. If the retained BLE stack l
 The ESP32 uses the bundled Bluedroid implementation with:
 
 - LE Secure Connections
-- MITM authentication
+- Just Works pairing without a typed PIN (no MITM protection)
 - Bonding
 - 16-byte encryption key
-- `ESP_GATT_PERM_WRITE_ENC_MITM` on credential/command characteristics
-- `ESP_GATT_PERM_READ_ENC_MITM` on status
+- `ESP_GATT_PERM_WRITE_ENCRYPTED` on credential/command characteristics
+- `ESP_GATT_PERM_READ_ENCRYPTED` on status
 
-A random six-digit pairing PIN is generated on first boot, stored under `ble_pin`, and printed to the 115200-baud development serial console. Android uses its system pairing dialog. The Wi-Fi password is never printed, echoed in status, or included in the advertised name.
+No pairing PIN is generated or required. Android uses its system pairing flow and may ask for confirmation. Setup credentials remain encrypted, but Just Works does not provide PIN-based MITM protection. The Wi-Fi password is never printed, echoed in status, or included in the advertised name. After updating from PIN-based firmware, an existing phone may need to forget its old DriveAlert Bluetooth pairing once. Stored Wi-Fi credentials are retained; any legacy `ble_pin` value is ignored.
 
 The advertised name is `DriveAlert-XXXX`, where `XXXX` is a non-secret suffix derived from the device eFuse MAC.
 
@@ -97,10 +99,10 @@ The firmware compiles for the actual classic ESP32-CAM target with Preferences, 
 ### A — Fresh device
 
 1. Invoke `clearWifiCredentials()` temporarily from a controlled maintenance build or erase NVS with the programming tool.
-2. Reboot and open Serial Monitor at 115200 baud.
-3. Confirm a `DriveAlert-XXXX` advertisement and note the pairing PIN.
+2. Reboot; serial access is optional for diagnostics.
+3. Confirm a `DriveAlert-XXXX` advertisement.
 4. In Android, open Device Connection and scan.
-5. Select the ESP32 and enter the PIN in Android’s system pairing dialog.
+5. Select the ESP32 and confirm Android's pairing dialog if shown; no PIN entry is required.
 6. Enable the target hotspot/network and enter its SSID/password in DriveAlert.
 7. Submit and confirm Android reports success and the assigned IP.
 8. Confirm BLE provisioning stops and Serial never prints the Wi-Fi password.

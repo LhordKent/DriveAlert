@@ -6,10 +6,12 @@ This is the shared source of truth for the Android app and classic ESP32-CAM fir
 
 - Advertised name: `DriveAlert-XXXX`
 - Service is advertised only while provisioning is required.
-- Pairing: LE Secure Connections, MITM authentication, bonding
-- ESP32 I/O capability: Display Only; its development serial console displays the device-specific six-digit PIN
-- Credential and command writes require encrypted MITM access.
-- Status reads/notifications require encrypted MITM access.
+- Pairing: LE Secure Connections with Just Works and bonding; no typed PIN
+- ESP32 I/O capability: No Input No Output
+- Credential and command writes require encrypted access.
+- Status reads/notifications require encrypted access.
+
+Android may display a pairing confirmation, but setup does not require serial access. Just Works encrypts the connection without PIN-based MITM protection. An existing phone may need to forget its old DriveAlert Bluetooth pairing once after this firmware update; stored Wi-Fi credentials are retained.
 
 ## UUIDs
 

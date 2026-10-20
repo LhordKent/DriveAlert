@@ -3,8 +3,10 @@ package com.lhordkent.drivealert.detection
 import android.app.Application
 import android.graphics.Bitmap
 import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.lhordkent.drivealert.BuildConfig
 import com.lhordkent.drivealert.DriveAlertApplication
 import com.lhordkent.drivealert.data.repository.CalibrationRepository
 import com.lhordkent.drivealert.data.repository.AlertRepository
@@ -19,6 +21,7 @@ import com.lhordkent.drivealert.data.sync.StageSyncRepository
 import com.lhordkent.drivealert.detection.face.MediaPipeFaceLandmarkerProcessor
 import com.lhordkent.drivealert.detection.frame.Esp32MjpegFrameSource
 import com.lhordkent.drivealert.detection.frame.FramePacket
+import com.lhordkent.drivealert.detection.frame.FrameLuminanceSampler
 import com.lhordkent.drivealert.detection.frame.MonotonicFrameGate
 import com.lhordkent.drivealert.detection.frame.SharedBitmapFrame
 import com.lhordkent.drivealert.detection.frame.StreamConnectionState
@@ -38,6 +41,7 @@ import com.lhordkent.drivealert.monitoring.WarningOutputGateway
 import com.lhordkent.drivealert.monitoring.VisibilityAlertController
 import com.lhordkent.drivealert.monitoring.VisibilityAlertEffect
 import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
+import com.lhordkent.drivealert.monitoring.SceneBrightnessTracker
 import com.lhordkent.drivealert.monitoring.declaredIssue
 import com.lhordkent.drivealert.monitoring.VisibilityIssue
 import com.lhordkent.drivealert.monitoring.VisibilityOutputCommand
@@ -58,6 +62,7 @@ import com.lhordkent.drivealert.device.HttpWarningOutputGateway
 import com.lhordkent.drivealert.device.HttpVisibilityOutputGateway
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,6 +70,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class DriverVisionUiState(
     val streamState: StreamConnectionState = StreamConnectionState.SETUP_REQUIRED,
@@ -82,6 +88,9 @@ data class DriverVisionUiState(
     val visibilityIssue: VisibilityIssue? = null,
     val visibilityAcknowledgementRequired: VisibilityIssue? = null,
     val debugWarningDelivery: WarningDeliveryStatus? = null,
+    val lowLight: Boolean? = null,
+    val ambientLuminance: Double? = null,
+    val smoothedLuminance: Double? = null,
     val errorMessage: String? = null,
 )
 
@@ -116,6 +125,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
     private val processor = MediaPipeFaceLandmarkerProcessor(
         context = application,
         onObservation = { timestamp, observation, faceAttributes ->
+            if (timestamp < observationCutoffMs || !streamWanted) return@MediaPipeFaceLandmarkerProcessor
             val result = engine.process(
                 timestamp,
                 observation,
@@ -147,12 +157,22 @@ class DriverVisionViewModel @JvmOverloads constructor(
     private var reconnectJob: Job? = null
     private var monitoringJob: Job? = null
     private var monitoringStartJob: Job? = null
+    private var brightnessSampleJob: Job? = null
+    private var visionHealthJob: Job? = null
     private var source: Esp32MjpegFrameSource? = null
     private var sourceStreamUrl: String? = null
     private var latestPreview: SharedBitmapFrame? = null
-    private var streamWanted = false
+    @Volatile private var streamWanted = false
+    @Volatile private var observationCutoffMs = 0L
+    @Volatile private var streamGeneration = 0
+    @Volatile private var lastFrameTimestampMs: Long? = null
+    private var lastDetectionTimestampMs: Long? = null
+    private var lastBrightnessTimestampMs: Long? = null
     private var reconnectAttempt = 0
     private val inferenceGate = MonotonicFrameGate(INFERENCE_INTERVAL_MS)
+    private val brightnessGate = MonotonicFrameGate(BRIGHTNESS_SAMPLE_INTERVAL_MS)
+    private val brightnessTracker = SceneBrightnessTracker()
+    private var brightnessGeneration = 0
     private var persistedCalibrationId: String? = null
     private val monitoringController = MonitoringSessionController(elapsedClock)
     private val visibilityAlertController = VisibilityAlertController()
@@ -210,11 +230,31 @@ class DriverVisionViewModel @JvmOverloads constructor(
 
     fun startVision() {
         streamWanted = true
+        if (visionHealthJob?.isActive != true) {
+            visionHealthJob = viewModelScope.launch {
+                while (streamWanted) {
+                    delay(MONITORING_TICK_MS)
+                    expireCameraReadings()
+                }
+            }
+        }
         val device = activeDevice
         if (device == null) {
             mutableState.update { it.copy(streamState = StreamConnectionState.SETUP_REQUIRED, errorMessage = "Connect the DriveAlert camera first.") }
         } else if (source == null) {
             connect(device)
+        }
+    }
+
+    fun returnToBleProvisioning() {
+        stopMonitoring(interrupted = true)
+        stopStream(resetAlignment = true)
+        reconnectAttempt = 0
+        mutableState.update {
+            it.copy(
+                streamState = if (activeDevice == null) StreamConnectionState.SETUP_REQUIRED else StreamConnectionState.READY,
+                errorMessage = null,
+            )
         }
     }
 
@@ -329,6 +369,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
                     ),
                 )
                 monitoringController.start(sessionId)
+                resetBrightness()
                 visibilityAlertController.beginSession(accessoryMode)
                 visibilityNotificationCoordinator.clear()
                 sessionStartedAtElapsedMs = monitoringController.state.startedAtElapsedMs
@@ -372,6 +413,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         val sessionId = monitoringController.state.sessionId
         val driverId = boundDriverId
         monitoringController.stop()
+        resetBrightness()
         visibilityAlertController.reset()
         visibilityNotificationCoordinator.clear()
         monitoringAccessoryMode = DriverAccessoryMode.NONE
@@ -420,6 +462,8 @@ class DriverVisionViewModel @JvmOverloads constructor(
         source?.stop()
         source = null
         sourceStreamUrl = null
+        val generation = ++streamGeneration
+        clearCameraReadings()
         mutableState.update { it.copy(streamState = StreamConnectionState.CONNECTING, errorMessage = null) }
         reconnectJob = viewModelScope.launch {
             try {
@@ -431,12 +475,20 @@ class DriverVisionViewModel @JvmOverloads constructor(
                 if (resolved != device) deviceRepository.saveActive(resolved)
                 val next = Esp32MjpegFrameSource(
                     streamUrl = resolved.streamUrl,
-                    onState = { status, message -> mutableState.update { it.copy(streamState = status, errorMessage = message) } },
-                    onDisconnected = { error -> scheduleReconnect(error?.message ?: "Camera stream ended.") },
+                    onState = { status, message ->
+                        if (generation == streamGeneration && streamWanted) {
+                            mutableState.update { it.copy(streamState = status, errorMessage = message) }
+                        }
+                    },
+                    onDisconnected = { error ->
+                        if (generation == streamGeneration && streamWanted) {
+                            scheduleReconnect(error?.message ?: "Camera stream ended.")
+                        }
+                    },
                 )
                 source = next
                 sourceStreamUrl = resolved.streamUrl
-                next.start(::acceptFrame)
+                next.start { packet -> acceptFrame(packet, generation) }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
@@ -445,7 +497,12 @@ class DriverVisionViewModel @JvmOverloads constructor(
         }
     }
 
-    private fun acceptFrame(packet: FramePacket<SharedBitmapFrame>) {
+    private fun acceptFrame(packet: FramePacket<SharedBitmapFrame>, generation: Int) {
+        if (!streamWanted || generation != streamGeneration) {
+            packet.payload.release()
+            return
+        }
+        lastFrameTimestampMs = packet.timestampMs
         reconnectAttempt = 0
         val frame = packet.payload
         val previous = latestPreview
@@ -455,6 +512,8 @@ class DriverVisionViewModel @JvmOverloads constructor(
             mutableState.update { it.copy(streamState = StreamConnectionState.CONNECTED, errorMessage = null) }
         }
         previous?.release()
+
+        sampleBrightness(frame, packet.timestampMs)
 
         if (!inferenceGate.tryAcquire(packet.timestampMs)) return
         val inferenceSource = frame.tryRetain() ?: return
@@ -472,13 +531,45 @@ class DriverVisionViewModel @JvmOverloads constructor(
         )
     }
 
+    private fun sampleBrightness(frame: SharedBitmapFrame, timestampMs: Long) {
+        if (!brightnessGate.tryAcquire(timestampMs) || brightnessSampleJob?.isActive == true) return
+        val generation = brightnessGeneration
+        brightnessSampleJob = viewModelScope.launch {
+            val sampleSource = frame.tryRetain() ?: return@launch
+            try {
+                val luminance = withContext(Dispatchers.Default) {
+                    FrameLuminanceSampler.sample(sampleSource.bitmap)
+                }
+                if (!streamWanted || generation != brightnessGeneration ||
+                    mutableState.value.streamState != StreamConnectionState.CONNECTED ||
+                    elapsedClock() - timestampMs > CAMERA_READING_STALE_MS
+                ) return@launch
+                val brightness = brightnessTracker.update(timestampMs, luminance)
+                lastBrightnessTimestampMs = timestampMs
+                mutableState.update {
+                    it.copy(ambientLuminance = luminance, smoothedLuminance = brightness.smoothed, lowLight = brightness.lowLight)
+                }
+                if (BuildConfig.DEBUG) {
+                    Log.d(VISIBILITY_LOG_TAG, "luminance=%.1f smoothed=%.1f lowLight=%s".format(luminance, brightness.smoothed, brightness.lowLight))
+                }
+            } finally {
+                sampleSource.release()
+            }
+        }
+    }
+
     private suspend fun acceptDetection(
         result: MonitoringDetectionResult,
         faceAttributes: FaceAttributeResult,
     ) {
+        if (!streamWanted || result.timestampMs < observationCutoffMs ||
+            mutableState.value.streamState != StreamConnectionState.CONNECTED ||
+            elapsedClock() - result.timestampMs > CAMERA_READING_STALE_MS
+        ) return
+        lastDetectionTimestampMs = result.timestampMs
         val calibrationCompleted = mutableState.value.calibrationInProgress && result.calibration.status == CalibrationStatus.COMPLETE
         val regionalVisibility = effectiveRegionalVisibility(faceAttributes)
-        val visibilityIssue = if (monitoringController.state.isActive) {
+        val observedVisibilityIssue = if (monitoringController.state.isActive) {
             when {
                 !result.faceDetected -> VisibilityIssue.FACE_UNAVAILABLE
                 regionalVisibility.lowerFaceObstructed && regionalVisibility.eyeRegionObstructed ->
@@ -488,6 +579,10 @@ class DriverVisionViewModel @JvmOverloads constructor(
                 else -> null
             }
         } else null
+        val visibilityEffects = if (monitoringController.state.isActive) {
+            visibilityAlertController.update(result.timestampMs, observedVisibilityIssue)
+        } else emptyList()
+        val visibilityIssue = observedVisibilityIssue ?: visibilityAlertController.reportedIssue
         mutableState.update {
             it.copy(
                 faceDetected = result.faceDetected,
@@ -510,35 +605,40 @@ class DriverVisionViewModel @JvmOverloads constructor(
         }
         val sessionId = monitoringController.state.sessionId
         if (sessionId != null) {
-            handleVisibilityEffects(
-                visibilityAlertController.update(
-                    timestampMs = result.timestampMs,
-                    issue = visibilityIssue,
-                ),
-            )
             val effects = monitoringController.accept(result.events, result.currentlyConfirmedSigns())
             handleMonitoringEffects(effects, userId, sessionId)
             persistHighestStage(userId, sessionId)
             publishMonitoringState()
+            // Speaker delivery can suspend; account for this frame's evidence first.
+            if (sessionId == monitoringController.state.sessionId && result.timestampMs >= observationCutoffMs) {
+                handleVisibilityEffects(visibilityEffects)
+            }
         }
     }
 
     private suspend fun handleVisibilityEffects(effects: List<VisibilityAlertEffect>) {
+        val sessionId = monitoringController.state.sessionId ?: return
+        val generation = streamGeneration
         effects.forEach { effect ->
             when (effect) {
                 is VisibilityAlertEffect.Notify -> {
+                    if (mutableState.value.visibilityIssue != effect.issue) return@forEach
                     if (effect.issue != VisibilityIssue.FACE_UNAVAILABLE) {
                         mutableState.update { it.copy(visibilityAcknowledgementRequired = effect.issue) }
                     }
                     visibilityOutputGateway.activateSafely(
                         VisibilityOutputCommand(effect.issue, monitoringVolume),
                     )
+                    if (sessionId != monitoringController.state.sessionId || generation != streamGeneration ||
+                        mutableState.value.visibilityIssue != effect.issue
+                    ) return@forEach
                     visibilityNotificationCoordinator.notify(
                         issue = effect.issue,
                         enabled = monitoringNotificationsEnabled,
                     )
                 }
                 VisibilityAlertEffect.Clear -> {
+                    if (visibilityAlertController.reportedIssue != null) return@forEach
                     visibilityNotificationCoordinator.clear()
                     mutableState.update { it.copy(visibilityAcknowledgementRequired = null) }
                 }
@@ -634,6 +734,45 @@ class DriverVisionViewModel @JvmOverloads constructor(
         mutableState.update { it.copy(monitoring = monitoringController.state) }
     }
 
+    private fun resetBrightness() {
+        brightnessGeneration++
+        brightnessSampleJob?.cancel()
+        brightnessSampleJob = null
+        brightnessGate.reset()
+        brightnessTracker.reset()
+        lastBrightnessTimestampMs = null
+        mutableState.update { it.copy(lowLight = null, ambientLuminance = null, smoothedLuminance = null) }
+    }
+
+    private fun clearCameraReadings() {
+        observationCutoffMs = elapsedClock()
+        lastFrameTimestampMs = null
+        lastDetectionTimestampMs = null
+        resetBrightness()
+        engine.invalidateTracking()
+        // An unobserved interval cannot keep a previous drowsiness episode active.
+        // Confirmed events and warning history remain in the current session.
+        monitoringController.accept(emptyList(), emptySet())
+        visibilityAlertController.interrupt()
+        visibilityNotificationCoordinator.clear()
+        mutableState.update {
+            it.copy(faceDetected = null, detection = null, faceAttributes = null,
+                visibilityIssue = null, visibilityAcknowledgementRequired = null)
+        }
+    }
+
+    private fun expireCameraReadings() {
+        if (mutableState.value.streamState != StreamConnectionState.CONNECTED) return
+        val now = elapsedClock()
+        val frameStale = lastFrameTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true
+        val detectionStale = lastDetectionTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true
+        if (frameStale || detectionStale) {
+            clearCameraReadings()
+        } else if (lastBrightnessTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true) {
+            resetBrightness()
+        }
+    }
+
     private fun toEpochMillis(elapsedMs: Long): Long {
         val elapsedStart = requireNotNull(sessionStartedAtElapsedMs)
         val epochStart = requireNotNull(sessionStartedAtEpochMillis)
@@ -641,9 +780,11 @@ class DriverVisionViewModel @JvmOverloads constructor(
     }
 
     private fun scheduleReconnect(message: String) {
+        streamGeneration++
         source?.stop()
         source = null
         sourceStreamUrl = null
+        clearCameraReadings()
         if (!streamWanted) return
         mutableState.update {
             it.copy(
@@ -662,6 +803,9 @@ class DriverVisionViewModel @JvmOverloads constructor(
 
     private fun stopStream(resetAlignment: Boolean) {
         streamWanted = false
+        streamGeneration++
+        visionHealthJob?.cancel()
+        visionHealthJob = null
         reconnectJob?.cancel()
         source?.stop()
         source = null
@@ -670,6 +814,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         latestPreview = null
         mutablePreviewFrame.value = null
         inferenceGate.reset()
+        clearCameraReadings()
         mutableState.update {
             it.copy(
                 faceDetected = null,
@@ -690,6 +835,9 @@ class DriverVisionViewModel @JvmOverloads constructor(
     companion object {
         private const val INFERENCE_INTERVAL_MS = 100L
         private const val MONITORING_TICK_MS = 250L
+        private const val BRIGHTNESS_SAMPLE_INTERVAL_MS = 1_000L
+        private const val CAMERA_READING_STALE_MS = 3_000L
+        private const val VISIBILITY_LOG_TAG = "DriveAlertVisibility"
     }
 }
 

@@ -108,6 +108,8 @@ class ProvisioningStateTest {
 
     @Test
     fun `permission policy separates Android 12 from legacy scanning`() {
+        assertFalse(BlePermissionPolicy.requiresLocationServices(31))
+        assertTrue(BlePermissionPolicy.requiresLocationServices(30))
         assertEquals(
             setOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT),
             BlePermissionPolicy.runtimePermissions(31).toSet(),

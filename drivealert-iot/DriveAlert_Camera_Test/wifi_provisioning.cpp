@@ -6,7 +6,6 @@
 #include <BLESecurity.h>
 #include <Preferences.h>
 #include <WiFi.h>
-#include <esp_system.h>
 #include <esp_wifi.h>
 
 #include "provisioning_protocol.h"
@@ -15,7 +14,6 @@ namespace {
 constexpr char PREFERENCES_NAMESPACE[] = "drivealert_wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
-constexpr char BLE_PIN_KEY[] = "ble_pin";
 
 WifiProvisioningManager *activeManager = nullptr;
 
@@ -58,18 +56,7 @@ class ProvisioningWriteCallbacks : public BLECharacteristicCallbacks {
 
 class ProvisioningSecurityCallbacks : public BLESecurityCallbacks {
  public:
-  explicit ProvisioningSecurityCallbacks(uint32_t pin) : pin(pin) {}
-
-  uint32_t onPassKeyRequest() override { return pin; }
-  void onPassKeyNotify(uint32_t) override {}
   bool onSecurityRequest() override { return true; }
-  bool onConfirmPIN(uint32_t) override {
-    // Display-only pairing should use passkey entry, not numeric comparison.
-    return false;
-  }
-
- private:
-  uint32_t pin;
 };
 }  // namespace
 
@@ -106,7 +93,6 @@ void WifiProvisioningManager::begin() {
         disconnectReasonName(reason));
     },
     ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-  provisioningPin = loadOrCreateProvisioningPin();
   loadStoredCredentials();
 }
 
@@ -124,11 +110,11 @@ void WifiProvisioningManager::startProvisioning() {
   BLEDevice::init(deviceName.c_str());
 
   BLESecurity *security = new BLESecurity();
-  security->setPassKey(true, provisioningPin);
-  security->setCapability(ESP_IO_CAP_OUT);
-  security->setAuthenticationMode(true, true, true);
+  // Just Works keeps encryption and bonding without requiring a serial-only PIN.
+  security->setCapability(ESP_IO_CAP_NONE);
+  security->setAuthenticationMode(true, false, true);
   security->setKeySize(16);
-  BLEDevice::setSecurityCallbacks(new ProvisioningSecurityCallbacks(provisioningPin));
+  BLEDevice::setSecurityCallbacks(new ProvisioningSecurityCallbacks());
 
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new ProvisioningServerCallbacks());
@@ -145,11 +131,11 @@ void WifiProvisioningManager::startProvisioning() {
     DriveAlertProvisioningProtocol::STATUS_UUID,
     BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
 
-  const uint16_t writePermissions = ESP_GATT_PERM_WRITE_ENC_MITM;
+  const uint16_t writePermissions = ESP_GATT_PERM_WRITE_ENCRYPTED;
   ssidCharacteristic->setAccessPermissions(writePermissions);
   passwordCharacteristic->setAccessPermissions(writePermissions);
   applyCharacteristic->setAccessPermissions(writePermissions);
-  statusCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM);
+  statusCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED);
   statusCharacteristic->addDescriptor(new BLE2902());
 
   ssidCharacteristic->setCallbacks(new ProvisioningWriteCallbacks(InputKind::SSID));
@@ -166,8 +152,8 @@ void WifiProvisioningManager::startProvisioning() {
 
   provisioningActive = true;
   publishStatus(DriveAlertProvisioningProtocol::STATUS_READY);
-  Serial.printf("BLE provisioning active as %s. Pairing PIN: %06u\n", deviceName.c_str(), provisioningPin);
-  Serial.println("The PIN protects setup credentials; the Wi-Fi password is never printed.");
+  Serial.printf("BLE provisioning active as %s. No pairing PIN is required.\n", deviceName.c_str());
+  Serial.println("Setup credentials use encrypted Bluetooth; the Wi-Fi password is never printed.");
 }
 
 void WifiProvisioningManager::loop() {
@@ -394,20 +380,6 @@ void WifiProvisioningManager::publishStatus(const String &status) {
   if (statusCharacteristic == nullptr) return;
   statusCharacteristic->setValue(status.c_str());
   if (bleClientConnected) statusCharacteristic->notify();
-}
-
-uint32_t WifiProvisioningManager::loadOrCreateProvisioningPin() {
-  Preferences preferences;
-  if (!preferences.begin(PREFERENCES_NAMESPACE, false)) {
-    return 100000 + (esp_random() % 900000);
-  }
-  uint32_t pin = preferences.getUInt(BLE_PIN_KEY, 0);
-  if (pin < 100000 || pin > 999999) {
-    pin = 100000 + (esp_random() % 900000);
-    preferences.putUInt(BLE_PIN_KEY, pin);
-  }
-  preferences.end();
-  return pin;
 }
 
 String WifiProvisioningManager::provisioningDeviceName() const {

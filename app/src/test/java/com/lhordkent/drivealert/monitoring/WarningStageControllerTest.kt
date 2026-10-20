@@ -305,6 +305,20 @@ class WarningStageControllerTest {
         assertEquals(WarningStage.STAGE_3, controller.state.currentStage)
     }
 
+    @Test
+    fun cameraLossStopsPersistentEvidenceWithoutRemovingConfirmedHistory() {
+        startStage1()
+        val count = controller.state.confirmedEventCount
+        assertTrue(controller.accept(emptyList(), emptySet()).isEmpty())
+        assertEquals(count, controller.state.confirmedEventCount)
+        assertEquals(WarningStage.STAGE_1, controller.state.currentStage)
+        clock.value = 60_000L
+        val effects = controller.tick()
+        assertTrue(effects.none { it is MonitoringEffect.ActivateWarning || it is MonitoringEffect.RecordAlert })
+        assertEquals(count, controller.state.confirmedEventCount)
+        assertNull(controller.state.currentStage)
+    }
+
     private fun recover() = controller.accept(emptyList(), emptySet())
 
 }

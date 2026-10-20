@@ -48,10 +48,10 @@ suspend fun VisibilityOutputGateway.activateSafely(command: VisibilityOutputComm
 
 /** Pure monotonic-time controller for sustained visibility episodes and session acknowledgements. */
 class VisibilityAlertController(
-    private val lowerFaceDelayMs: Long = 2_000L,
-    private val faceUnavailableDelayMs: Long = 1_000L,
-    private val recoveryDelayMs: Long = 1_000L,
-    private val reminderIntervalMs: Long = 30 * 60_000L,
+    private val lowerFaceDelayMs: Long = 3_000L,
+    private val faceUnavailableDelayMs: Long = 3_000L,
+    private val recoveryDelayMs: Long = 2_000L,
+    private val reminderIntervalMs: Long = 30_000L,
 ) {
     private var activeIssue: VisibilityIssue? = null
     private var candidateStartedAtMs: Long? = null
@@ -60,6 +60,9 @@ class VisibilityAlertController(
     private var lastNotifiedAtMs: Long? = null
     private var acceptedLowerFace = false
     private var acceptedEyeRegion = false
+
+    val reportedIssue: VisibilityIssue?
+        get() = activeIssue.takeIf { notified }
 
     init {
         require(lowerFaceDelayMs >= 0L)
@@ -107,6 +110,9 @@ class VisibilityAlertController(
         acceptedLowerFace = false
         acceptedEyeRegion = false
     }
+
+    /** Forget a disconnected-camera episode while retaining session accessory acknowledgements. */
+    fun interrupt() = clearEpisode()
 
     fun beginSession(accessoryMode: DriverAccessoryMode) {
         reset()

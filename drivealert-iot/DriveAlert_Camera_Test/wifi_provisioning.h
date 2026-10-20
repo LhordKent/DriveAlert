@@ -40,7 +40,6 @@ class WifiProvisioningManager {
   bool credentialStatusRequested = false;
   bool provisioningSuccessReady = false;
   unsigned long stopBleAtMs = 0;
-  uint32_t provisioningPin = 0;
   volatile uint8_t lastDisconnectReason = 0;
   volatile bool disconnectReasonSeen = false;
 
@@ -51,7 +50,6 @@ class WifiProvisioningManager {
   void processStoredCredentials();
   void publishCredentialStatus();
   void publishStatus(const String &status);
-  uint32_t loadOrCreateProvisioningPin();
   String provisioningDeviceName() const;
   static const char *wifiStatusName(uint8_t status);
   static const char *disconnectReasonName(uint8_t reason);

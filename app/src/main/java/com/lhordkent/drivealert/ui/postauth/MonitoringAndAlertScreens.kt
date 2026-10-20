@@ -36,6 +36,10 @@ import com.lhordkent.drivealert.detection.model.MonitoringDetectionResult
 import com.lhordkent.drivealert.monitoring.ActiveMonitoringState
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
+import com.lhordkent.drivealert.monitoring.CameraVisibilityPresentation
+import com.lhordkent.drivealert.monitoring.CameraVisibilityTone
+import com.lhordkent.drivealert.monitoring.cameraVisibilityPresentation
+import com.lhordkent.drivealert.detection.frame.StreamConnectionState
 import com.lhordkent.drivealert.monitoring.VisibilityIssue
 import com.lhordkent.drivealert.postauth.AlertEvent
 import com.lhordkent.drivealert.postauth.AlertHistoryInsights
@@ -66,15 +70,21 @@ fun MonitoringPreviewScreen(
     detectionResult: MonitoringDetectionResult? = null,
     faceAttributes: FaceAttributeResult? = null,
     accessoryMode: DriverAccessoryMode = DriverAccessoryMode.NONE,
+    cameraVisibility: CameraVisibilityPresentation? = null,
+    ambientLuminance: Double? = null,
+    smoothedLuminance: Double? = null,
 ) {
-    val presentation = scenario.presentation()
+    val visibility = cameraVisibility ?: cameraVisibilityPresentation(StreamConnectionState.CONNECTED, scenario, true, null)
+    val presentation = visibility.monitoring
     val activeWarningStage = monitoring.currentStage
     ScrollableScreen(title = "Monitoring Activity", onBack = onExit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(if (monitoring.isActive) presentation.headline else "Monitoring inactive", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
-                Spacer(Modifier.height(6.dp))
-                Text(if (monitoring.isActive) presentation.guidance else "Start monitoring from Driver Home to begin a session.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                if (!monitoring.isActive) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("Start monitoring from Driver Home to begin a session.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                }
             }
             Spacer(Modifier.size(12.dp))
             StatusPill(
@@ -107,6 +117,37 @@ fun MonitoringPreviewScreen(
             KeyValueRow("Latest event", monitoring.latestSigns.joinToString { it.label }.ifEmpty { "None" })
             KeyValueRow("Session visibility setup", accessoryMode.label)
         }
+        Spacer(Modifier.height(16.dp))
+        GroupSurface {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Camera visibility", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Spacer(Modifier.size(12.dp))
+                StatusPill(
+                    visibility.label,
+                    when (visibility.tone) {
+                        CameraVisibilityTone.GOOD -> StatusTone.SUCCESS
+                        CameraVisibilityTone.LIMITED -> StatusTone.WARNING
+                        CameraVisibilityTone.UNAVAILABLE -> StatusTone.ERROR
+                        CameraVisibilityTone.INFO -> StatusTone.INFO
+                    },
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(visibility.detail, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            Spacer(Modifier.height(8.dp))
+            AvailabilityRow("Eye monitoring", presentation.eyeAvailable)
+            AvailabilityRow("Yawning monitoring", presentation.yawningAvailable)
+            AvailabilityRow("Head monitoring", presentation.headAvailable)
+            if (BuildConfig.DEBUG) {
+                Spacer(Modifier.height(8.dp))
+                KeyValueRow("Raw luminance", ambientLuminance.metricText())
+                KeyValueRow("Smoothed luminance", smoothedLuminance.metricText())
+            }
+        }
         if (activeWarningStage != null) {
             Spacer(Modifier.height(16.dp))
             GroupSurface {
@@ -135,12 +176,6 @@ fun MonitoringPreviewScreen(
                 faceAttributes?.errorReason?.let { KeyValueRow("Shadow detail", it) }
             }
         }
-        Spacer(Modifier.height(24.dp))
-        SectionTitle("Monitoring availability")
-        Spacer(Modifier.height(8.dp))
-        AvailabilityRow("Eye Monitoring", presentation.eyeAvailable)
-        AvailabilityRow("Yawning Monitoring", presentation.yawningAvailable)
-        AvailabilityRow("Head Monitoring", presentation.headAvailable)
         Spacer(Modifier.height(24.dp))
         SectionTitle("On-device detection diagnostics")
         Spacer(Modifier.height(8.dp))

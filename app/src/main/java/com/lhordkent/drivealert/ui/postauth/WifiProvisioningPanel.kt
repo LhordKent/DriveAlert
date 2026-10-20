@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.location.LocationManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +34,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lhordkent.drivealert.provisioning.BlePermissionPolicy
 import com.lhordkent.drivealert.provisioning.ProvisioningState
@@ -52,18 +54,24 @@ fun WifiProvisioningPanel(
     vision: DriverVisionUiState? = null,
     onDisconnect: () -> Unit = {},
     onRetryConnection: () -> Unit = {},
+    onReturnToBleSetup: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val bluetoothAdapter = remember {
         context.getSystemService(BluetoothManager::class.java)?.adapter
     }
+    val locationManager = remember { context.getSystemService(LocationManager::class.java) }
     val state by provisioningViewModel.state.collectAsState()
     var ssid by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var showHotspotPrompt by rememberSaveable { mutableStateOf(false) }
+    var showLocationPrompt by rememberSaveable { mutableStateOf(false) }
     val permissions = remember { BlePermissionPolicy.runtimePermissions() }
     val streamState = vision?.streamState
     val connectionVerified = streamState == StreamConnectionState.CONNECTED
+    fun locationServicesRequiredAndOff(): Boolean =
+        BlePermissionPolicy.requiresLocationServices() &&
+            !LocationManagerCompat.isLocationEnabled(locationManager)
     val displayedStatus = when {
         state.stage != ProvisioningStage.PROVISIONED -> state.stage.name.replace('_', ' ')
         connectionVerified -> "CONNECTED"
@@ -79,11 +87,26 @@ fun WifiProvisioningPanel(
             provisioningViewModel.bluetoothDisabled()
         }
     }
+    val locationSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        if (!locationServicesRequiredAndOff()) {
+            if (bluetoothAdapter?.isEnabled == true) {
+                provisioningViewModel.startScan()
+            } else {
+                bluetoothEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            }
+        } else {
+            showLocationPrompt = true
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { results ->
         if (permissions.all { results[it] == true || ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) {
-            if (bluetoothAdapter?.isEnabled == true) {
+            if (locationServicesRequiredAndOff()) {
+                showLocationPrompt = true
+            } else if (bluetoothAdapter?.isEnabled == true) {
                 provisioningViewModel.startScan()
             } else {
                 bluetoothEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
@@ -99,6 +122,8 @@ fun WifiProvisioningPanel(
         }
         if (missing.isNotEmpty()) {
             permissionLauncher.launch(missing.toTypedArray())
+        } else if (locationServicesRequiredAndOff()) {
+            showLocationPrompt = true
         } else if (bluetoothAdapter?.isEnabled == true) {
             provisioningViewModel.startScan()
         } else {
@@ -260,6 +285,10 @@ fun WifiProvisioningPanel(
                         Spacer(Modifier.height(12.dp))
                         SecondaryButton("Try again", onRetryConnection)
                     }
+                    if (shouldOfferBleRecovery(streamState)) {
+                        Spacer(Modifier.height(12.dp))
+                        SecondaryButton("Switch to Bluetooth setup", onReturnToBleSetup)
+                    }
                 } else {
                     Text("Connection verified through the live stream.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                     Spacer(Modifier.height(12.dp))
@@ -280,6 +309,19 @@ fun WifiProvisioningPanel(
             }
             else -> Unit
         }
+    }
+
+    if (showLocationPrompt) {
+        ConfirmDialog(
+            title = "Turn on Location",
+            body = "Android requires Location to discover nearby Bluetooth devices during setup. DriveAlert does not use your GPS position.",
+            confirmLabel = "Open Location settings",
+            onConfirm = {
+                showLocationPrompt = false
+                locationSettingsLauncher.launch(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+            },
+            onDismiss = { showLocationPrompt = false },
+        )
     }
 
     if (showHotspotPrompt) {
@@ -304,3 +346,6 @@ fun WifiProvisioningPanel(
 
 internal fun wifiCredentialFieldsAvailable(state: ProvisioningState): Boolean =
     state.stage == ProvisioningStage.CONNECTED_BLE && state.credentialStatusKnown
+
+internal fun shouldOfferBleRecovery(streamState: StreamConnectionState?): Boolean =
+    streamState == StreamConnectionState.RECONNECTING || streamState == StreamConnectionState.UNAVAILABLE

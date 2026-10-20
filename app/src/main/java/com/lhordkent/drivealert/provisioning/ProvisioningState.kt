@@ -65,7 +65,7 @@ object ProvisioningReducer {
         )
         ProvisioningEvent.Pairing -> state.copy(
             stage = ProvisioningStage.PAIRING,
-            message = "Enter the ESP32 pairing PIN when Android asks.",
+            message = "Confirm Bluetooth pairing if Android asks. No PIN is required.",
         )
         ProvisioningEvent.BleReady -> state.copy(
             stage = ProvisioningStage.CONNECTED_BLE,
