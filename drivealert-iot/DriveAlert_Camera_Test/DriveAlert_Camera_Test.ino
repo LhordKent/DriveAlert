@@ -7,7 +7,6 @@
 #include <esp_system.h>
 
 #include "board_config.h"
-#include "reset_button.h"
 #include "warning_output.h"
 #include "wifi_provisioning.h"
 
@@ -24,9 +23,6 @@ constexpr uint32_t CAMERA_HANDOFF_MAGIC = 0xDA17CA4E;
 constexpr uint8_t CONNECTION_LED_GPIO = 14;
 constexpr uint8_t CONNECTION_LED_ON = HIGH;
 constexpr uint8_t CONNECTION_LED_OFF = LOW;
-
-static_assert(ResetButton::BUTTON_GPIO != CONNECTION_LED_GPIO, "Reset button conflicts with heartbeat LED");
-static_assert(ResetButton::BUTTON_GPIO != WarningOutput::DFPLAYER_TX_GPIO, "Reset button conflicts with DFPlayer TX");
 
 WifiProvisioningManager wifiProvisioning;
 Ticker connectionLedTicker;
@@ -211,13 +207,6 @@ void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
   Serial.println();
-  ResetButton::begin([]() {
-    // A physical-button restart follows the existing BLE-ready boot path and
-    // retains saved credentials; it must not authorize a camera handoff boot.
-    cameraHandoffAuthorization = 0;
-    Serial.println("GPIO15 reset button pressed; restarting into BLE-ready mode.");
-    ESP.restart();
-  });
   startConnectionLedHeartbeat();
   WarningOutput::begin();
   const bool appAuthorizedCameraHandoff =

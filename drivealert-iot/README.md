@@ -17,8 +17,6 @@ This is not an ESP32-S3/Freenove board and the sensor is not OV2640. The CameraW
 - `DriveAlert_Camera_Test/provisioning_protocol.h`: firmware UUID/status constants
 - `DriveAlert_Camera_Test/app_httpd.cpp`: camera control/MJPEG servers and DriveAlert command endpoints
 - `DriveAlert_Camera_Test/warning_output.*`: DFPlayer UART setup, mappings, and queued playback
-- `DriveAlert_Camera_Test/reset_button.*`: external GPIO15 reset input and polling task
-- `DriveAlert_Camera_Test/reset_button_debouncer.h`: testable, one-shot debounce state
 - `PROVISIONING_PROTOCOL.md`: shared Android/firmware GATT contract
 - `WARNING_OUTPUT_PROTOCOL.md`: shared Android/firmware local HTTP warning contract
 
@@ -83,24 +81,7 @@ The advertised name is `DriveAlert-XXXX`, where `XXXX` is a non-secret suffix de
 
 Rebooting avoids keeping BLE, camera, Wi-Fi, and the HTTP stream allocated together. These timings are engineering constants, not detection rules.
 
-`WifiProvisioningManager::clearWifiCredentials()` safely removes only `ssid` and `password`. No physical trigger is assigned to credential erasure; the GPIO15 button only restarts the device.
-
-## External physical reset button
-
-- Wiring: one electrical side of a normally-open momentary switch to GPIO15; the other to GND. On a four-leg tactile switch, the two legs belonging to one electrical side are already joined. Use opposite electrical sides, not two legs on the same side.
-- GPIO15 is configured as `INPUT_PULLUP`: released is HIGH and pressed is LOW. Do not connect the switch to 5 V.
-- The active AI-Thinker camera map does not use GPIO15, DFPlayer TX remains GPIO13, and the heartbeat remains GPIO14. The ESP32-CAM microSD/SDIO interface is not initialized. GPIO15 is its CMD pin and cannot be shared with that interface if it is enabled later. The DFPlayer's own microSD card is independent.
-- GPIO15 is also MTDO, a boot-strapping pin. Holding it LOW at reset can suppress ROM boot messages and changes SDIO slave timing; these functions are not used by this firmware. GPIO15 does not select the normal flash/download boot mode. Board-level held-button boot behavior still needs physical verification. See [Espressif boot-mode guidance](https://docs.espressif.com/projects/esptool/en/latest/esp32/advanced-topics/boot-mode-selection.html) and [SDMMC pin assignments](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/sdmmc_host.html).
-- A small FreeRTOS task samples the input every 10 ms and yields between samples. This keeps the button responsive during the existing blocking Wi-Fi scan/connect operations without changing those operations or running a restart inside an interrupt/timer callback.
-- After every boot, a stable HIGH release for 50 ms arms the button. A subsequent LOW held stable for 50 ms invokes `ESP.restart()` once. Bounce restarts the interval. The request is latched before restarting, and a button held through reboot cannot cause a restart loop: release it, then press again.
-- The restart clears only the temporary camera-handoff authorization. Saved Wi-Fi credentials are retained, and the existing boot behavior returns to BLE-ready mode until Android explicitly connects again. It does not automatically resume streaming or an Android monitoring session.
-- This is a software restart request. If FreeRTOS cannot schedule the polling task or the firmware is completely frozen, restart cannot be guaranteed; EN/RST hardware reset or a power cycle remains necessary.
-
-### Reset-button verification
-
-`tests/reset_button_debouncer_test.cpp` contains seven compile-time behavior tests for released state, sustained LOW, bounce/noise, one attempt per boot, held-button reboot protection, release bounce, and `millis()` rollover. Compile it with the installed ESP32 C++ compiler using `-std=c++17 -Wall -Wextra -Werror -fsyntax-only`.
-
-Hardware checks after flashing: verify no resets when released; verify a press resets once during BLE setup, a Wi-Fi connection attempt, and active streaming; hold the switch through reboot and confirm it waits for release; reconnect through Android and verify streaming, GPIO13 audio, and GPIO14 heartbeat. These checks require the actual wired board and have not been performed by the software tests.
+`WifiProvisioningManager::clearWifiCredentials()` safely removes only `ssid` and `password`. No physical trigger is assigned to credential erasure or firmware restart.
 
 ## Build verification
 
