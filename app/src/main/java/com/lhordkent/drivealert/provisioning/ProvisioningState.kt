@@ -40,6 +40,7 @@ sealed interface ProvisioningEvent {
     data class CredentialStatus(val savedSsid: String?) : ProvisioningEvent
     data object CredentialsSending : ProvisioningEvent
     data object WifiConnecting : ProvisioningEvent
+    data object WifiConnectionFailed : ProvisioningEvent
     data class Provisioned(val ip: String?, val hostname: String? = null, val deviceId: String? = null) : ProvisioningEvent
     data class Failed(val reason: String) : ProvisioningEvent
     data object Retry : ProvisioningEvent
@@ -89,7 +90,13 @@ object ProvisioningReducer {
         )
         ProvisioningEvent.WifiConnecting -> state.copy(
             stage = ProvisioningStage.CONNECTING_WIFI,
-            message = "ESP32 is connecting to Wi-Fi…",
+            message = "DriveAlert Device is connecting to Wi-Fi…",
+        )
+        ProvisioningEvent.WifiConnectionFailed -> state.copy(
+            // The failure notification arrived over GATT, so Bluetooth is still
+            // usable. Preserve the device and saved-network state for a retry.
+            stage = ProvisioningStage.CONNECTED_BLE,
+            message = "DriveAlert Device could not join that Wi-Fi network.",
         )
         is ProvisioningEvent.Provisioned -> state.copy(
             stage = ProvisioningStage.PROVISIONED,

@@ -36,6 +36,14 @@ import com.lhordkent.drivealert.notification.DriverVisibilityNotificationCoordin
 import com.lhordkent.drivealert.notification.DriverWarningNotificationCoordinator
 import com.lhordkent.drivealert.notification.DriveAlertMessagingService
 import com.lhordkent.drivealert.notification.TrustedContactDeviceRegistrar
+import com.lhordkent.drivealert.detection.DriverVisionRuntime
+import com.lhordkent.drivealert.data.local.entity.MonitoringSessionStatus
+import com.lhordkent.drivealert.monitoring.DriveAlertMonitoringService
+import com.lhordkent.drivealert.monitoring.MonitoringRecoveryStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class DriveAlertApplication : Application() {
     val container: AppContainer by lazy { AppContainer(this) }
@@ -45,10 +53,13 @@ class DriveAlertApplication : Application() {
         AndroidDriverWarningNotificationGateway.createChannel(this)
         AndroidDriverVisibilityNotificationGateway.createChannel(this)
         DriveAlertMessagingService.createChannels(this)
+        DriveAlertMonitoringService.createChannel(this)
+        container.interruptRecoveryFromPreviousBoot()
     }
 }
 
-class AppContainer(application: Application) {
+class AppContainer(private val application: Application) {
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val database: DriveAlertDatabase = DriveAlertDatabase.getInstance(application)
     val firestore: FirebaseFirestore by lazy {
         FirebaseFirestore.getInstance().apply {
@@ -98,4 +109,35 @@ class AppContainer(application: Application) {
         RoomStageSyncRepository(database.stageSyncRecordDao(), stageSyncScheduler)
     }
     val sharedStage3Repository: SharedStage3Repository by lazy { FirestoreSharedStage3Repository(firestore) }
+    val driverVisionRuntime: DriverVisionRuntime by lazy {
+        DriverVisionRuntime(
+            application = application,
+            calibrationRepository = calibrationRepository,
+            deviceRepository = provisionedDeviceRepository,
+            monitoringSessionRepository = monitoringSessionRepository,
+            alertRepository = alertRepository,
+            stageSyncRepository = stageSyncRepository,
+            notificationCoordinator = driverWarningNotificationCoordinator,
+            visibilityNotificationCoordinator = driverVisibilityNotificationCoordinator,
+        )
+    }
+
+    fun interruptRecoveryFromPreviousBoot() {
+        val store = MonitoringRecoveryStore(application)
+        val recovery = store.load() ?: return
+        if (recovery.bootCount != MonitoringRecoveryStore.UNKNOWN_BOOT_COUNT &&
+            recovery.bootCount == store.currentBootCount()
+        ) return
+        store.clear()
+        applicationScope.launch {
+            runCatching {
+                monitoringSessionRepository.finish(
+                    driverUserId = recovery.driverUserId,
+                    sessionId = recovery.sessionId,
+                    status = MonitoringSessionStatus.INTERRUPTED,
+                    endedAtEpochMillis = System.currentTimeMillis(),
+                )
+            }
+        }
+    }
 }

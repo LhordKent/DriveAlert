@@ -73,8 +73,8 @@ recording is reused and no new MP3 files are required. The endpoint uses the sam
 
 | Logical volume | DFPlayer volume |
 |---|---:|
-| `MINIMUM` | 22 |
-| `MEDIUM` | 26 |
+| `MINIMUM` | 26 |
+| `MEDIUM` | 28 |
 | `HIGH` | 30 |
 
 The final files use `/mp3/NNNN.mp3` and `player.playMp3Folder(trackNumber)`.

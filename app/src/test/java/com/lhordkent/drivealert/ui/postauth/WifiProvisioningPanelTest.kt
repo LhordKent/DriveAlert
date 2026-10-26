@@ -7,12 +7,13 @@ import org.junit.Test
 
 class WifiProvisioningPanelTest {
     @Test
-    fun `BLE recovery is offered only after camera connection trouble`() {
+    fun `BLE recovery is offered throughout camera startup until connected`() {
+        assertTrue(shouldOfferBleRecovery(StreamConnectionState.SETUP_REQUIRED))
+        assertTrue(shouldOfferBleRecovery(StreamConnectionState.READY))
+        assertTrue(shouldOfferBleRecovery(StreamConnectionState.CONNECTING))
         assertTrue(shouldOfferBleRecovery(StreamConnectionState.RECONNECTING))
         assertTrue(shouldOfferBleRecovery(StreamConnectionState.UNAVAILABLE))
-        assertFalse(shouldOfferBleRecovery(StreamConnectionState.CONNECTING))
+        assertTrue(shouldOfferBleRecovery(null))
         assertFalse(shouldOfferBleRecovery(StreamConnectionState.CONNECTED))
-        assertFalse(shouldOfferBleRecovery(StreamConnectionState.READY))
-        assertFalse(shouldOfferBleRecovery(null))
     }
 }

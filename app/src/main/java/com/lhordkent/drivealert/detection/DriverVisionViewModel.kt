@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.lhordkent.drivealert.BuildConfig
 import com.lhordkent.drivealert.DriveAlertApplication
 import com.lhordkent.drivealert.data.repository.CalibrationRepository
@@ -46,6 +45,8 @@ import com.lhordkent.drivealert.monitoring.declaredIssue
 import com.lhordkent.drivealert.monitoring.VisibilityIssue
 import com.lhordkent.drivealert.monitoring.VisibilityOutputCommand
 import com.lhordkent.drivealert.monitoring.VisibilityOutputGateway
+import com.lhordkent.drivealert.monitoring.DriveAlertMonitoringService
+import com.lhordkent.drivealert.monitoring.MonitoringRecoveryStore
 import com.lhordkent.drivealert.monitoring.activateSafely
 import com.lhordkent.drivealert.monitoring.warningOutputCommand
 import com.lhordkent.drivealert.monitoring.toVisibleSign
@@ -62,8 +63,10 @@ import com.lhordkent.drivealert.device.HttpWarningOutputGateway
 import com.lhordkent.drivealert.device.HttpVisibilityOutputGateway
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -94,7 +97,7 @@ data class DriverVisionUiState(
     val errorMessage: String? = null,
 )
 
-class DriverVisionViewModel @JvmOverloads constructor(
+class DriverVisionRuntime @JvmOverloads constructor(
     application: Application,
     private val calibrationRepository: CalibrationRepository =
         (application as DriveAlertApplication).container.calibrationRepository,
@@ -116,7 +119,8 @@ class DriverVisionViewModel @JvmOverloads constructor(
         (application as DriveAlertApplication).container.driverVisibilityNotificationCoordinator,
     private val elapsedClock: () -> Long = SystemClock::elapsedRealtime,
     private val wallClock: () -> Long = System::currentTimeMillis,
-) : AndroidViewModel(application), Closeable {
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+) : Closeable {
     private val mutableState = MutableStateFlow(DriverVisionUiState())
     val state: StateFlow<DriverVisionUiState> = mutableState.asStateFlow()
     private val mutablePreviewFrame = MutableStateFlow<SharedBitmapFrame?>(null)
@@ -131,7 +135,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
                 observation,
                 effectiveRegionalVisibility(faceAttributes),
             )
-            viewModelScope.launch { acceptDetection(result, faceAttributes) }
+            scope.launch { acceptDetection(result, faceAttributes) }
         },
         onError = { error -> mutableState.update { it.copy(errorMessage = error.message ?: "Face processing stopped.") } },
     )
@@ -197,7 +201,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         persistedCalibrationId = null
         mutableState.value = DriverVisionUiState()
         if (driverUserId == null) return
-        deviceJob = viewModelScope.launch {
+        deviceJob = scope.launch {
             calibrationRepository.active(driverUserId)?.let { calibration ->
                 engine.activatePersistedCalibration(calibration)
                 persistedCalibrationId = calibration.calibrationId
@@ -231,7 +235,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
     fun startVision() {
         streamWanted = true
         if (visionHealthJob?.isActive != true) {
-            visionHealthJob = viewModelScope.launch {
+            visionHealthJob = scope.launch {
                 while (streamWanted) {
                     delay(MONITORING_TICK_MS)
                     expireCameraReadings()
@@ -273,7 +277,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         if (mutableState.value.disconnectInProgress) return
         stopMonitoring(interrupted = true)
         mutableState.update { it.copy(disconnectInProgress = true, errorMessage = null) }
-        viewModelScope.launch {
+        scope.launch {
             sessionController.disconnect(device).fold(
                 onSuccess = {
                     stopStream(resetAlignment = true)
@@ -307,7 +311,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
             onComplete()
             return
         }
-        viewModelScope.launch {
+        scope.launch {
             // Best effort: a reachable ESP32 restarts into BLE-ready mode so the
             // next account can provision it. Logout must still complete if the
             // device is powered off or no longer on this network.
@@ -333,7 +337,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
 
     fun cancelCalibration() {
         val userId = boundDriverId ?: return
-        viewModelScope.launch {
+        scope.launch {
             engine = DriveAlertDetectionEngine()
             val active = calibrationRepository.active(userId)
             active?.let(engine::activatePersistedCalibration)
@@ -346,21 +350,31 @@ class DriverVisionViewModel @JvmOverloads constructor(
         volume: PreferredVolume = PreferredVolume.MEDIUM,
         notificationsEnabled: Boolean = true,
         accessoryMode: DriverAccessoryMode = DriverAccessoryMode.NONE,
+        existingSessionId: String? = null,
+        existingStartedAtEpochMillis: Long? = null,
+        onStarted: (String, Long) -> Unit = { _, _ -> },
+        onFailure: (Throwable) -> Unit = {},
     ) {
-        if (monitoringController.state.isActive || monitoringStarting) return
-        val driverId = boundDriverId ?: return
-        val calibration = mutableState.value.activeCalibration ?: return
-        val device = activeDevice ?: return
-        if (mutableState.value.streamState != StreamConnectionState.CONNECTED) return
+        if (monitoringController.state.isActive || monitoringStarting) {
+            monitoringController.state.sessionId?.let { onStarted(it, sessionStartedAtEpochMillis ?: wallClock()) }
+            return
+        }
+        val driverId = boundDriverId ?: return onFailure(IllegalStateException("No driver is signed in."))
+        val calibration = mutableState.value.activeCalibration
+            ?: return onFailure(IllegalStateException("Driver calibration is required."))
+        val device = activeDevice ?: return onFailure(IllegalStateException("No DriveAlert camera is configured."))
+        if (mutableState.value.streamState != StreamConnectionState.CONNECTED) {
+            return onFailure(IllegalStateException("The DriveAlert camera is not connected."))
+        }
         monitoringStarting = true
         monitoringSound = sound
         monitoringVolume = volume
         monitoringNotificationsEnabled = notificationsEnabled
         monitoringAccessoryMode = accessoryMode
-        monitoringStartJob = viewModelScope.launch {
+        monitoringStartJob = scope.launch {
             try {
-                val startedAtEpoch = wallClock()
-                val sessionId = monitoringSessionRepository.start(
+                val startedAtEpoch = existingStartedAtEpochMillis ?: wallClock()
+                val sessionId = existingSessionId ?: monitoringSessionRepository.start(
                     StartMonitoringSessionInput(
                         driverUserId = driverId,
                         calibrationId = calibration.calibrationId,
@@ -368,7 +382,8 @@ class DriverVisionViewModel @JvmOverloads constructor(
                         startedAtEpochMillis = startedAtEpoch,
                     ),
                 )
-                monitoringController.start(sessionId)
+                val recoveredDuration = (wallClock() - startedAtEpoch).coerceAtLeast(0L)
+                monitoringController.start(sessionId, recoveredDuration)
                 resetBrightness()
                 visibilityAlertController.beginSession(accessoryMode)
                 visibilityNotificationCoordinator.clear()
@@ -384,8 +399,9 @@ class DriverVisionViewModel @JvmOverloads constructor(
                     )
                 }
                 publishMonitoringState()
+                onStarted(sessionId, startedAtEpoch)
                 monitoringJob?.cancel()
-                monitoringJob = viewModelScope.launch {
+                monitoringJob = scope.launch {
                     while (monitoringController.state.isActive) {
                         delay(MONITORING_TICK_MS)
                         handleMonitoringEffects(monitoringController.tick(), driverId, sessionId)
@@ -397,6 +413,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
                 throw error
             } catch (error: Throwable) {
                 mutableState.update { it.copy(errorMessage = error.message ?: "Monitoring could not start.") }
+                onFailure(error)
             } finally {
                 monitoringStarting = false
                 monitoringStartJob = null
@@ -404,7 +421,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         }
     }
 
-    fun stopMonitoring(interrupted: Boolean = false) {
+    fun stopMonitoring(interrupted: Boolean = false, onFinished: () -> Unit = {}) {
         monitoringStartJob?.cancel()
         monitoringStartJob = null
         monitoringStarting = false
@@ -430,7 +447,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         highestPersistedStage = null
         activeAlertId = null
         if (sessionId != null && driverId != null) {
-            viewModelScope.launch {
+            scope.launch {
                 runCatching {
                     monitoringSessionRepository.finish(
                         driverUserId = driverId,
@@ -441,12 +458,13 @@ class DriverVisionViewModel @JvmOverloads constructor(
                 }.onFailure { error ->
                     mutableState.update { it.copy(errorMessage = error.message ?: "Monitoring session could not be closed.") }
                 }
+                onFinished()
             }
-        }
+        } else onFinished()
     }
 
     fun testWarningOutput(stage: WarningStage, sound: WarningSound, volume: PreferredVolume) {
-        viewModelScope.launch {
+        scope.launch {
             val delivery = warningOutputGateway.activateSafely(stage.warningOutputCommand(sound, volume))
             mutableState.update {
                 it.copy(
@@ -465,7 +483,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
         val generation = ++streamGeneration
         clearCameraReadings()
         mutableState.update { it.copy(streamState = StreamConnectionState.CONNECTING, errorMessage = null) }
-        reconnectJob = viewModelScope.launch {
+        reconnectJob = scope.launch {
             try {
                 val resolved = endpointResolver.resolve(device)
                 if (resolved == null) {
@@ -534,7 +552,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
     private fun sampleBrightness(frame: SharedBitmapFrame, timestampMs: Long) {
         if (!brightnessGate.tryAcquire(timestampMs) || brightnessSampleJob?.isActive == true) return
         val generation = brightnessGeneration
-        brightnessSampleJob = viewModelScope.launch {
+        brightnessSampleJob = scope.launch {
             val sampleSource = frame.tryRetain() ?: return@launch
             try {
                 val luminance = withContext(Dispatchers.Default) {
@@ -793,7 +811,7 @@ class DriverVisionViewModel @JvmOverloads constructor(
             )
         }
         reconnectJob?.cancel()
-        reconnectJob = viewModelScope.launch {
+        reconnectJob = scope.launch {
             val delayMs = minOf(8_000L, 1_000L shl minOf(reconnectAttempt, 3))
             reconnectAttempt++
             delay(delayMs)
@@ -830,8 +848,6 @@ class DriverVisionViewModel @JvmOverloads constructor(
         processor.close()
     }
 
-    override fun onCleared() = close()
-
     companion object {
         private const val INFERENCE_INTERVAL_MS = 100L
         private const val MONITORING_TICK_MS = 250L
@@ -839,6 +855,73 @@ class DriverVisionViewModel @JvmOverloads constructor(
         private const val CAMERA_READING_STALE_MS = 3_000L
         private const val VISIBILITY_LOG_TAG = "DriveAlertVisibility"
     }
+}
+
+/** Activity-scoped facade over the application-scoped camera and monitoring runtime. */
+class DriverVisionViewModel(application: Application) : AndroidViewModel(application) {
+    private val runtime = (application as DriveAlertApplication).container.driverVisionRuntime
+    private var driverUserId: String? = null
+
+    val state: StateFlow<DriverVisionUiState> = runtime.state
+    val previewFrame: StateFlow<SharedBitmapFrame?> = runtime.previewFrame
+
+    fun bindDriver(driverUserId: String?) {
+        this.driverUserId = driverUserId
+        if (driverUserId == null &&
+            (runtime.state.value.monitoring.isActive || MonitoringRecoveryStore(getApplication()).load() != null)
+        ) DriveAlertMonitoringService.stop(getApplication(), interrupted = true)
+        runtime.bindDriver(driverUserId)
+    }
+
+    fun startVision() = runtime.startVision()
+
+    fun returnToBleProvisioning() {
+        runtime.returnToBleProvisioning()
+        DriveAlertMonitoringService.dismissAfterRuntimeStop(getApplication())
+    }
+
+    fun confirmAlignment() = runtime.confirmAlignment()
+
+    fun disconnectCurrentSession(onDisconnected: () -> Unit = {}) {
+        runtime.disconnectCurrentSession(onDisconnected)
+        DriveAlertMonitoringService.dismissAfterRuntimeStop(getApplication())
+    }
+
+    fun prepareForAccountChange(onComplete: () -> Unit) {
+        runtime.prepareForAccountChange(onComplete)
+        DriveAlertMonitoringService.dismissAfterRuntimeStop(getApplication())
+    }
+
+    fun startCalibration() = runtime.startCalibration()
+    fun beginCalibrationPhase() = runtime.beginCalibrationPhase()
+    fun repeatCalibrationPhase() = runtime.repeatCalibrationPhase()
+    fun cancelCalibration() = runtime.cancelCalibration()
+
+    fun startMonitoring(
+        sound: WarningSound = WarningSound.DIGITAL_BEEP,
+        volume: PreferredVolume = PreferredVolume.MEDIUM,
+        notificationsEnabled: Boolean = true,
+        accessoryMode: DriverAccessoryMode = DriverAccessoryMode.NONE,
+    ) {
+        val driverId = driverUserId ?: return
+        DriveAlertMonitoringService.start(
+            context = getApplication(),
+            driverId = driverId,
+            sound = sound,
+            volume = volume,
+            notificationsEnabled = notificationsEnabled,
+            accessoryMode = accessoryMode,
+        )
+    }
+
+    fun stopMonitoring(interrupted: Boolean = false) =
+        DriveAlertMonitoringService.stop(getApplication(), interrupted)
+
+    fun testWarningOutput(stage: WarningStage, sound: WarningSound, volume: PreferredVolume) =
+        runtime.testWarningOutput(stage, sound, volume)
+
+    fun continueWithDegradedMonitoring() = runtime.continueWithDegradedMonitoring()
+    fun dismissVisibilityAcknowledgement() = runtime.dismissVisibilityAcknowledgement()
 }
 
 private fun MonitoringDetectionResult.currentlyConfirmedSigns() = buildSet {

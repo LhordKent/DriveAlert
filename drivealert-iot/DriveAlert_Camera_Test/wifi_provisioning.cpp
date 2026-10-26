@@ -174,6 +174,15 @@ void WifiProvisioningManager::loop() {
     stopBleAtMs = 0;
     provisioningSuccessReady = true;
   }
+  if (recoverBleAtMs != 0 && static_cast<long>(millis() - recoverBleAtMs) >= 0) {
+    recoverBleAtMs = 0;
+    if (bleClientConnected && bleServer != nullptr) {
+      Serial.println("Wi-Fi failure recovery timeout reached; resetting the BLE connection.");
+      bleServer->disconnect(bleServer->getConnId());
+    } else {
+      BLEDevice::startAdvertising();
+    }
+  }
 }
 
 bool WifiProvisioningManager::takeProvisioningSuccess() {
@@ -209,6 +218,9 @@ void WifiProvisioningManager::handlePasswordWrite(const String &value) {
 }
 
 void WifiProvisioningManager::handleApplyWrite(const String &value) {
+  // Any command proves the app is actively recovering over the existing link.
+  // Cancel the stale-session fallback before processing it.
+  recoverBleAtMs = 0;
   if (value == DriveAlertProvisioningProtocol::APPLY_COMMAND) {
     applyRequested = true;
   } else if (value == DriveAlertProvisioningProtocol::CONNECT_SAVED_COMMAND) {
@@ -224,6 +236,7 @@ void WifiProvisioningManager::handleBleConnected() {
 
 void WifiProvisioningManager::handleBleDisconnected() {
   bleClientConnected = false;
+  recoverBleAtMs = 0;
   if (provisioningActive && stopBleAtMs == 0) BLEDevice::startAdvertising();
 }
 
@@ -338,6 +351,7 @@ void WifiProvisioningManager::processCandidateCredentials() {
   if (!connectToWifi(candidateSsid, candidatePassword)) {
     WiFi.setAutoReconnect(false);
     publishStatus(DriveAlertProvisioningProtocol::STATUS_CONNECTION_FAILED);
+    scheduleBleFailureRecovery();
     candidatePassword = "";
     return;
   }
@@ -362,6 +376,7 @@ void WifiProvisioningManager::processStoredCredentials() {
   if (!connectUsingStoredCredentials()) {
     WiFi.setAutoReconnect(false);
     publishStatus(DriveAlertProvisioningProtocol::STATUS_CONNECTION_FAILED);
+    scheduleBleFailureRecovery();
     return;
   }
   publishStatus("CONNECTED|" + WiFi.localIP().toString() + "|" + deviceHostname());
@@ -380,6 +395,10 @@ void WifiProvisioningManager::publishStatus(const String &status) {
   if (statusCharacteristic == nullptr) return;
   statusCharacteristic->setValue(status.c_str());
   if (bleClientConnected) statusCharacteristic->notify();
+}
+
+void WifiProvisioningManager::scheduleBleFailureRecovery() {
+  recoverBleAtMs = millis() + BLE_FAILURE_RECOVERY_MS;
 }
 
 String WifiProvisioningManager::provisioningDeviceName() const {

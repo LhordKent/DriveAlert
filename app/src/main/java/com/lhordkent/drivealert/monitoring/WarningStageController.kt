@@ -207,13 +207,19 @@ class MonitoringSessionController(
     var state: ActiveMonitoringState = ActiveMonitoringState()
         private set
 
-    fun start(sessionId: String) {
+    fun start(sessionId: String, initialDurationMs: Long = 0L) {
         require(sessionId.isNotBlank())
+        require(initialDurationMs >= 0L)
         warningStages.reset()
         seenEvents.clear()
         activeEpisodeSigns = emptySet()
         val now = clock()
-        state = ActiveMonitoringState(isActive = true, sessionId = sessionId, startedAtElapsedMs = now)
+        state = ActiveMonitoringState(
+            isActive = true,
+            sessionId = sessionId,
+            startedAtElapsedMs = now - initialDurationMs.coerceAtMost(now),
+            durationMs = initialDurationMs,
+        )
     }
 
     fun stop() {

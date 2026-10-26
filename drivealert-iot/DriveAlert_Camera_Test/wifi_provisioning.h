@@ -10,6 +10,7 @@ class WifiProvisioningManager {
  public:
   static constexpr unsigned long CONNECTION_TIMEOUT_MS = 20000;
   static constexpr unsigned long BLE_STATUS_GRACE_MS = 1500;
+  static constexpr unsigned long BLE_FAILURE_RECOVERY_MS = 60000;
 
   void begin();
   bool connectUsingStoredCredentials();
@@ -40,6 +41,7 @@ class WifiProvisioningManager {
   bool credentialStatusRequested = false;
   bool provisioningSuccessReady = false;
   unsigned long stopBleAtMs = 0;
+  unsigned long recoverBleAtMs = 0;
   volatile uint8_t lastDisconnectReason = 0;
   volatile bool disconnectReasonSeen = false;
 
@@ -50,6 +52,7 @@ class WifiProvisioningManager {
   void processStoredCredentials();
   void publishCredentialStatus();
   void publishStatus(const String &status);
+  void scheduleBleFailureRecovery();
   String provisioningDeviceName() const;
   static const char *wifiStatusName(uint8_t status);
   static const char *disconnectReasonName(uint8_t reason);

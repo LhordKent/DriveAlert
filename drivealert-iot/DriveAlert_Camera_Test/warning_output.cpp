@@ -72,8 +72,8 @@ static_assert(stage3TrackForSound(Sound::BELL_CHIME) == 10, "Bell Chime Stage 3 
 static_assert(trackForStage(1, Sound::DIGITAL_BEEP) == 1, "Stage 1 must use the normal track");
 static_assert(trackForStage(2, Sound::DIGITAL_BEEP) == 1, "Stage 2 media limitation must use the normal track");
 static_assert(trackForStage(3, Sound::DIGITAL_BEEP) == 6, "Stage 3 must use the mixed track");
-static_assert(valueForVolume(Volume::MINIMUM_LEVEL) == 22, "Minimum volume mapping changed");
-static_assert(valueForVolume(Volume::MEDIUM_LEVEL) == 26, "Medium volume mapping changed");
+static_assert(valueForVolume(Volume::MINIMUM_LEVEL) == 26, "Minimum volume mapping changed");
+static_assert(valueForVolume(Volume::MEDIUM_LEVEL) == 28, "Medium volume mapping changed");
 static_assert(valueForVolume(Volume::HIGH_LEVEL) == 30, "High volume mapping changed");
 static_assert(!isValidValues(0, Sound::ROOSTER_CALL, Volume::MINIMUM_LEVEL), "Stage 0 must be invalid");
 static_assert(!isValidValues(4, Sound::ROOSTER_CALL, Volume::MINIMUM_LEVEL), "Stage 4 must be invalid");

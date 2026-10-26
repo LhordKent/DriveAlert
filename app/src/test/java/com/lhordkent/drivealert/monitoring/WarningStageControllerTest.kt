@@ -19,6 +19,16 @@ class WarningStageControllerTest {
     private val controller = MonitoringSessionController(clock::now, warningStages)
 
     @Test
+    fun recoveredSessionKeepsItsElapsedDuration() {
+        clock.value = 120_000L
+        controller.start("session", initialDurationMs = 45_000L)
+
+        assertEquals("session", controller.state.sessionId)
+        assertEquals(45_000L, controller.state.durationMs)
+        assertEquals(75_000L, controller.state.startedAtElapsedMs)
+    }
+
+    @Test
     fun normalEventImmediatelyEntersStage1AndStoresPostEventStage() {
         start()
         val effects = controller.accept(listOf(event(SignType.YAWNING, 1L)))

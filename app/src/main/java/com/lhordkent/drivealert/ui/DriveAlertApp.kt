@@ -1,8 +1,10 @@
 package com.lhordkent.drivealert.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -20,10 +22,16 @@ import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -137,6 +145,10 @@ private val driverNavItems = listOf(
 @Composable
 fun DriveAlertApp() {
     val application = LocalContext.current.applicationContext as DriveAlertApplication
+    val permissionPreferences = remember {
+        application.getSharedPreferences("drivealert_permission_prompts", android.content.Context.MODE_PRIVATE)
+    }
+    var showNotificationExplanation by remember { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
@@ -144,6 +156,12 @@ fun DriveAlertApp() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(application, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+    val showSetupNotificationPrompt = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(application, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+            !permissionPreferences.getBoolean("notification_setup_prompt_v2_shown", false)
+        ) showNotificationExplanation = true
     }
     val authViewModel: AuthViewModel = viewModel(
         factory = AuthViewModelFactory(
@@ -182,11 +200,17 @@ fun DriveAlertApp() {
     }
     LaunchedEffect(authViewModel.sessionState.user?.uid, postAuthViewModel.state.userRole) {
         if (authViewModel.sessionState.user != null &&
-            postAuthViewModel.state.userRole in setOf(UserRole.TRUSTED_CONTACT, UserRole.BOTH)
-        ) requestNotificationPermission()
+            postAuthViewModel.state.userRole in setOf(UserRole.TRUSTED_CONTACT, UserRole.BOTH) &&
+            !permissionPreferences.getBoolean("notification_permission_asked", false)
+        ) {
+            permissionPreferences.edit().putBoolean("notification_permission_asked", true).apply()
+            requestNotificationPermission()
+        }
     }
     LaunchedEffect(provisioningState.stage) {
-        if (provisioningState.stage == ProvisioningStage.PROVISIONED) visionViewModel.startVision()
+        if (provisioningState.stage == ProvisioningStage.PROVISIONED) {
+            visionViewModel.startVision()
+        }
     }
     DriveAlertApp(
         callbacks = authViewModel.callbacks,
@@ -203,7 +227,6 @@ fun DriveAlertApp() {
         onRepeatCalibrationPhase = visionViewModel::repeatCalibrationPhase,
         onCancelCalibration = visionViewModel::cancelCalibration,
         onStartMonitoring = { sound, volume, notificationsEnabled, accessoryMode ->
-            if (notificationsEnabled) requestNotificationPermission()
             visionViewModel.startMonitoring(sound, volume, notificationsEnabled, accessoryMode)
         },
         onContinueDegradedMonitoring = visionViewModel::continueWithDegradedMonitoring,
@@ -247,8 +270,44 @@ fun DriveAlertApp() {
         onVolumeChange = postAuthViewModel::selectPreferredVolume,
         onNotificationsChange = postAuthViewModel::updateNotifications,
         onRequestNotificationPermission = requestNotificationPermission,
+        onShowSetupNotificationPrompt = showSetupNotificationPrompt,
         onClearPostAuth = postAuthViewModel::clearForSignOut,
     )
+    if (showNotificationExplanation) {
+        AlertDialog(
+            onDismissRequest = {
+                permissionPreferences.edit().putBoolean("notification_setup_prompt_v2_shown", true).apply()
+                showNotificationExplanation = false
+            },
+            title = { Text("Allow DriveAlert notifications?") },
+            text = {
+                Text("Notifications can show monitoring status and warning updates when DriveAlert is not visible. The ESP32 speaker remains the primary warning output, so setup can continue without this permission.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val permissionWasAlreadyRequested = permissionPreferences.getBoolean("notification_permission_asked", false)
+                    permissionPreferences.edit()
+                        .putBoolean("notification_permission_asked", true)
+                        .putBoolean("notification_setup_prompt_v2_shown", true)
+                        .apply()
+                    showNotificationExplanation = false
+                    if (permissionWasAlreadyRequested) {
+                        application.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, application.packageName)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    } else requestNotificationPermission()
+                }) { Text(if (permissionPreferences.getBoolean("notification_permission_asked", false)) "Open settings" else "Allow notifications") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    permissionPreferences.edit().putBoolean("notification_setup_prompt_v2_shown", true).apply()
+                    showNotificationExplanation = false
+                }) { Text("Not now") }
+            },
+        )
+    }
 }
 
 @Composable
@@ -298,6 +357,7 @@ fun DriveAlertApp(
     onVolumeChange: (com.lhordkent.drivealert.postauth.PreferredVolume) -> Unit = {},
     onNotificationsChange: (com.lhordkent.drivealert.postauth.NotificationPreferences) -> Unit = {},
     onRequestNotificationPermission: () -> Unit = {},
+    onShowSetupNotificationPrompt: () -> Unit = {},
     onClearPostAuth: () -> Unit = {},
 ) {
     if (sessionState.isResolving) {
@@ -357,6 +417,7 @@ fun DriveAlertApp(
                     onDeviceConnection = { navController.navigate(PostAuthRoutes.DRIVER_DEVICE_CONNECTION) },
                     onCameraAlignment = { navController.navigate(PostAuthRoutes.DRIVER_ALIGNMENT) },
                     onCalibration = { navController.navigate(PostAuthRoutes.DRIVER_CALIBRATION) },
+                    onShowNotificationPrompt = onShowSetupNotificationPrompt,
                     onBack = if (postAuthState.driverSetupComplete) ({ navController.popBackStack() }) else null,
                     vision = visionState,
                 )

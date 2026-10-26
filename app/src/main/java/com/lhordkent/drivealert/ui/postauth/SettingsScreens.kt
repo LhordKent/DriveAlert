@@ -1,6 +1,11 @@
 package com.lhordkent.drivealert.ui.postauth
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
@@ -280,6 +285,9 @@ fun NotificationSettingsScreen(
     onRequestNotificationPermission: () -> Unit = {},
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val systemNotificationsDisabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
     ScrollableScreen(title = "Notifications", onBack = onBack) {
         Text(
             "Choose which DriveAlert updates can appear as Android notifications.",
@@ -287,6 +295,23 @@ fun NotificationSettingsScreen(
             color = TextSecondary,
         )
         Spacer(Modifier.height(22.dp))
+        if (systemNotificationsDisabled) {
+            GroupSurface {
+                Text(
+                    "Android notifications are currently disabled. Monitoring and the ESP32 speaker still work.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
+                Spacer(Modifier.height(12.dp))
+                SecondaryButton("Enable notifications", onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                    )
+                })
+            }
+            Spacer(Modifier.height(18.dp))
+        }
         if (view == UserView.DRIVER) {
             PreferenceSwitch(
                 title = "Confirmed warning alerts",

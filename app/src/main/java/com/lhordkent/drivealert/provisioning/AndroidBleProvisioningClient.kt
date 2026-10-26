@@ -330,13 +330,13 @@ class AndroidBleProvisioningClient(
             status == "CREDENTIALS|NONE" -> onEvent(ProvisioningEvent.CredentialStatus(null))
             status.startsWith("CREDENTIALS|SAVED|") -> {
                 val ssid = parseCredentialStatus(status)
-                if (ssid == null) onEvent(ProvisioningEvent.Failed("ESP32 returned an invalid saved network."))
+                if (ssid == null) onEvent(ProvisioningEvent.Failed("DriveAlert Device returned an invalid saved network."))
                 else onEvent(ProvisioningEvent.CredentialStatus(ssid))
             }
             status.startsWith("CONNECTED|") -> {
                 val endpoint = parseConnectedStatus(status)
                 if (endpoint == null) {
-                    onEvent(ProvisioningEvent.Failed("ESP32 returned an invalid network address."))
+                    onEvent(ProvisioningEvent.Failed("DriveAlert Device returned an invalid network address."))
                     return
                 }
                 onEvent(ProvisioningEvent.Provisioned(endpoint.ip, endpoint.hostname, selectedDevice?.address))
@@ -345,8 +345,8 @@ class AndroidBleProvisioningClient(
                 gatt?.disconnect()
             }
             status == "INVALID_CREDENTIALS" -> onEvent(ProvisioningEvent.Failed("SSID or password format was rejected."))
-            status == "CONNECTION_FAILED" -> onEvent(ProvisioningEvent.Failed("ESP32 could not join that Wi-Fi network."))
-            status == "ERROR" -> onEvent(ProvisioningEvent.Failed("ESP32 could not store the working credentials."))
+            status == "CONNECTION_FAILED" -> onEvent(ProvisioningEvent.WifiConnectionFailed)
+            status == "ERROR" -> onEvent(ProvisioningEvent.Failed("DriveAlert Device could not store the working credentials."))
         }
     }
 

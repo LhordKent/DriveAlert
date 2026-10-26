@@ -61,8 +61,8 @@ constexpr uint16_t EYES_BLOCKED_TRACK = 11;
 constexpr uint16_t MOUTH_BLOCKED_TRACK = 12;
 constexpr uint16_t FACE_NOT_VISIBLE_TRACK = 13;
 
-constexpr uint8_t MINIMUM_VOLUME = 22;
-constexpr uint8_t MEDIUM_VOLUME = 26;
+constexpr uint8_t MINIMUM_VOLUME = 26;
+constexpr uint8_t MEDIUM_VOLUME = 28;
 constexpr uint8_t HIGH_VOLUME = 30;
 
 constexpr uint16_t normalTrackForSound(Sound sound) {

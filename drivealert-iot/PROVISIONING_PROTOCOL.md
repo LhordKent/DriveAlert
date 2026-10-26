@@ -48,7 +48,7 @@ from the ESP32 identity, for example `drivealert-e9d4.local`.
 
 ## Lifecycle
 
-Every boot starts BLE and remains disconnected from Wi-Fi regardless of saved NVS credentials. BLE provisioning is deinitialized only after an explicit command succeeds and its status is delivered. Camera and HTTP servers start afterward. On failure, candidate password memory is cleared and BLE remains available for another attempt.
+Every boot starts BLE and remains disconnected from Wi-Fi regardless of saved NVS credentials. BLE provisioning is deinitialized only after an explicit command succeeds and its status is delivered. Camera and HTTP servers start afterward. On failure, candidate password memory is cleared and Android keeps the active GATT connection for another attempt. If no new provisioning command arrives for one minute, firmware disconnects the stale BLE session; the disconnect callback resumes advertising for a clean reconnection.
 
 ## Explicit session disconnect
 

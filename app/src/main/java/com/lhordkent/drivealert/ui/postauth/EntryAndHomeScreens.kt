@@ -23,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DirectionsCar
-import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Router
 import androidx.compose.material3.Icon
@@ -33,6 +32,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -134,9 +134,11 @@ fun SetupDeviceScreen(
     onDeviceConnection: () -> Unit,
     onCameraAlignment: () -> Unit,
     onCalibration: () -> Unit,
+    onShowNotificationPrompt: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     vision: DriverVisionUiState = DriverVisionUiState(),
 ) {
+    LaunchedEffect(Unit) { onShowNotificationPrompt() }
     if (onBack != null) {
         ScrollableScreen(title = "Setup & Device", onBack = onBack) {
             SetupDeviceContent(onContinue, onDeviceConnection, onCameraAlignment, onCalibration, vision)
@@ -170,7 +172,7 @@ private fun SetupDeviceContent(
     Text("Set up DriveAlert", style = MaterialTheme.typography.headlineMedium, color = TextPrimary)
     Spacer(Modifier.height(8.dp))
     Text(
-        "Review the connection, camera alignment, and notification preference before opening Driver Home.",
+        "Review the connection, camera alignment, and calibration before opening Driver Home.",
         style = MaterialTheme.typography.bodyLarge,
         color = TextSecondary,
     )
@@ -185,7 +187,6 @@ private fun SetupDeviceContent(
     )
     SetupStep(Icons.Rounded.CameraAlt, "Camera alignment", if (vision.alignmentConfirmed) "Confirmed" else "Confirmation needed", "Preview the live camera and confirm the Driver is clearly visible.", if (vision.alignmentConfirmed) StatusTone.SUCCESS else StatusTone.WARNING, onCameraAlignment)
     SetupStep(Icons.Rounded.CheckCircle, "Driver calibration", if (vision.activeCalibration != null) "Calibrated" else "Not calibrated", "Complete the guided eye, mouth, and head-position steps.", if (vision.activeCalibration != null) StatusTone.SUCCESS else StatusTone.WARNING, onCalibration)
-    SetupStep(Icons.Rounded.Notifications, "Notifications", "Recommended", "Notifications are helpful but do not block monitoring readiness.", StatusTone.INFO)
     Spacer(Modifier.height(8.dp))
     GroupSurface {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {

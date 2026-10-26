@@ -177,7 +177,7 @@ fun WifiProvisioningPanel(
         Spacer(Modifier.height(16.dp))
         when (state.stage) {
             ProvisioningStage.IDLE -> PrimaryButton("Scan for DriveAlert", ::scanWithPermission)
-            ProvisioningStage.SCANNING -> Text("Keep the ESP32 powered and in provisioning mode.", color = TextMuted)
+            ProvisioningStage.SCANNING -> Text("Keep the DriveAlert Device powered and in provisioning mode.", color = TextMuted)
             ProvisioningStage.DEVICE_FOUND -> {
                 state.devices.forEach { device ->
                     Row(
@@ -201,7 +201,7 @@ fun WifiProvisioningPanel(
                     )
                 } else {
                     state.savedNetworkSsid?.let { savedSsid ->
-                        Text("Saved on this ESP32", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+                        Text("Saved on this DriveAlert Device", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
                         Spacer(Modifier.height(4.dp))
                         Text("\u201c$savedSsid\u201d", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                         Spacer(Modifier.height(6.dp))
@@ -216,7 +216,7 @@ fun WifiProvisioningPanel(
                     }
 
                     Text(
-                        if (state.savedNetworkSsid == null) "Connect this ESP32 to a network" else "Replace the saved network",
+                        if (state.savedNetworkSsid == null) "Connect this DriveAlert Device to a network" else "Replace the saved network",
                         style = MaterialTheme.typography.titleMedium,
                         color = TextPrimary,
                     )
@@ -274,9 +274,9 @@ fun WifiProvisioningPanel(
                 if (!connectionVerified) {
                     Text(
                         if (streamState == StreamConnectionState.UNAVAILABLE) {
-                            "Check that the ESP32 is powered and connected to the same hotspot. DriveAlert will keep trying automatically."
+                            "Check that the DriveAlert Device is powered and connected to the same hotspot. DriveAlert will keep trying automatically."
                         } else {
-                            "This can take a moment. Keep the ESP32 powered and connected to the same hotspot. DriveAlert will connect automatically."
+                            "This can take a moment. Keep the DriveAlert Device powered and connected to the same hotspot. DriveAlert will connect automatically."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
@@ -327,7 +327,7 @@ fun WifiProvisioningPanel(
     if (showHotspotPrompt) {
         ConfirmDialog(
             title = "Turn on your hotspot",
-            body = "Before connecting the ESP32, turn on this phone's mobile hotspot and keep it enabled. Then return to DriveAlert and enter the hotspot name and password.",
+            body = "Before connecting the DriveAlert Device, turn on this phone's mobile hotspot and keep it enabled. Then return to DriveAlert and enter the hotspot name and password.",
             confirmLabel = "Open hotspot settings",
             onConfirm = {
                 showHotspotPrompt = false
@@ -348,4 +348,4 @@ internal fun wifiCredentialFieldsAvailable(state: ProvisioningState): Boolean =
     state.stage == ProvisioningStage.CONNECTED_BLE && state.credentialStatusKnown
 
 internal fun shouldOfferBleRecovery(streamState: StreamConnectionState?): Boolean =
-    streamState == StreamConnectionState.RECONNECTING || streamState == StreamConnectionState.UNAVAILABLE
+    streamState != StreamConnectionState.CONNECTED

@@ -84,6 +84,23 @@ class ProvisioningStateTest {
     }
 
     @Test
+    fun `Wi-Fi failure preserves the active BLE session and saved network`() {
+        val connected = ProvisioningState(
+            stage = ProvisioningStage.CONNECTING_WIFI,
+            selectedDeviceId = "device-1",
+            credentialStatusKnown = true,
+            savedNetworkSsid = "DriverHotspot",
+        )
+
+        val failed = ProvisioningReducer.reduce(connected, ProvisioningEvent.WifiConnectionFailed)
+
+        assertEquals(ProvisioningStage.CONNECTED_BLE, failed.stage)
+        assertEquals("device-1", failed.selectedDeviceId)
+        assertEquals("DriverHotspot", failed.savedNetworkSsid)
+        assertEquals("DriveAlert Device could not join that Wi-Fi network.", failed.message)
+    }
+
+    @Test
     fun `credential representation always redacts password`() {
         val secret = "not-a-real-password"
         val credentials = WifiCredentials.create("TestNetwork", secret).getOrThrow()
