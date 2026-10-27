@@ -48,6 +48,8 @@ import com.lhordkent.drivealert.R
 import com.lhordkent.drivealert.detection.DriverVisionUiState
 import com.lhordkent.drivealert.detection.frame.StreamConnectionState
 import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
+import com.lhordkent.drivealert.monitoring.LightingQuality
+import com.lhordkent.drivealert.monitoring.VisibilityIssue
 import com.lhordkent.drivealert.postauth.PostAuthUiState
 import com.lhordkent.drivealert.ui.theme.Border
 import com.lhordkent.drivealert.ui.theme.Ink
@@ -253,9 +255,16 @@ fun DriverHomeScreen(
 
     val monitoringReady = vision.isMonitoringReady()
     val monitoringActive = vision.monitoring.isActive
+    val lightingPaused = monitoringActive && (vision.lighting.quality != LightingQuality.USABLE ||
+        vision.visibilityIssue == VisibilityIssue.INSUFFICIENT_LIGHTING)
+    val lightingDetail = if (vision.lighting.recovering || vision.lighting.quality == LightingQuality.UNKNOWN &&
+        vision.visibilityIssue != VisibilityIssue.INSUFFICIENT_LIGHTING) {
+        "Checking visibility. Drowsiness assessment resumes after usable facial lighting is established."
+    } else "Insufficient lighting. Restore camera visibility when safe."
     Column {
         Text(
             when {
+                lightingPaused -> "Monitoring paused"
                 monitoringActive -> "Monitoring active"
                 monitoringReady -> "Ready for monitoring"
                 else -> "Setup needed"
@@ -266,6 +275,7 @@ fun DriverHomeScreen(
         Spacer(Modifier.height(6.dp))
         Text(
             when {
+                lightingPaused -> lightingDetail
                 monitoringActive -> "DriveAlert is monitoring the Driver on this device."
                 monitoringReady -> "Your camera and Driver calibration are ready."
                 else -> "Connect the camera and complete Driver calibration before monitoring."
@@ -279,11 +289,11 @@ fun DriverHomeScreen(
                 Column(Modifier.weight(1f)) {
                     Text(if (monitoringActive) "Monitoring status" else "Monitoring readiness", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
                     Spacer(Modifier.height(4.dp))
-                    Text(if (monitoringActive) "Active" else if (monitoringReady) "Ready" else "Action required", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                    Text(if (lightingPaused) "Paused" else if (monitoringActive) "Active" else if (monitoringReady) "Ready" else "Action required", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
                 }
                 StatusPill(
-                    if (monitoringActive) "Active" else if (monitoringReady) "Ready" else "Setup",
-                    if (monitoringActive || monitoringReady) StatusTone.SUCCESS else StatusTone.WARNING,
+                    if (lightingPaused) "Paused" else if (monitoringActive) "Active" else if (monitoringReady) "Ready" else "Setup",
+                    if (lightingPaused) StatusTone.WARNING else if (monitoringActive || monitoringReady) StatusTone.SUCCESS else StatusTone.WARNING,
                 )
             }
             Spacer(Modifier.height(18.dp))

@@ -41,6 +41,7 @@ import com.lhordkent.drivealert.monitoring.CameraVisibilityTone
 import com.lhordkent.drivealert.monitoring.cameraVisibilityPresentation
 import com.lhordkent.drivealert.detection.frame.StreamConnectionState
 import com.lhordkent.drivealert.monitoring.VisibilityIssue
+import com.lhordkent.drivealert.monitoring.FaceLightingAssessment
 import com.lhordkent.drivealert.postauth.AlertEvent
 import com.lhordkent.drivealert.postauth.AlertHistoryInsights
 import com.lhordkent.drivealert.postauth.MonitoringSessionSummary
@@ -73,6 +74,7 @@ fun MonitoringPreviewScreen(
     cameraVisibility: CameraVisibilityPresentation? = null,
     ambientLuminance: Double? = null,
     smoothedLuminance: Double? = null,
+    lighting: FaceLightingAssessment? = null,
 ) {
     val visibility = cameraVisibility ?: cameraVisibilityPresentation(StreamConnectionState.CONNECTED, scenario, true, null)
     val presentation = visibility.monitoring
@@ -146,6 +148,9 @@ fun MonitoringPreviewScreen(
                 Spacer(Modifier.height(8.dp))
                 KeyValueRow("Raw luminance", ambientLuminance.metricText())
                 KeyValueRow("Smoothed luminance", smoothedLuminance.metricText())
+                KeyValueRow("Face luminance", lighting?.luminance.metricText())
+                KeyValueRow("Face contrast", lighting?.contrast.metricText())
+                KeyValueRow("Lighting quality", lighting?.quality?.name ?: "Unknown")
             }
         }
         if (activeWarningStage != null) {
@@ -227,6 +232,8 @@ fun VisibilityAcknowledgementDialog(
             "The eyes and mouth are obstructed. Monitoring is paused because fewer than two reliable signs remain."
         VisibilityIssue.FACE_UNAVAILABLE ->
             "The face is unavailable. Restore camera visibility before relying on monitoring."
+        VisibilityIssue.INSUFFICIENT_LIGHTING ->
+            "Insufficient lighting. Restore camera visibility before relying on monitoring."
     }
     AlertDialog(
         onDismissRequest = onRestoreVisibility,

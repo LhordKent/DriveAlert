@@ -11,6 +11,47 @@ import org.junit.Test
 
 class DriveAlertDetectionEngineTest {
     @Test
+    fun `lighting gate preserves face and calibration but suppresses all signs`() {
+        val engine = calibratedEngine()
+        engine.process(face(0, ear = 0.10, mar = 0.90, pitch = 30.0))
+        val blocked = engine.process(face(3_000, ear = 0.10, mar = 0.90, pitch = 30.0), assessmentAllowed = false)
+        assertTrue(blocked.faceDetected)
+        assertEquals("stored", blocked.activeCalibration?.calibrationId)
+        assertTrue(blocked.events.isEmpty())
+        assertEquals(TemporalState.UNAVAILABLE, blocked.eye.state)
+        assertEquals(TemporalState.UNAVAILABLE, blocked.yawn.state)
+        assertEquals(TemporalState.UNAVAILABLE, blocked.head.state)
+        assertTrue(engine.process(face(3_100, ear = 0.10, mar = 0.10, pitch = 4.0)).events.isEmpty())
+        assertTrue(engine.process(face(5_099, ear = 0.10, mar = 0.10, pitch = 4.0)).events.isEmpty())
+        assertEquals(SignType.PROLONGED_EYE_CLOSURE,
+            engine.process(face(5_100, ear = 0.10, mar = 0.10, pitch = 4.0)).events.single().type)
+    }
+
+    @Test
+    fun `darkness and its recovery gap never count toward calibration valid time`() {
+        val engine = DriveAlertDetectionEngine(calibrationDurationMs = 5_000)
+        engine.startCalibration()
+        engine.beginCalibrationPhase()
+        engine.process(face(0, 0.25, 0.1, 4.0))
+        assertEquals(1_000L, engine.process(face(1_000, 0.25, 0.1, 4.0)).calibration.validDurationMs)
+        val blocked = engine.process(face(8_000, 0.25, 0.1, 4.0), assessmentAllowed = false)
+        assertEquals(1_000L, blocked.calibration.validDurationMs)
+        assertEquals(1_000L, engine.process(face(10_000, 0.25, 0.1, 4.0)).calibration.validDurationMs)
+        assertEquals(2_000L, engine.process(face(11_000, 0.25, 0.1, 4.0)).calibration.validDurationMs)
+    }
+
+    @Test
+    fun `expired lighting interrupts calibration even when no new frame arrives`() {
+        val engine = DriveAlertDetectionEngine()
+        engine.startCalibration()
+        engine.beginCalibrationPhase()
+        engine.process(face(0, 0.25, 0.1, 4.0))
+        engine.process(face(1_000, 0.25, 0.1, 4.0))
+        engine.invalidateTracking()
+        assertEquals(1_000L, engine.process(face(20_000, 0.25, 0.1, 4.0)).calibration.validDurationMs)
+    }
+
+    @Test
     fun persistedCalibrationCanBeActivatedWithoutCollection() {
         val engine = DriveAlertDetectionEngine()
         val calibration = com.lhordkent.drivealert.detection.model.CalibrationResult(

@@ -48,7 +48,17 @@ class DriveAlertMonitoringService : Service() {
         createChannel(this)
         stateJob = serviceScope.launch {
             runtime.state.collectLatest { state ->
-                if (wakeLock?.isHeld == true) showForegroundNotification(state.streamState.name.lowercase())
+                if (wakeLock?.isHeld == true) {
+                    val status = when {
+                        state.streamState != StreamConnectionState.CONNECTED -> state.streamState.name.lowercase()
+                        state.lighting.recovering -> "Monitoring paused; checking visibility"
+                        state.visibilityIssue == VisibilityIssue.INSUFFICIENT_LIGHTING ||
+                            state.lighting.quality == LightingQuality.INSUFFICIENT -> "Monitoring paused; insufficient lighting"
+                        state.lighting.quality == LightingQuality.UNKNOWN -> "Monitoring paused; checking visibility"
+                        else -> "connected"
+                    }
+                    showForegroundNotification(status)
+                }
             }
         }
     }
@@ -165,7 +175,10 @@ class DriveAlertMonitoringService : Service() {
                         bootCount = recoveryStore.currentBootCount(),
                     ),
                 )
-                showForegroundNotification("active")
+                showForegroundNotification(
+                    if (runtime.state.value.lighting.quality == LightingQuality.USABLE) "active"
+                    else "Monitoring paused; checking visibility",
+                )
             },
             onFailure = { error ->
                 startInProgress = false
@@ -285,7 +298,7 @@ class DriveAlertMonitoringService : Service() {
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("DriveAlert monitoring active")
+            .setContentTitle(if (status.startsWith("Monitoring paused")) "DriveAlert monitoring paused" else "DriveAlert monitoring active")
             .setContentText(text)
             .setContentIntent(openIntent)
             .setOngoing(true)

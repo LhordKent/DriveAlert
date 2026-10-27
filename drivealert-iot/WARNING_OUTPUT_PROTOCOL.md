@@ -47,12 +47,12 @@ Accept: application/json
 issue=EYES&volume=MEDIUM
 ```
 
-The body contains exactly `issue` and `volume`. `issue` is `EYES`, `MOUTH`, or
-`FACE`; volume uses the same identifiers as warning commands. Android sends the
+The body contains exactly `issue` and `volume`. `issue` is `EYES`, `MOUTH`, `FACE`, or
+`LIGHT`; volume uses the same identifiers as warning commands. Android sends the
 first request after three seconds of sustained visibility loss and repeats it every 30 seconds while
 the condition remains active. The warning clears after two seconds of restored
-visibility. Low-light guidance is shown only in Android; the existing `FACE`
-recording is reused and no new MP3 files are required. The endpoint uses the same response contract as
+visibility. `LIGHT` uses a dedicated recording and cannot be acknowledged away.
+The endpoint uses the same response contract as
 `/drivealert/warning`.
 
 ## Firmware mapping
@@ -70,6 +70,7 @@ recording is reused and no new MP3 files are required. The endpoint uses the sam
 | `EYES` | `/mp3/0011.mp3` | Eyes blocked. Remove the obstruction. |
 | `MOUTH` | `/mp3/0012.mp3` | Mouth blocked. Remove the obstruction. |
 | `FACE` | `/mp3/0013.mp3` | Face not visible. Restore camera view. |
+| `LIGHT` | `/mp3/0014.mp3` | Insufficient lighting. Restore camera visibility. |
 
 | Logical volume | DFPlayer volume |
 |---|---:|
@@ -83,8 +84,45 @@ together, so firmware plays exactly one file.
 
 Warning commands have queue priority over visibility speech. A pending
 visibility command may be replaced by a drowsiness warning; visibility speech
-never replaces a pending warning. The three speech MP3 files must be created and
+never replaces a pending warning. The four speech MP3 files must be created and
 copied to the DFPlayer microSD card before hardware testing.
+
+## Insufficient-lighting protection
+
+Android samples the detected face's bounding region from the inference bitmap at
+most five times per second, using roughly 2,500 or fewer pixels. It measures a
+10%-trimmed mean luminance L and percentile contrast C (p90 minus p10), on 0–255
+scales. These are image-quality heuristics, **not MediaPipe confidence scores**.
+
+- Poor: L < 25, or L < 45 and C < 30. Drowsiness assessment pauses immediately.
+- Usable: L >= 55, or L >= 35 and C >= 40. Two continuous seconds establish or
+  restore usability; borderline readings interrupt recovery and otherwise retain
+  the previous decision.
+- Unknown, invalid crops, missing samples, or readings older than one second
+  cannot enable assessment. Initial usable readings also require two seconds.
+- Gated frames preserve actual face-detected status, produce no drowsiness events,
+  reset candidate evidence, and do not advance calibration's valid time. Camera
+  streaming, foreground monitoring, saved calibration and alert history continue.
+- Speech starts three seconds after the first poor reading and repeats every 30
+  seconds. Recovery is checked without speaking; a brief poor episode stays silent.
+- A missing face is attributed to lighting only when the separate scene-brightness
+  tracker has fresh, confirmed darkness; otherwise `FACE` remains authoritative.
+  Scene darkness attribution can take longer than a face-area poor reading.
+
+All lighting thresholds are centralized in `FaceLightingTracker` and require
+testing/tuning on the actual ESP32-CAM stream. Dim-light accuracy is not established
+by unit tests. Do not lower MediaPipe acceptance thresholds as part of this change.
+
+Flash updated firmware **before** installing the updated APK, and place track 14
+at `/mp3/0014.mp3` on the DFPlayer card. Older firmware rejects `LIGHT`; rejected,
+busy, unavailable or timed-out audio requests never re-enable assessment. With the
+existing one-way UART, accepted HTTP means queued, not proof the audio was heard.
+
+Hardware acceptance: verify track 14 and all volume levels; test gradual dimming,
+brief shadows, a shadowed face against a bright background, complete darkness,
+restored light, camera reconnect, and monitoring with the phone locked/backgrounded.
+Confirm no new drowsiness detections are created while gated and recovery requires
+two seconds. Do not enable the flash or change exposure settings automatically.
 
 The current card has no separate voice-only advisory file. Stage 2 retains its
 domain advisory request, but the physical output can only play the selected

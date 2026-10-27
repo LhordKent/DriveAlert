@@ -7,6 +7,18 @@ import org.junit.Test
 
 class VisibilityAlertControllerTest {
     @Test
+    fun `lighting cannot be acknowledged and repeats every thirty seconds`() {
+        val controller = VisibilityAlertController()
+        controller.beginSession(DriverAccessoryMode.MASK_AND_SUNGLASSES)
+        controller.update(0, VisibilityIssue.INSUFFICIENT_LIGHTING)
+        val notify = listOf(VisibilityAlertEffect.Notify(VisibilityIssue.INSUFFICIENT_LIGHTING))
+        assertEquals(notify, controller.update(3_000, VisibilityIssue.INSUFFICIENT_LIGHTING))
+        controller.acknowledge(VisibilityIssue.INSUFFICIENT_LIGHTING)
+        assertTrue(controller.update(32_999, VisibilityIssue.INSUFFICIENT_LIGHTING).isEmpty())
+        assertEquals(notify, controller.update(33_000, VisibilityIssue.INSUFFICIENT_LIGHTING))
+    }
+
+    @Test
     fun `lower face obstruction notifies once after three seconds`() {
         val controller = VisibilityAlertController()
 

@@ -23,6 +23,7 @@ enum class VisibilityIssue : uint8_t {
   EYES,
   MOUTH,
   FACE,
+  LIGHT,
 };
 
 enum class State : uint8_t {
@@ -60,6 +61,7 @@ constexpr uint16_t BELL_CHIME_STAGE_3_TRACK = 10;
 constexpr uint16_t EYES_BLOCKED_TRACK = 11;
 constexpr uint16_t MOUTH_BLOCKED_TRACK = 12;
 constexpr uint16_t FACE_NOT_VISIBLE_TRACK = 13;
+constexpr uint16_t INSUFFICIENT_LIGHTING_TRACK = 14;
 
 constexpr uint8_t MINIMUM_VOLUME = 26;
 constexpr uint8_t MEDIUM_VOLUME = 28;
@@ -91,6 +93,7 @@ constexpr uint16_t trackForVisibilityIssue(VisibilityIssue issue) {
   return issue == VisibilityIssue::EYES ? EYES_BLOCKED_TRACK
        : issue == VisibilityIssue::MOUTH ? MOUTH_BLOCKED_TRACK
        : issue == VisibilityIssue::FACE ? FACE_NOT_VISIBLE_TRACK
+       : issue == VisibilityIssue::LIGHT ? INSUFFICIENT_LIGHTING_TRACK
        : 0;
 }
 

@@ -9,6 +9,8 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
 import com.lhordkent.drivealert.detection.model.FaceAttributeResult
 import com.lhordkent.drivealert.detection.model.FaceObservation
 import com.lhordkent.drivealert.detection.model.NormalizedLandmark
+import com.lhordkent.drivealert.detection.frame.FrameLuminanceSampler
+import com.lhordkent.drivealert.monitoring.FaceLightingSample
 import java.io.Closeable
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,6 +25,7 @@ class MediaPipeFaceLandmarkerProcessor(
         timestampMs: Long,
         observation: FaceObservation?,
         faceAttributes: FaceAttributeResult,
+        lightingSample: FaceLightingSample?,
     ) -> Unit,
     private val onError: (Throwable) -> Unit = {},
     modelAssetPath: String = MODEL_ASSET_PATH,
@@ -37,6 +40,8 @@ class MediaPipeFaceLandmarkerProcessor(
     private var attributeClassifier: FaceAttribNetClassifier? = null
     private var attributeFailureReason: String? = null
     private var lastAttributeAttemptTimestampMs: Long? = null
+    private var lightingSample: FaceLightingSample? = null
+    private var lastLightingAttemptTimestampMs: Long? = null
 
     init {
         val baseOptions = BaseOptions.builder()
@@ -127,7 +132,14 @@ class MediaPipeFaceLandmarkerProcessor(
                 )
             }
             val attributes = processFaceAttributes(bitmap, landmarks, width, height, timestampMs)
-            onObservation(timestampMs, observation, attributes)
+            if (landmarks == null) {
+                lightingSample = null
+                lastLightingAttemptTimestampMs = null
+            } else if (lastLightingAttemptTimestampMs?.let { timestampMs - it >= LIGHTING_INTERVAL_MS } != false) {
+                lastLightingAttemptTimestampMs = timestampMs
+                lightingSample = FrameLuminanceSampler.sampleFace(bitmap, landmarks, timestampMs)
+            }
+            onObservation(timestampMs, observation, attributes, lightingSample)
         } finally {
             image.close()
         }
@@ -172,5 +184,6 @@ class MediaPipeFaceLandmarkerProcessor(
     companion object {
         const val MODEL_ASSET_PATH = "face_landmarker.task"
         private const val ATTRIBUTE_INTERVAL_MS = 500L
+        private const val LIGHTING_INTERVAL_MS = 200L
     }
 }

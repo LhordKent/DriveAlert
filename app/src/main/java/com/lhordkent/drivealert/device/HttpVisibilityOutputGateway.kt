@@ -76,6 +76,7 @@ internal fun VisibilityOutputCommand.toVisibilityWirePayload(): String = buildSt
             VisibilityIssue.EYE_REGION_OBSTRUCTED -> "EYES"
             VisibilityIssue.LOWER_FACE_OBSTRUCTED -> "MOUTH"
             VisibilityIssue.BOTH_REGIONS_OBSTRUCTED, VisibilityIssue.FACE_UNAVAILABLE -> "FACE"
+            VisibilityIssue.INSUFFICIENT_LIGHTING -> "LIGHT"
         },
     )
     append("&volume=")

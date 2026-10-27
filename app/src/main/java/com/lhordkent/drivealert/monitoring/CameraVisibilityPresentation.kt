@@ -21,6 +21,7 @@ fun cameraVisibilityPresentation(
     lowLight: Boolean?,
     pendingIssue: VisibilityIssue? = null,
     headAvailable: Boolean = true,
+    lighting: FaceLightingAssessment? = null,
 ): CameraVisibilityPresentation {
     fun unavailable(label: String, detail: String, tone: CameraVisibilityTone) = CameraVisibilityPresentation(
         label, detail, tone, MonitoringPresentation("Monitoring paused", detail, false, false, false),
@@ -42,6 +43,18 @@ fun cameraVisibilityPresentation(
     if (!hasFreshDetection) return unavailable(
         "Checking view", "Waiting for a fresh face-tracking result. Monitoring is unavailable while the view is being checked.",
         CameraVisibilityTone.INFO,
+    )
+    if (lighting?.recovering == true && scenario != MonitoringScenario.FACE_TRACKING_UNAVAILABLE) return unavailable(
+        "Checking visibility", "Checking visibility. Monitoring resumes after two seconds of usable facial lighting.", CameraVisibilityTone.INFO,
+    )
+    if (pendingIssue == VisibilityIssue.INSUFFICIENT_LIGHTING || lighting?.quality == LightingQuality.INSUFFICIENT) {
+        val detail = "Insufficient lighting. Restore camera visibility when safe. Drowsiness assessment is paused."
+        return unavailable("Insufficient lighting", detail, CameraVisibilityTone.UNAVAILABLE).let {
+            it.copy(monitoring = it.monitoring.copy(headline = "Monitoring paused—insufficient lighting"))
+        }
+    }
+    if (lighting?.quality == LightingQuality.UNKNOWN && scenario != MonitoringScenario.FACE_TRACKING_UNAVAILABLE) return unavailable(
+        "Checking visibility", "Waiting for usable facial lighting. Drowsiness assessment is paused.", CameraVisibilityTone.INFO,
     )
     val effectiveScenario = when {
         scenario == MonitoringScenario.FACE_TRACKING_UNAVAILABLE || pendingIssue == VisibilityIssue.FACE_UNAVAILABLE ->

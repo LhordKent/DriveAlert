@@ -494,9 +494,11 @@ fun DriveAlertApp(
                         lowLight = visionState.lowLight,
                         pendingIssue = visionState.visibilityIssue,
                         headAvailable = visionState.detection?.head?.state != TemporalState.UNAVAILABLE,
+                        lighting = visionState.lighting,
                     ),
                     ambientLuminance = visionState.ambientLuminance,
                     smoothedLuminance = visionState.smoothedLuminance,
+                    lighting = visionState.lighting,
                 )
             }
             composable(PostAuthRoutes.DRIVER_ALERTS) {

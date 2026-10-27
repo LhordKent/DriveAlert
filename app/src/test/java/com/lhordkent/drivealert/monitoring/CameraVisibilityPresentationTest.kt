@@ -7,6 +7,24 @@ import org.junit.Test
 
 class CameraVisibilityPresentationTest {
     @Test
+    fun `insufficient facial lighting pauses even with a detected face`() {
+        val lighting = FaceLightingAssessment(0, LightingQuality.INSUFFICIENT, 20.0, 0.0)
+        val view = cameraVisibilityPresentation(StreamConnectionState.CONNECTED, MonitoringScenario.NORMAL, true, false,
+            lighting = lighting)
+        assertEquals("Insufficient lighting", view.label)
+        assertFalse(view.monitoring.eyeAvailable || view.monitoring.yawningAvailable || view.monitoring.headAvailable)
+    }
+
+    @Test
+    fun `recovering lighting shows checking instead of stale lighting warning`() {
+        val view = cameraVisibilityPresentation(StreamConnectionState.CONNECTED, MonitoringScenario.EYE_AND_YAWNING_UNAVAILABLE,
+            true, false, pendingIssue = VisibilityIssue.INSUFFICIENT_LIGHTING,
+            lighting = FaceLightingAssessment(0, LightingQuality.INSUFFICIENT, 80.0, 60.0, recovering = true))
+        assertEquals("Checking visibility", view.label)
+        assertFalse(view.monitoring.eyeAvailable)
+    }
+
+    @Test
     fun `darkness alone does not disable any monitoring sign`() {
         val view = present(MonitoringScenario.NORMAL, lowLight = true)
         assertEquals("Low light", view.label)

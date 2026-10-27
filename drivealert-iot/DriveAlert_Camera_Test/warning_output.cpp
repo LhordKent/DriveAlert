@@ -85,6 +85,7 @@ static_assert(isValidValues(3, Sound::ROOSTER_CALL, Volume::MINIMUM_LEVEL), "Sta
 static_assert(trackForVisibilityIssue(VisibilityIssue::EYES) == 11, "Eye obstruction track changed");
 static_assert(trackForVisibilityIssue(VisibilityIssue::MOUTH) == 12, "Mouth obstruction track changed");
 static_assert(trackForVisibilityIssue(VisibilityIssue::FACE) == 13, "Face visibility track changed");
+static_assert(trackForVisibilityIssue(VisibilityIssue::LIGHT) == 14, "Insufficient lighting track changed");
 
 void begin() {
   // This is the physically verified one-way UART configuration. Initialization
@@ -172,6 +173,7 @@ bool parseVisibilityIssue(const char *value, VisibilityIssue *issue) {
   if (!strcmp(value, "EYES")) *issue = VisibilityIssue::EYES;
   else if (!strcmp(value, "MOUTH")) *issue = VisibilityIssue::MOUTH;
   else if (!strcmp(value, "FACE")) *issue = VisibilityIssue::FACE;
+  else if (!strcmp(value, "LIGHT")) *issue = VisibilityIssue::LIGHT;
   else return false;
   return true;
 }

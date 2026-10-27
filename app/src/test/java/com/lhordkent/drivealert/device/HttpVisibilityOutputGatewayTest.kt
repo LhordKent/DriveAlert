@@ -19,6 +19,7 @@ class HttpVisibilityOutputGatewayTest {
         assertEquals("issue=MOUTH&volume=MEDIUM", command(VisibilityIssue.LOWER_FACE_OBSTRUCTED).toVisibilityWirePayload())
         assertEquals("issue=FACE&volume=MEDIUM", command(VisibilityIssue.BOTH_REGIONS_OBSTRUCTED).toVisibilityWirePayload())
         assertEquals("issue=FACE&volume=MEDIUM", command(VisibilityIssue.FACE_UNAVAILABLE).toVisibilityWirePayload())
+        assertEquals("issue=LIGHT&volume=MEDIUM", command(VisibilityIssue.INSUFFICIENT_LIGHTING).toVisibilityWirePayload())
     }
 
     @Test
@@ -39,6 +40,16 @@ class HttpVisibilityOutputGatewayTest {
                 gateway.activate(command(VisibilityIssue.EYE_REGION_OBSTRUCTED)),
             )
             assertEquals("issue=EYES&volume=MEDIUM", request.get())
+        }
+    }
+
+    @Test
+    fun `lighting speech uses the visibility endpoint with its own intent`() = runBlocking {
+        val request = AtomicReference<String>()
+        withServer(request) { port ->
+            assertEquals(WarningDeliveryStatus.DELIVERED,
+                gateway(port).activate(command(VisibilityIssue.INSUFFICIENT_LIGHTING)))
+            assertEquals("issue=LIGHT&volume=MEDIUM", request.get())
         }
     }
 
@@ -79,7 +90,17 @@ class HttpVisibilityOutputGatewayTest {
         )
     }
 
-    private suspend fun withServer(request: AtomicReference<String>, block: suspend (Int) -> Unit) {
+    @Test
+    fun `older firmware rejecting LIGHT reports failed delivery`() = runBlocking {
+        val request = AtomicReference<String>()
+        withServer(request, responseStatus = "400 Bad Request") { port ->
+            assertEquals(WarningDeliveryStatus.FAILED,
+                gateway(port).activate(command(VisibilityIssue.INSUFFICIENT_LIGHTING)))
+            assertEquals("issue=LIGHT&volume=MEDIUM", request.get())
+        }
+    }
+
+    private suspend fun withServer(request: AtomicReference<String>, responseStatus: String = "200 OK", block: suspend (Int) -> Unit) {
         val server = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
         val thread = Thread {
             runCatching {
@@ -101,7 +122,7 @@ class HttpVisibilityOutputGatewayTest {
                     }
                     request.set(String(body, 0, offset))
                     val response = HttpVisibilityOutputGateway.ACCEPTED_RESPONSE.toByteArray()
-                    val headers = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${response.size}\r\nConnection: close\r\n\r\n"
+                    val headers = "HTTP/1.1 $responseStatus\r\nContent-Type: application/json\r\nContent-Length: ${response.size}\r\nConnection: close\r\n\r\n"
                     socket.getOutputStream().use {
                         it.write(headers.toByteArray())
                         it.write(response)

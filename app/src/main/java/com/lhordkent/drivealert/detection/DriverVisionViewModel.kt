@@ -41,6 +41,9 @@ import com.lhordkent.drivealert.monitoring.VisibilityAlertController
 import com.lhordkent.drivealert.monitoring.VisibilityAlertEffect
 import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
 import com.lhordkent.drivealert.monitoring.SceneBrightnessTracker
+import com.lhordkent.drivealert.monitoring.FaceLightingAssessment
+import com.lhordkent.drivealert.monitoring.FaceLightingTracker
+import com.lhordkent.drivealert.monitoring.lightingVisibilityIssue
 import com.lhordkent.drivealert.monitoring.declaredIssue
 import com.lhordkent.drivealert.monitoring.VisibilityIssue
 import com.lhordkent.drivealert.monitoring.VisibilityOutputCommand
@@ -94,6 +97,7 @@ data class DriverVisionUiState(
     val lowLight: Boolean? = null,
     val ambientLuminance: Double? = null,
     val smoothedLuminance: Double? = null,
+    val lighting: FaceLightingAssessment = FaceLightingAssessment(),
     val errorMessage: String? = null,
 )
 
@@ -126,16 +130,26 @@ class DriverVisionRuntime @JvmOverloads constructor(
     private val mutablePreviewFrame = MutableStateFlow<SharedBitmapFrame?>(null)
     val previewFrame: StateFlow<SharedBitmapFrame?> = mutablePreviewFrame.asStateFlow()
     private var engine = DriveAlertDetectionEngine()
+    private val lightingTracker = FaceLightingTracker()
     private val processor = MediaPipeFaceLandmarkerProcessor(
         context = application,
-        onObservation = { timestamp, observation, faceAttributes ->
-            if (timestamp < observationCutoffMs || !streamWanted) return@MediaPipeFaceLandmarkerProcessor
-            val result = engine.process(
-                timestamp,
-                observation,
-                effectiveRegionalVisibility(faceAttributes),
-            )
-            scope.launch { acceptDetection(result, faceAttributes) }
+        onObservation = { timestamp, observation, faceAttributes, lightingSample ->
+            val generation = streamGeneration
+            scope.launch {
+                if (timestamp < observationCutoffMs || !streamWanted || generation != streamGeneration ||
+                    mutableState.value.streamState != StreamConnectionState.CONNECTED ||
+                    elapsedClock() - timestamp > CAMERA_READING_STALE_MS
+                ) return@launch
+                // Serialize quality, engine and session decisions on the runtime's main scope.
+                val lighting = lightingTracker.update(elapsedClock(), lightingSample?.takeIf { it.timestampMs >= observationCutoffMs })
+                val result = engine.process(
+                    timestamp,
+                    observation,
+                    effectiveRegionalVisibility(faceAttributes),
+                    assessmentAllowed = lighting.allowsAssessment(elapsedClock()),
+                )
+                acceptDetection(result, faceAttributes, lighting)
+            }
         },
         onError = { error -> mutableState.update { it.copy(errorMessage = error.message ?: "Face processing stopped.") } },
     )
@@ -384,7 +398,6 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 )
                 val recoveredDuration = (wallClock() - startedAtEpoch).coerceAtLeast(0L)
                 monitoringController.start(sessionId, recoveredDuration)
-                resetBrightness()
                 visibilityAlertController.beginSession(accessoryMode)
                 visibilityNotificationCoordinator.clear()
                 sessionStartedAtElapsedMs = monitoringController.state.startedAtElapsedMs
@@ -404,6 +417,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 monitoringJob = scope.launch {
                     while (monitoringController.state.isActive) {
                         delay(MONITORING_TICK_MS)
+                        expireCameraReadings()
                         handleMonitoringEffects(monitoringController.tick(), driverId, sessionId)
                         persistHighestStage(driverId, sessionId)
                         publishMonitoringState()
@@ -431,6 +445,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         val driverId = boundDriverId
         monitoringController.stop()
         resetBrightness()
+        resetLighting()
         visibilityAlertController.reset()
         visibilityNotificationCoordinator.clear()
         monitoringAccessoryMode = DriverAccessoryMode.NONE
@@ -579,6 +594,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     private suspend fun acceptDetection(
         result: MonitoringDetectionResult,
         faceAttributes: FaceAttributeResult,
+        lighting: FaceLightingAssessment,
     ) {
         if (!streamWanted || result.timestampMs < observationCutoffMs ||
             mutableState.value.streamState != StreamConnectionState.CONNECTED ||
@@ -587,9 +603,15 @@ class DriverVisionRuntime @JvmOverloads constructor(
         lastDetectionTimestampMs = result.timestampMs
         val calibrationCompleted = mutableState.value.calibrationInProgress && result.calibration.status == CalibrationStatus.COMPLETE
         val regionalVisibility = effectiveRegionalVisibility(faceAttributes)
+        val lightingIssue = lightingVisibilityIssue(
+            result.faceDetected, lighting,
+            sceneDark = mutableState.value.lowLight == true &&
+                lastBrightnessTimestampMs?.let { elapsedClock() - it in 0L..CAMERA_READING_STALE_MS } == true,
+        )
         val observedVisibilityIssue = if (monitoringController.state.isActive) {
             when {
-                !result.faceDetected -> VisibilityIssue.FACE_UNAVAILABLE
+                lightingIssue != null -> lightingIssue
+                !lighting.allowsAssessment(elapsedClock()) -> null
                 regionalVisibility.lowerFaceObstructed && regionalVisibility.eyeRegionObstructed ->
                     VisibilityIssue.BOTH_REGIONS_OBSTRUCTED
                 regionalVisibility.eyeRegionObstructed -> VisibilityIssue.EYE_REGION_OBSTRUCTED
@@ -606,6 +628,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 faceDetected = result.faceDetected,
                 detection = result,
                 faceAttributes = faceAttributes,
+                lighting = lighting,
                 calibrationProgress = if (it.calibrationInProgress) result.calibration else it.calibrationProgress,
                 calibrationInProgress = if (calibrationCompleted) false else it.calibrationInProgress,
                 activeCalibration = result.activeCalibration ?: it.activeCalibration,
@@ -614,6 +637,9 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     pending == visibilityIssue
                 },
             )
+        }
+        if (!lighting.allowsAssessment(elapsedClock())) {
+            monitoringController.accept(emptyList(), emptySet())
         }
         val calibration = result.activeCalibration ?: return
         val userId = boundDriverId ?: return
@@ -641,7 +667,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
             when (effect) {
                 is VisibilityAlertEffect.Notify -> {
                     if (mutableState.value.visibilityIssue != effect.issue) return@forEach
-                    if (effect.issue != VisibilityIssue.FACE_UNAVAILABLE) {
+                    if (effect.issue != VisibilityIssue.FACE_UNAVAILABLE && effect.issue != VisibilityIssue.INSUFFICIENT_LIGHTING) {
                         mutableState.update { it.copy(visibilityAcknowledgementRequired = effect.issue) }
                     }
                     visibilityOutputGateway.activateSafely(
@@ -666,6 +692,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
 
     fun continueWithDegradedMonitoring() {
         val issue = mutableState.value.visibilityAcknowledgementRequired ?: return
+        if (issue == VisibilityIssue.INSUFFICIENT_LIGHTING || issue == VisibilityIssue.FACE_UNAVAILABLE) return
         visibilityAlertController.acknowledge(issue)
         visibilityNotificationCoordinator.clear()
         mutableState.update { it.copy(visibilityAcknowledgementRequired = null) }
@@ -762,12 +789,20 @@ class DriverVisionRuntime @JvmOverloads constructor(
         mutableState.update { it.copy(lowLight = null, ambientLuminance = null, smoothedLuminance = null) }
     }
 
+    private fun resetLighting() {
+        // Prevent queued results from the previous session from reusing cached quality.
+        observationCutoffMs = elapsedClock()
+        lightingTracker.reset()
+        engine.invalidateTracking()
+        mutableState.update { it.copy(lighting = FaceLightingAssessment()) }
+    }
+
     private fun clearCameraReadings() {
         observationCutoffMs = elapsedClock()
         lastFrameTimestampMs = null
         lastDetectionTimestampMs = null
         resetBrightness()
-        engine.invalidateTracking()
+        resetLighting()
         // An unobserved interval cannot keep a previous drowsiness episode active.
         // Confirmed events and warning history remain in the current session.
         monitoringController.accept(emptyList(), emptySet())
@@ -786,8 +821,16 @@ class DriverVisionRuntime @JvmOverloads constructor(
         val detectionStale = lastDetectionTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true
         if (frameStale || detectionStale) {
             clearCameraReadings()
-        } else if (lastBrightnessTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true) {
-            resetBrightness()
+        } else {
+            val lighting = mutableState.value.lighting
+            if (lighting.timestampMs != null && now - lighting.timestampMs > FaceLightingAssessment.FRESHNESS_MS) {
+                resetLighting()
+                monitoringController.accept(emptyList(), emptySet())
+                mutableState.update { it.copy(detection = null, visibilityIssue = null, visibilityAcknowledgementRequired = null) }
+                visibilityAlertController.interrupt()
+                visibilityNotificationCoordinator.clear()
+            }
+            if (lastBrightnessTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true) resetBrightness()
         }
     }
 

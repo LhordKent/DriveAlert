@@ -36,6 +36,7 @@ import com.lhordkent.drivealert.detection.frame.StreamConnectionState
 import com.lhordkent.drivealert.detection.frame.SharedBitmapFrame
 import com.lhordkent.drivealert.detection.model.CalibrationPhase
 import com.lhordkent.drivealert.detection.model.CalibrationStatus
+import com.lhordkent.drivealert.monitoring.LightingQuality
 import com.lhordkent.drivealert.ui.theme.Surface
 import com.lhordkent.drivealert.ui.theme.TextMuted
 import com.lhordkent.drivealert.ui.theme.TextPrimary
@@ -108,6 +109,7 @@ fun CameraAlignmentScreen(
             if (vision.faceDetected == true) StatusTone.SUCCESS else StatusTone.WARNING,
         )
         SetupDetailRow("Alignment", if (vision.alignmentConfirmed) "Confirmed" else "Confirmation needed", if (vision.alignmentConfirmed) StatusTone.SUCCESS else StatusTone.WARNING)
+        LightingGuidance(vision)
         vision.errorMessage?.let { Text(it, color = TextSecondary, style = MaterialTheme.typography.bodySmall) }
         Spacer(Modifier.height(22.dp))
         PrimaryButton(
@@ -139,6 +141,7 @@ fun CalibrationScreen(
         Spacer(Modifier.height(22.dp))
         LiveCameraPreview(vision.streamState, previewFrames)
         Spacer(Modifier.height(18.dp))
+        LightingGuidance(vision)
         SetupDetailRow(
             "Calibration status",
             when {
@@ -170,7 +173,8 @@ fun CalibrationScreen(
             } else Text("Calibration is stored locally for this Driver and remains available offline.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         }
         Spacer(Modifier.height(22.dp))
-        val canStart = vision.alignmentConfirmed && vision.streamState == StreamConnectionState.CONNECTED
+        val canStart = vision.alignmentConfirmed && vision.streamState == StreamConnectionState.CONNECTED &&
+            vision.lighting.quality == LightingQuality.USABLE
         when {
             !vision.calibrationInProgress ->
                 PrimaryButton(if (vision.activeCalibration == null) "Start Calibration" else "Recalibrate", onStartCalibration, enabled = canStart)
@@ -185,6 +189,29 @@ fun CalibrationScreen(
             SecondaryButton("Cancel Calibration", onCancel)
         }
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun LightingGuidance(vision: DriverVisionUiState) {
+    val quality = vision.lighting.quality
+    SetupDetailRow(
+        "Facial lighting",
+        when {
+            vision.lighting.recovering -> "Checking visibility"
+            quality == LightingQuality.INSUFFICIENT -> "Insufficient lighting"
+            quality == LightingQuality.USABLE -> "Usable"
+            else -> "Checking visibility"
+        },
+        if (quality == LightingQuality.USABLE) StatusTone.SUCCESS else StatusTone.WARNING,
+    )
+    if (quality != LightingQuality.USABLE) {
+        Text(
+            if (quality == LightingQuality.INSUFFICIENT && !vision.lighting.recovering)
+                "Restore camera visibility when safe. Calibration and drowsiness assessment pause until facial lighting recovers."
+            else "Keep your face visible. Checking lighting before collecting measurements.",
+            style = MaterialTheme.typography.bodySmall, color = TextSecondary,
+        )
     }
 }
 

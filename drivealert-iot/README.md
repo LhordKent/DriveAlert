@@ -34,7 +34,7 @@ The established stream implementation is preserved:
 
 Frames come from `esp_camera_fb_get()`. Native JPEG buffers are transmitted directly and returned with `esp_camera_fb_return()`. The stream loop and fallback JPEG conversion remain unchanged.
 
-External IR illumination is no longer controlled by DriveAlert. The illumination endpoint, lease, and GPIO2/12/15 output module have been removed. Android samples image brightness only to explain camera visibility; it does not send lighting commands. GPIO4 camera flash, GPIO13 DFPlayer TX, and GPIO14 heartbeat retain their existing roles.
+External IR illumination is no longer controlled by DriveAlert. The illumination endpoint, lease, and GPIO2/12/15 output module have been removed. Android evaluates facial lighting to pause unreliable assessment and requests the `LIGHT` visibility recording (`/mp3/0014.mp3`); it does not control physical illumination. See [lighting protection and thresholds](WARNING_OUTPUT_PROTOCOL.md#insufficient-lighting-protection). GPIO4 camera flash, GPIO13 DFPlayer TX, and GPIO14 heartbeat retain their existing roles.
 
 Camera configuration remains JPEG at 20 MHz XCLK, initially UXGA, then QVGA after initialization. With PSRAM, the firmware uses JPEG quality 10, two framebuffers, and `CAMERA_GRAB_LATEST`. The AI-Thinker pin mapping is PWDN 32, XCLK 0, SDA 26, SCL 27, Y9..Y2 35/34/39/36/21/19/18/5, VSYNC 25, HREF 23, PCLK 22, and LED 4.
 

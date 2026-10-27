@@ -48,10 +48,12 @@ class AndroidDriverVisibilityNotificationGateway(
                 "Monitoring is paused. Restore a clear view of your eyes and mouth."
             VisibilityIssue.FACE_UNAVAILABLE ->
                 "Monitoring is paused. Restore a clear camera view of your face."
+            VisibilityIssue.INSUFFICIENT_LIGHTING ->
+                "Monitoring is paused. Insufficient lighting. Restore camera visibility."
         }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("DriveAlert camera view blocked")
+            .setContentTitle(if (issue == VisibilityIssue.INSUFFICIENT_LIGHTING) "DriveAlert insufficient lighting" else "DriveAlert camera view blocked")
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)

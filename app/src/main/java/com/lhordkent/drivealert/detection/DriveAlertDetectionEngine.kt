@@ -61,10 +61,11 @@ class DriveAlertDetectionEngine(
     fun process(
         observation: FaceObservation?,
         regionalVisibility: RegionalVisibility = RegionalVisibility(),
+        assessmentAllowed: Boolean = true,
     ): MonitoringDetectionResult {
         val timestampMs = observation?.timestampMs
             ?: requireNotNull(lastTimestampMs) { "A timestamp is required before reporting a missing face." }
-        return process(timestampMs, observation, regionalVisibility)
+        return process(timestampMs, observation, regionalVisibility, assessmentAllowed)
     }
 
     @Synchronized
@@ -72,20 +73,20 @@ class DriveAlertDetectionEngine(
         timestampMs: Long,
         observation: FaceObservation?,
         regionalVisibility: RegionalVisibility = RegionalVisibility(),
+        assessmentAllowed: Boolean = true,
     ): MonitoringDetectionResult {
         require(lastTimestampMs == null || timestampMs >= checkNotNull(lastTimestampMs)) {
             "Frame timestamps must be monotonic."
         }
         lastTimestampMs = timestampMs
 
-        if (observation == null) {
-            // Match Python: face loss is an invalid calibration observation and
-            // breaks valid-time continuity instead of counting the missing gap.
+        if (observation == null || !assessmentAllowed) {
+            // Missing faces and lighting-gated frames break calibration timing continuity.
             calibration.update(timestampMs, FacialMeasurements(null, null, null))
             clearDetectorEvidence()
             return result(
                 timestampMs = timestampMs,
-                faceDetected = false,
+                faceDetected = observation != null,
                 measurements = FacialMeasurements(null, null, null),
                 relativePitch = null,
                 events = emptyList(),
@@ -199,7 +200,10 @@ class DriveAlertDetectionEngine(
 
     /** Discard an interrupted observation without changing saved calibration or alert history. */
     @Synchronized
-    fun invalidateTracking() = clearDetectorEvidence()
+    fun invalidateTracking() {
+        clearDetectorEvidence()
+        lastTimestampMs?.let { calibration.update(it, FacialMeasurements(null, null, null)) }
+    }
 
     private fun clearDetectorEvidence() {
         eyeDetector?.reset()

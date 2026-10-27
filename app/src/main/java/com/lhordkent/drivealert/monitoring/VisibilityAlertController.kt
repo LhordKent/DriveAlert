@@ -7,6 +7,7 @@ enum class VisibilityIssue {
     EYE_REGION_OBSTRUCTED,
     BOTH_REGIONS_OBSTRUCTED,
     FACE_UNAVAILABLE,
+    INSUFFICIENT_LIGHTING,
 }
 
 enum class DriverAccessoryMode(
@@ -90,6 +91,7 @@ class VisibilityAlertController(
             VisibilityIssue.EYE_REGION_OBSTRUCTED -> lowerFaceDelayMs
             VisibilityIssue.BOTH_REGIONS_OBSTRUCTED -> faceUnavailableDelayMs
             VisibilityIssue.FACE_UNAVAILABLE -> faceUnavailableDelayMs
+            VisibilityIssue.INSUFFICIENT_LIGHTING -> faceUnavailableDelayMs
         }
         val startedAt = checkNotNull(candidateStartedAtMs)
         if (!notified && timestampMs - startedAt >= requiredDelay) {
@@ -128,7 +130,7 @@ class VisibilityAlertController(
                 acceptedLowerFace = true
                 acceptedEyeRegion = true
             }
-            VisibilityIssue.FACE_UNAVAILABLE -> return
+            VisibilityIssue.FACE_UNAVAILABLE, VisibilityIssue.INSUFFICIENT_LIGHTING -> return
         }
         clearEpisode()
     }
@@ -137,7 +139,7 @@ class VisibilityAlertController(
         VisibilityIssue.LOWER_FACE_OBSTRUCTED -> acceptedLowerFace
         VisibilityIssue.EYE_REGION_OBSTRUCTED -> acceptedEyeRegion
         VisibilityIssue.BOTH_REGIONS_OBSTRUCTED -> acceptedLowerFace && acceptedEyeRegion
-        VisibilityIssue.FACE_UNAVAILABLE -> false
+        VisibilityIssue.FACE_UNAVAILABLE, VisibilityIssue.INSUFFICIENT_LIGHTING -> false
     }
 
     private fun clearEpisode() {
