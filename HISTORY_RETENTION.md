@@ -24,8 +24,32 @@ FORM: Precisely specified settings extension; no concept seed required. The scre
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
+## Web portal
+
+The Trusted Contact web portal has the same duration choices and explicit Save/confirmation flow under Settings → History & Storage. It offers per-record removal and per-driver clearing for shared records. The portal does not provide local Driver Alert History or live monitoring.
+
+Browser IndexedDB transactions persist each account's policy, monotonic expiry cutoff, and source-driver/record dismissal keys. These are personal visibility controls; Firestore source records are never changed. All displayed record counts and unread badges use the filtered history. Browser storage failure withholds history until the user can retry. Clearing site data resets local policy and dismissal state. Android and other browsers remain independent.
+
+Cleanup runs on opening/returning, every minute while visible, and after preference changes. BroadcastChannel propagates explicit changes between tabs; focus and timer refreshes cover older browsers. Closed browsers cannot run cleanup.
+
+### Web direction contract
+
+THESIS: Extend the existing portal's settings with an ordinary retention form and explicit personal deletion actions, preserving the portal's Trusted Contact scope.
+
+OWN-WORLD: Use existing charcoal/red tokens, typography, surface, field, Button, PageHeader, and ConfirmDialog components. No new visual world or raster assets.
+
+STORY: Choose a duration, review its effect, and save. Removing shared history affects only the viewer's current browser, without touching the source driver's records.
+
+FIRST VIEWPORT: Standard portal navigation and back link, History & Storage heading, then a bounded column of radio choices. Custom input and explanation precede Save. Controls wrap on compact screens.
+
+FORM: Precisely specified local extension of the incumbent settings system, without a concept seed.
+
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+
 ## Verification
 
 Unit tests cover durations, boundaries, policy changes, and source-driver isolation. Device tests cover migration, database reopen, account isolation, active-drive protection, deferred cleanup, pending synchronization, preference preservation, both roles, custom input, confirmation, and large-font dark-theme screenshots.
 
 Validated on the TECNO_LE6h: 226 unit tests and 21 database, migration, and UI instrumentation tests passed. The debug build passed and was installed with `adb install -r`. Native screenshots cover dark theme at 1.3 font scale, numeric input, and keyboard dismissal with Back. The finish reviewer cleared the manual-mode copy correction; the documentation review confirmed the incumbent DESIGN.md can remain unchanged. Tablet layouts and production predictive-Back behavior were not separately verified.
+
+Web validation: typecheck, lint, 66 unit/component tests, the production build, and all 11 emulator-backed Chromium tests passed. Coverage includes original-event expiry, reload persistence, retention increases, individual/per-driver removal, cross-tab updates, account isolation, source-record preservation, storage failures, and busy-dialog keyboard focus. Desktop (1440px) and mobile (390px) captures passed automated WCAG A/AA checks without horizontal overflow. The finish review cleared the dialog focus correction and approved the existing visual system; DESIGN.md remains unchanged and no raster assets ship. These checks validate the local implementation; the web update has not been deployed.

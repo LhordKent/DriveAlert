@@ -16,6 +16,9 @@ export const record: StageSyncRecord = {
 
 export function portalValue(overrides: Partial<PortalContextValue> = {}): PortalContextValue {
   return {
+    history: { snapshot: { policy: { userId: 'trusted-1', days: null, expiredBefore: Number.MIN_SAFE_INTEGER }, dismissals: [] },
+      status: 'ready', error: null, busy: false, refresh: vi.fn().mockResolvedValue(undefined),
+      save: vi.fn().mockResolvedValue(undefined), dismiss: vi.fn().mockResolvedValue(undefined) },
     profile, profileStatus: 'ready', profileError: null,
     connections: [connection], connectionsStatus: 'ready', connectionsError: null,
     approvedDrivers: [connection], incomingRequests: [], outgoingRequests: [],

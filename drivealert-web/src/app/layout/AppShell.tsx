@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { CircleUserRound, FileText, Gauge, Info, LogOut, Menu, Settings, UsersRound, X } from 'lucide-react'
 import { Brand } from '../../components/Brand'
 import { usePortal } from '../providers/portalContext'
@@ -23,6 +23,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function AppShell() {
+  const { history } = usePortal()
   const [menuOpen, setMenuOpen] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const location = useLocation()
@@ -40,6 +41,6 @@ export function AppShell() {
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[17rem] border-r border-border-soft bg-raised p-5 lg:block"><Brand /><div className="mt-8 h-[calc(100%-5rem)]"><Navigation /></div></aside>
     <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b border-border-soft bg-raised/95 px-4 lg:hidden"><Brand /><button type="button" aria-label="Open navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)} className="grid size-12 place-items-center rounded-control text-primary hover:bg-control"><Menu aria-hidden="true" /></button></header>
     {menuOpen && <div className="fixed inset-0 z-40 bg-ink/80 lg:hidden" onMouseDown={(event) => event.currentTarget === event.target && setMenuOpen(false)}><aside role="dialog" aria-modal="true" aria-label="Navigation menu" className="h-full w-[min(88vw,20rem)] border-r border-border bg-raised p-5"><div className="flex items-center justify-between"><Brand /><button ref={closeButtonRef} type="button" aria-label="Close navigation" onClick={() => setMenuOpen(false)} className="grid size-12 place-items-center rounded-control hover:bg-control"><X aria-hidden="true" /></button></div><div className="mt-7 h-[calc(100%-5rem)]"><Navigation onNavigate={() => setMenuOpen(false)} /></div></aside></div>}
-    <main id="main-content" tabIndex={-1} className="min-w-0 lg:col-start-2"><div className="mx-auto w-full max-w-[92rem] px-4 py-6 sm:px-7 sm:py-8 xl:px-10"><Outlet /></div></main>
+    <main id="main-content" tabIndex={-1} className="min-w-0 lg:col-start-2"><div className="mx-auto w-full max-w-[92rem] px-4 py-6 sm:px-7 sm:py-8 xl:px-10">{history.status === 'error' && <div role="alert" className="mb-6 rounded-control border border-border bg-raised p-4 text-sm leading-6 text-secondary"><p>Your history is hidden because browser storage could not be read.</p><Link to="/settings/history" className="inline-flex min-h-12 items-center font-semibold text-primary underline underline-offset-4">Open History & Storage to retry</Link></div>}<Outlet /></div></main>
   </div>
 }

@@ -20,6 +20,7 @@ export default defineConfig({
     reuseExistingServer: true,
     env: {
       VITE_USE_FIREBASE_EMULATORS: 'true',
+      VITE_FIRESTORE_EMULATOR_PORT: process.env.FIRESTORE_EMULATOR_HOST?.split(':').at(-1) || '8080',
       VITE_FIREBASE_PROJECT_ID: 'drivealert-lhordkent',
       VITE_FIREBASE_API_KEY: 'demo-key',
       VITE_FIREBASE_AUTH_DOMAIN: 'drivealert-lhordkent.firebaseapp.com',

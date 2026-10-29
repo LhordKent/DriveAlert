@@ -3,6 +3,7 @@ import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth } from 'fi
 import { connectFirestoreEmulator, doc, getFirestore, serverTimestamp, setDoc } from 'firebase/firestore'
 
 const PROJECT_ID = 'drivealert-lhordkent'
+const FIRESTORE_ADDRESS = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'
 let clientCounter = 0
 
 export interface EmulatorUser {
@@ -16,7 +17,7 @@ export interface EmulatorUser {
 
 export async function clearEmulators() {
   await Promise.all([
-    fetch(`http://127.0.0.1:8080/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`, { method: 'DELETE' }),
+    fetch(`http://${FIRESTORE_ADDRESS}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`, { method: 'DELETE' }),
     fetch(`http://127.0.0.1:9099/emulator/v1/projects/${PROJECT_ID}/accounts`, { method: 'DELETE' }),
   ])
 }
@@ -31,7 +32,7 @@ export async function createEmulatorUser(name: string, role: 'DRIVER' | 'TRUSTED
   const auth = getAuth(app)
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
   const firestore = getFirestore(app)
-  connectFirestoreEmulator(firestore, '127.0.0.1', 8080)
+  connectFirestoreEmulator(firestore, '127.0.0.1', Number(FIRESTORE_ADDRESS.split(':').at(-1)))
   const email = `${name.toLowerCase()}-${index}@example.com`
   const password = 'Password123!'
   const credential = await createUserWithEmailAndPassword(auth, email, password)
@@ -82,7 +83,7 @@ export async function requestFromDriver(driver: EmulatorUser, trusted: EmulatorU
 }
 
 export async function approveTrustedRequest(driver: EmulatorUser, trusted: EmulatorUser) {
-  const collectionUrl = `http://127.0.0.1:8080/v1/projects/${PROJECT_ID}/databases/(default)/documents/trustedContactConnections`
+  const collectionUrl = `http://${FIRESTORE_ADDRESS}/v1/projects/${PROJECT_ID}/databases/(default)/documents/trustedContactConnections`
   const listResponse = await fetch(collectionUrl, { headers: { Authorization: 'Bearer owner' } })
   if (!listResponse.ok) throw new Error(`Unable to inspect connection fixtures: ${listResponse.status}`)
   const listed = await listResponse.json() as { documents?: Array<{ name: string; fields?: Record<string, { stringValue?: string }> }> }
@@ -91,7 +92,7 @@ export async function approveTrustedRequest(driver: EmulatorUser, trusted: Emula
   const connectionId = relationship.name.split('/').at(-1) as string
   if (connectionId !== relationshipId(driver, trusted)) throw new Error(`Unexpected relationship ID: ${connectionId}`)
   const approvedAt = Date.now()
-  const documentUrl = `http://127.0.0.1:8080/v1/projects/${PROJECT_ID}/databases/(default)/documents/trustedContactConnections/${connectionId}`
+  const documentUrl = `http://${FIRESTORE_ADDRESS}/v1/projects/${PROJECT_ID}/databases/(default)/documents/trustedContactConnections/${connectionId}`
   const response = await fetch(`${documentUrl}?updateMask.fieldPaths=status&updateMask.fieldPaths=approvedAt`, {
     method: 'PATCH',
     headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },

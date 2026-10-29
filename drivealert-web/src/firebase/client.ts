@@ -25,5 +25,5 @@ export const firestore = initializeFirestore(app, { localCache: memoryLocalCache
 
 if (usingEmulators) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
-  connectFirestoreEmulator(firestore, '127.0.0.1', 8080)
+  connectFirestoreEmulator(firestore, '127.0.0.1', Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT || 8080))
 }

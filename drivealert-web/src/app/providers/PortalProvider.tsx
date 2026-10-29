@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Unsubscribe } from 'firebase/firestore'
+import { useHistoryRetention } from '../../features/settings/useHistoryRetention'
+import { retainRecords } from '../../repositories/historyRepository'
+import { PortalError as HistoryPortalError } from '../../models/domain'
 import { useAuth } from './authContext'
 import { profileRepository } from '../../repositories/profileRepository'
 import { connectionRepository } from '../../repositories/connectionRepository'
@@ -16,6 +19,8 @@ import { PortalContext, type LoadStatus, type PortalContextValue } from './porta
 
 export function PortalProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
+  const history = useHistoryRetention(user?.uid)
+  const [connectionOwner, setConnectionOwner] = useState(user?.uid)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileStatus, setProfileStatus] = useState<LoadStatus>('idle')
   const [profileError, setProfileError] = useState<PortalError | null>(null)
@@ -23,7 +28,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const [connections, setConnections] = useState<TrustedContactConnection[]>([])
   const [connectionsStatus, setConnectionsStatus] = useState<LoadStatus>('idle')
   const [connectionsError, setConnectionsError] = useState<PortalError | null>(null)
-  const [recordsByDriver, setRecordsByDriver] = useState<Record<string, DriverRecordState>>({})
+  const [rawRecordsByDriver, setRawRecordsByDriver] = useState<Record<string, DriverRecordState>>({})
   const recordSubscriptions = useRef(new Map<string, { approvedAtMillis: number; unsubscribe: Unsubscribe }>())
   const viewStateSubscriptions = useRef(new Map<string, Unsubscribe>())
 
@@ -51,6 +56,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   }, [user, profileVersion])
 
   useEffect(() => {
+    setConnectionOwner(user?.uid)
     setConnections([])
     setConnectionsError(null)
     if (!user) {
@@ -71,7 +77,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     )
   }, [user])
 
-  const approvedDrivers = useMemo(() => connections.filter((connection) => connection.status === 'APPROVED'), [connections])
+  const approvedDrivers = useMemo(() => connectionOwner === user?.uid ? connections.filter((connection) => connection.status === 'APPROVED') : [], [connections, connectionOwner, user?.uid])
 
   const withUnread = useCallback((state: DriverRecordState): DriverRecordState => ({
     ...state,
@@ -81,13 +87,35 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     }).length,
   }), [])
 
+  const recordsByDriver = useMemo(() => Object.fromEntries(approvedDrivers.map(({ driverUserId }) => {
+    const raw = rawRecordsByDriver[driverUserId]
+    if (!raw) return [driverUserId, { status: 'loading', records: [], error: null, lastViewedAt: null, unreadCount: 0 } satisfies DriverRecordState]
+    if (history.status !== 'ready' || !history.snapshot) return [driverUserId, {
+      ...raw, records: [], unreadCount: 0, status: history.status === 'error' ? 'error' : 'loading',
+      error: history.error ? new HistoryPortalError('backend', history.error) : null,
+    } satisfies DriverRecordState]
+    return [driverUserId, withUnread({ ...raw, records: retainRecords(history.snapshot, driverUserId, raw.records) })]
+  })), [approvedDrivers, rawRecordsByDriver, history.status, history.snapshot, history.error, withUnread])
+
+  useEffect(() => {
+    const records = recordSubscriptions.current
+    const views = viewStateSubscriptions.current
+    return () => {
+      records.forEach(({ unsubscribe }) => unsubscribe())
+      records.clear()
+      views.forEach((unsubscribe) => unsubscribe())
+      views.clear()
+      setRawRecordsByDriver({})
+    }
+  }, [user?.uid])
+
   useEffect(() => {
     const active = new Set(approvedDrivers.map((connection) => connection.driverUserId))
     recordSubscriptions.current.forEach((subscription, driverId) => {
       if (!active.has(driverId)) {
         subscription.unsubscribe()
         recordSubscriptions.current.delete(driverId)
-        setRecordsByDriver((current) => {
+        setRawRecordsByDriver((current) => {
           const next = { ...current }
           delete next[driverId]
           return next
@@ -103,21 +131,21 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const currentSubscription = recordSubscriptions.current.get(driverId)
       if (currentSubscription?.approvedAtMillis === approvedAtMillis) return
       currentSubscription?.unsubscribe()
-      setRecordsByDriver((current) => ({
+      setRawRecordsByDriver((current) => ({
         ...current,
         [driverId]: { status: 'loading', records: [], error: null, lastViewedAt: current[driverId]?.lastViewedAt ?? null, unreadCount: 0 },
       }))
       const unsubscribe = stageRecordRepository.observeForDriver(
         driverId,
         approvedAtMillis,
-        (records) => setRecordsByDriver((current) => {
+        (records) => setRawRecordsByDriver((current) => {
           const prior = current[driverId]
           return {
             ...current,
             [driverId]: withUnread({ status: 'ready', records, error: null, lastViewedAt: prior?.lastViewedAt ?? null, unreadCount: 0 }),
           }
         }),
-        (error) => setRecordsByDriver((current) => ({
+        (error) => setRawRecordsByDriver((current) => ({
           ...current,
           [driverId]: { status: 'error', records: current[driverId]?.records ?? [], error, lastViewedAt: current[driverId]?.lastViewedAt ?? null, unreadCount: current[driverId]?.unreadCount ?? 0 },
         })),
@@ -128,7 +156,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         viewStateSubscriptions.current.set(driverId, trustedDriverStateRepository.observe(
           user.uid,
           driverId,
-          (lastViewedAt) => setRecordsByDriver((current) => {
+          (lastViewedAt) => setRawRecordsByDriver((current) => {
             const prior = current[driverId]
             if (!prior) return current
             return { ...current, [driverId]: withUnread({ ...prior, lastViewedAt }) }
@@ -166,9 +194,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     incomingRequests: requests.filter((request) => request.direction === 'INCOMING'),
     outgoingRequests: requests.filter((request) => request.direction === 'OUTGOING'),
     recordsByDriver,
+    history,
     markDriverViewed,
     refreshProfile,
-  }), [profile, profileStatus, profileError, connections, connectionsStatus, connectionsError, approvedDrivers, requests, recordsByDriver, markDriverViewed, refreshProfile])
+  }), [profile, profileStatus, profileError, connections, connectionsStatus, connectionsError, approvedDrivers, requests, recordsByDriver, history, markDriverViewed, refreshProfile])
 
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>
 }

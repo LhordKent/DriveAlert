@@ -4,6 +4,14 @@ Responsive React portal for Trusted Contacts to manage Driver relationships and 
 
 The portal supports email/password authentication only. It does not provide Google sign-in, live monitoring, location, emergency response, device controls, Driver Alert History, or Trusted Contact push notifications.
 
+## History retention
+
+Settings → History & Storage offers 1, 3, 7, custom 1–3,650 days, and Keep until I delete (the default). Save applies the choice; shorter periods preview the number of currently loaded records affected and require confirmation. Individual records can be deleted from their detail page, and each driver's shared history can be cleared separately.
+
+These controls remove records only from the signed-in account's view in this browser. They never delete Firestore source records or another contact's history. IndexedDB stores account-scoped preferences, expiry cutoffs, and manual dismissals, preventing records from returning after reload or a longer retention choice. Dashboard totals and unread badges use the retained records. Other tabs update through BroadcastChannel; browsers without it refresh their history on focus or the next cleanup tick.
+
+Age uses the original event time in 24-hour days. Cleanup runs while the portal is open and on returning to it; it cannot run while the browser is closed. Android and other browsers use independent settings. Clearing site data resets these local choices and removals. If browser storage cannot be read, history is withheld and a retry action is available in History & Storage.
+
 ## Configuration
 
 Copy `.env.example` to `.env.local` and supply the registered DriveAlert Web App values from the existing `drivealert-lhordkent` Firebase project. Do not commit `.env.local`.

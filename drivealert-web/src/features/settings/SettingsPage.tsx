@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight, CircleUserRound, Info, LogOut } from 'lucide-react'
+import { ChevronRight, CircleUserRound, History, Info, LogOut } from 'lucide-react'
 import { PageHeader } from '../../components/PageHeader'
 import { authRepository } from '../../repositories/authRepository'
 
 const rows = [
+  { to: '/settings/history', title: 'History & Storage', detail: 'Retention and personal history removals in this browser', icon: History },
   { to: '/account', title: 'Account', detail: 'Profile, email, role, and connection code', icon: CircleUserRound },
   { to: '/about', title: 'About DriveAlert', detail: 'Purpose, Stage 3 sharing, privacy, and limitations', icon: Info },
 ]

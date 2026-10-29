@@ -11,6 +11,7 @@ import { RecordDetailPage } from '../../features/records/RecordDetailPage'
 import { RequestsPage } from '../../features/requests/RequestsPage'
 import { InviteDriverPage } from '../../features/requests/InviteDriverPage'
 import { AccountPage } from '../../features/account/AccountPage'
+import { HistorySettingsPage } from '../../features/settings/HistorySettingsPage'
 import { SettingsPage } from '../../features/settings/SettingsPage'
 import { AboutPage } from '../../features/about/AboutPage'
 import { NotFoundPage } from '../../features/about/NotFoundPage'
@@ -38,6 +39,7 @@ const router = createBrowserRouter([
         { path: '/requests/invite', element: <InviteDriverPage /> },
         { path: '/account', element: <AccountPage /> },
         { path: '/settings', element: <SettingsPage /> },
+        { path: '/settings/history', element: <HistorySettingsPage /> },
         { path: '/about', element: <AboutPage /> },
       ],
     }],

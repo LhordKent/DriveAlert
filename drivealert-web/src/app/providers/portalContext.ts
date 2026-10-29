@@ -1,8 +1,10 @@
 import { createContext, useContext } from 'react'
+import type { HistoryController } from '../../features/settings/useHistoryRetention'
 import type { ConnectionRequestView, DriverRecordState, PortalError, TrustedContactConnection, UserProfile } from '../../models/domain'
 
 export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 export interface PortalContextValue {
+  history: HistoryController
   profile: UserProfile | null
   profileStatus: LoadStatus
   profileError: PortalError | null
