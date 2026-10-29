@@ -144,9 +144,13 @@ fun CameraAlignmentScreen(
         vision.errorMessage?.let { Text(it, color = TextSecondary, style = MaterialTheme.typography.bodySmall) }
         Spacer(Modifier.height(22.dp))
         PrimaryButton(
-            if (vision.alignmentConfirmed) "Alignment Confirmed" else "Confirm Alignment",
-            onConfirmAlignment,
-            enabled = vision.streamState == StreamConnectionState.CONNECTED && vision.driverTracking.locked && !vision.alignmentConfirmed && editable,
+            if (vision.alignmentConfirmed) "Realign Camera" else "Confirm Alignment",
+            onClick = {
+                if (vision.alignmentConfirmed) onDriverRegionChange(vision.driverRegion)
+                else onConfirmAlignment()
+            },
+            enabled = editable && (vision.alignmentConfirmed ||
+                vision.streamState == StreamConnectionState.CONNECTED && vision.driverTracking.locked),
         )
         Spacer(Modifier.height(16.dp))
     }
