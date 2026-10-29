@@ -148,6 +148,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         context = application,
         onObservation = { timestamp, observation, faceAttributes, lightingSample, tracking, revision ->
             val generation = streamGeneration
+            if (BuildConfig.DEBUG) Log.d("DriverFaceLock", "result status=${tracking.status} target=${tracking.generation} faces=${tracking.detectedFaceCount} age=${elapsedClock() - timestamp}ms revision=$revision/$targetConfigurationRevision")
             scope.launch {
                 if (revision != targetConfigurationRevision || timestamp < observationCutoffMs || !streamWanted || generation != streamGeneration ||
                     mutableState.value.streamState != StreamConnectionState.CONNECTED ||
@@ -173,6 +174,9 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 mutableState.update { it.copy(driverTracking = tracking) }
                 // Serialize quality, engine and session decisions on the runtime's main scope.
                 val lighting = lightingTracker.update(elapsedClock(), lightingSample?.takeIf { it.timestampMs >= observationCutoffMs })
+                if (BuildConfig.DEBUG && lighting.quality != mutableState.value.lighting.quality) {
+                    Log.d("DriverFaceLock", "lighting=${lighting.quality} target=${tracking.generation}")
+                }
                 val result = engine.process(
                     timestamp,
                     observation,
@@ -885,6 +889,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         val frameStale = lastFrameTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true
         val detectionStale = lastDetectionTimestampMs?.let { now - it > DriverFaceSelector.MAX_FRAME_GAP_MS } == true
         if (frameStale || detectionStale) {
+            if (BuildConfig.DEBUG) Log.d("DriverFaceLock", "expire frame=$frameStale detection=$detectionStale age=${lastDetectionTimestampMs?.let { now - it }}ms")
             clearCameraReadings()
         } else {
             val lighting = mutableState.value.lighting

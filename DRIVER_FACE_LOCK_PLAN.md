@@ -88,7 +88,7 @@ Spatial tracking reduces unintended switches but cannot prove identity. A suffic
 
 ## Implementation and validation record - 2026-10-29
 
-- Added a pure spatial selector with one-second acquisition, a 500 ms continuity limit, conservative ambiguity handling, and a configurable detector capacity (default four). At capacity, assessment pauses.
+- Added a pure spatial selector with one-second acquisition, a one-second continuity limit, conservative ambiguity handling, and a configurable detector capacity (default four). At capacity, assessment pauses.
 - Added locally saved region geometry scoped to account, camera ID, stream port/path, and decoded frame dimensions. Existing installations must confirm a region. IP address changes do not invalidate a fixed mount; frame-dimension changes do.
 - Selection precedes attribute classification and lighting samples. Configuration revisions reject old processor results; track generations reset caches and incomplete evidence.
 - Target loss restarts **all unfinished calibration phases**, including neutral samples. The user explicitly starts the neutral phase again after reacquisition. Completed calibration and confirmed warning history are preserved.
@@ -99,3 +99,10 @@ Spatial tracking reduces unintended switches but cannot prove identity. A suffic
 - Remaining release checks: real driver/passenger entry, overlap, disappearance, head poses, lighting transitions, frame rates and capacity on the target phone/ESP32-CAM installation. A geometric match cannot establish identity.
 
 UI review corrections: the alignment preview stays pinned above the scrolling controls, and the foreground notification asks users to confirm the driver area when alignment is invalidated. Existing design tokens and visual-system documents are unchanged.
+
+
+## Device timing correction - 2026-10-29
+
+TECNO LE6h logs showed clear one-face results taking about 60-70 ms for landmarks and 358-375 ms when the serial attribute pass ran. The 500 ms capture-age watchdog expired valid work at 501-564 ms, and occasional processed-frame gaps also exceeded 500 ms. Both paths repeatedly discarded the target and lighting recovery. The shared continuity/result-age/watchdog bound is now 1,000 ms, matching facial lighting freshness. Missing faces, competing faces, spatial jumps, and stale gaps still invalidate assessment. A regression replays alternating 600/150 ms capture gaps and checks that lighting can finish recovery without changing target generation.
+
+Correction validation: 216 unit tests and the debug build passed; update installed in place on the TECNO LE6h. Live post-fix camera confirmation is pending.

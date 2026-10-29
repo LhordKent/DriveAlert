@@ -122,5 +122,10 @@ class DriverFaceSelector(private val acquisitionMs: Long = 1_000, private val ca
         return overlap >= 0.25 && displacement <= max(old.width, old.height) * 0.45 && next.area / old.area in 0.5..2.0
     }
 
-    companion object { const val MAX_FRAME_GAP_MS = 500L }
+    companion object {
+        // The serial attribute pass takes ~300 ms on the target phone, on top of
+        // landmarks and camera cadence. 500 ms caused valid work to reset its own
+        // target. Bound continuity and result age to the lighting freshness window.
+        const val MAX_FRAME_GAP_MS = 1_000L
+    }
 }

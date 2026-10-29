@@ -64,7 +64,24 @@ class DriverFaceSelectorTest {
         assertFalse(select(s, 1_200, face(1_200, 0.49)).tracking.locked)
         val other = DriverFaceSelector()
         lock(other)
-        assertFalse(select(other, 2_000, face(2_000)).tracking.locked)
+        assertFalse(select(other, 2_001, face(2_001)).tracking.locked)
+    }
+
+    @Test fun `serial attribute processing does not repeatedly reset a stable target`() {
+        val selector = DriverFaceSelector()
+        val original = lock(selector)
+        val lighting = com.lhordkent.drivealert.monitoring.FaceLightingTracker()
+        // Capture gaps include a 360 ms analysis pass and camera scheduling.
+        // This exceeded the former 500 ms timeout despite one clear stable face.
+        for (time in listOf(1_600L, 1_750L, 2_350L, 2_500L, 3_100L, 3_250L, 3_850L)) {
+            val selection = select(selector, time, face(time))
+            assertTrue(selection.tracking.locked)
+            assertEquals(original.tracking.generation, selection.tracking.generation)
+            lighting.update(time + 360, com.lhordkent.drivealert.monitoring.FaceLightingSample(time, 80.0, 50.0))
+        }
+        assertTrue(lighting.update(4_210, com.lhordkent.drivealert.monitoring.FaceLightingSample(3_850, 80.0, 50.0)).allowsAssessment(4_210))
+        assertEquals(DriverTrackingStatus.LOST, select(selector, 4_000).tracking.status)
+        assertNull(select(selector, 4_100, face(4_100, 0.8)).observation)
     }
 
     @Test fun `small head movements remain tracked`() {
