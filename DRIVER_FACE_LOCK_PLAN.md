@@ -27,7 +27,7 @@ Only `LOCKED` permits assessment, and existing lighting and visibility requireme
 
 ### 2. Configure the driver's region during alignment
 
-Add a region overlay to the existing camera alignment preview. Allow adjustment while stationary, with a centered default for a driver-facing installation. Persist normalized bounds locally with the camera/device configuration; do not tie the region to a person's face.
+Add a region overlay to the existing camera alignment preview. Allow adjustment while stationary, with a centered default for a driver-facing installation. Keep normalized bounds only for the current app session, scoped to the camera/device configuration; require fresh alignment on a new app session. Returning to an ongoing foreground-service monitoring session retains its alignment. Do not tie the region to a person's face.
 
 Map the overlay correctly through preview scaling, cropping, rotation, and mirroring into inference coordinates. Require exactly one stable eligible face before confirming alignment. Include space for normal head turns and the head-down calibration phase. Existing installations require region confirmation before assessment is enabled.
 
@@ -89,7 +89,7 @@ Spatial tracking reduces unintended switches but cannot prove identity. A suffic
 ## Implementation and validation record - 2026-10-29
 
 - Added a pure spatial selector with one-second acquisition, a one-second continuity limit, conservative ambiguity handling, and a configurable detector capacity (default four). At capacity, assessment pauses.
-- Added locally saved region geometry scoped to account, camera ID, stream port/path, and decoded frame dimensions. Existing installations must confirm a region. IP address changes do not invalidate a fixed mount; frame-dimension changes do.
+- Region geometry is session-only, scoped to account, camera ID, stream port/path, and decoded frame dimensions. Fresh app sessions must confirm a region, including when the previous task closed but Android kept the process alive. Previously persisted geometry is ignored. Completed calibration and history remain stored. IP address changes do not invalidate a current session's alignment; frame-dimension changes do.
 - Selection precedes attribute classification and lighting samples. Configuration revisions reject old processor results; track generations reset caches and incomplete evidence.
 - Target loss restarts **all unfinished calibration phases**, including neutral samples. The user explicitly starts the neutral phase again after reacquisition. Completed calibration and confirmed warning history are preserved.
 - The preview uses the same decoded bitmap and its native aspect ratio as inference, without cropping, rotation, or mirroring. This avoids preview-to-inference coordinate conversion. A future display transform must also transform the overlay.

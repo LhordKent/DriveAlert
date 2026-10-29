@@ -20,6 +20,7 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import java.io.Closeable
 import java.util.ArrayDeque
 import java.util.UUID
@@ -28,6 +29,7 @@ import java.util.UUID
 class AndroidBleProvisioningClient(
     private val context: Context,
     private val onEvent: (ProvisioningEvent) -> Unit,
+    private val connectionTimeoutMs: Long = CONNECTION_TIMEOUT_MS,
 ) : Closeable {
     private val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
     private val adapter get() = bluetoothManager?.adapter
@@ -44,10 +46,16 @@ class AndroidBleProvisioningClient(
     private var inFlightWrite: PendingWrite? = null
     private var receiverRegistered = false
     private var intentionalDisconnect = false
+    private val connectionTimeout = Runnable {
+        if (gatt != null) {
+            closeGatt()
+            emit(ProvisioningEvent.Failed("DriveAlert did not respond. Keep the device powered, then retry setup. If needed, turn Bluetooth off and on before retrying."))
+        }
+    }
     private val scanTimeout = Runnable {
         if (!scanning) return@Runnable
         stopScan()
-        if (devices.isEmpty()) onEvent(ProvisioningEvent.Failed("No DriveAlert provisioning device was found."))
+        if (devices.isEmpty()) emit(ProvisioningEvent.Failed("No DriveAlert provisioning device was found."))
     }
 
     private data class PendingWrite(
@@ -57,17 +65,18 @@ class AndroidBleProvisioningClient(
     )
 
     private val scanCallback = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult) {
+        override fun onScanResult(callbackType: Int, result: ScanResult) = onMain {
             // Some ESP32/phone combinations expose the local name only through
             // BluetoothDevice while the 128-bit service UUID is delivered in the
             // scan-response packet. Validate the DriveAlert name here rather than
             // relying on the phone's controller-level UUID filter.
+            if (!scanning) return@onMain
             val scanRecord = result.scanRecord
             val advertisedName = scanRecord?.deviceName
             val cachedDeviceName = result.device.name
             val advertisesDriveAlertService = scanRecord?.serviceUuids
                 ?.any { it.uuid == ProvisioningProtocol.serviceUuid } == true
-            if (!shouldAcceptAdvertisement(advertisedName, cachedDeviceName, advertisesDriveAlertService)) return
+            if (!shouldAcceptAdvertisement(advertisedName, cachedDeviceName, advertisesDriveAlertService)) return@onMain
             val name = advertisedName?.takeIf(::isDriveAlertAdvertisement)
                 ?: cachedDeviceName?.takeIf(::isDriveAlertAdvertisement)
                 ?: DEFAULT_DEVICE_NAME
@@ -75,21 +84,24 @@ class AndroidBleProvisioningClient(
             // Advertisements repeat several times per second. Emitting every RSSI
             // update needlessly recomposes the entire setup screen and makes taps
             // feel delayed on lower-end phones.
-            if (devices.put(result.device.address, result.device) != null) return
-            onEvent(ProvisioningEvent.DeviceDiscovered(ProvisioningDevice(result.device.address, name, result.rssi)))
+            if (devices.put(result.device.address, result.device) != null &&
+                result.device.address !in rememberedAddresses) return@onMain
+            rememberedAddresses.remove(result.device.address)
+            emit(ProvisioningEvent.DeviceDiscovered(ProvisioningDevice(result.device.address, name, result.rssi)))
         }
 
-        override fun onScanFailed(errorCode: Int) {
+        override fun onScanFailed(errorCode: Int) = onMain {
+            if (!scanning) return@onMain
             if (isScanAlreadyRunning(errorCode)) {
                 // Android reports code 1 when the same callback is registered twice. The
                 // original scan is still active, so keep the session alive instead of
                 // presenting a false setup failure.
                 scanning = true
-                return
+                return@onMain
             }
             mainHandler.removeCallbacks(scanTimeout)
             scanning = false
-            onEvent(ProvisioningEvent.Failed("Bluetooth scan failed (code $errorCode)."))
+            emit(ProvisioningEvent.Failed("Bluetooth scan failed (code $errorCode)."))
         }
     }
 
@@ -104,43 +116,42 @@ class AndroidBleProvisioningClient(
             if (device?.address != selectedDevice?.address) return
             when (intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)) {
                 BluetoothDevice.BOND_BONDED -> prepareGatt(gatt)
-                BluetoothDevice.BOND_NONE -> onEvent(ProvisioningEvent.Failed("Bluetooth pairing was not completed."))
+                BluetoothDevice.BOND_NONE -> emit(ProvisioningEvent.Failed("Bluetooth pairing was not completed."))
             }
         }
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
-        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            if (status != BluetoothGatt.GATT_SUCCESS || newState != BluetoothProfile.STATE_CONNECTED) {
-                if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    if (!intentionalDisconnect) onEvent(ProvisioningEvent.Failed("Bluetooth connection closed."))
-                    closeGatt()
-                }
-                return
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) = withActiveGatt(gatt) {
+            Log.d("DriveAlertBle", "GATT state=$newState status=$status")
+            if (status != BluetoothGatt.GATT_SUCCESS || newState == BluetoothProfile.STATE_DISCONNECTED) {
+                if (!intentionalDisconnect) emit(ProvisioningEvent.Failed("Bluetooth connection closed (code $status). Retry setup."))
+                closeGatt()
+                return@withActiveGatt
             }
+            if (newState != BluetoothProfile.STATE_CONNECTED) return@withActiveGatt
             intentionalDisconnect = false
-            this@AndroidBleProvisioningClient.gatt = gatt
             val device = selectedDevice ?: gatt.device
             if (device.bondState == BluetoothDevice.BOND_BONDED) {
                 prepareGatt(gatt)
             } else {
-                onEvent(ProvisioningEvent.Pairing)
-                if (!device.createBond()) onEvent(ProvisioningEvent.Failed("Android could not start Bluetooth pairing."))
+                emit(ProvisioningEvent.Pairing)
+                if (!device.createBond()) emit(ProvisioningEvent.Failed("Android could not start Bluetooth pairing."))
             }
         }
 
-        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-            if (!gatt.discoverServices()) onEvent(ProvisioningEvent.Failed("Could not start service discovery."))
+        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) = withActiveGatt(gatt) {
+            if (!gatt.discoverServices()) emit(ProvisioningEvent.Failed("Could not start service discovery."))
         }
 
-        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) = withActiveGatt(gatt) {
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                onEvent(ProvisioningEvent.Failed("DriveAlert service discovery failed."))
-                return
+                emit(ProvisioningEvent.Failed("DriveAlert service discovery failed."))
+                return@withActiveGatt
             }
             val service: BluetoothGattService = gatt.getService(ProvisioningProtocol.serviceUuid) ?: run {
-                onEvent(ProvisioningEvent.Failed("Selected device does not expose the DriveAlert service."))
-                return
+                emit(ProvisioningEvent.Failed("Selected device does not expose the DriveAlert service."))
+                return@withActiveGatt
             }
             ssidCharacteristic = service.getCharacteristic(ProvisioningProtocol.ssidUuid)
             passwordCharacteristic = service.getCharacteristic(ProvisioningProtocol.passwordUuid)
@@ -148,30 +159,30 @@ class AndroidBleProvisioningClient(
             statusCharacteristic = service.getCharacteristic(ProvisioningProtocol.statusUuid)
             val statusCharacteristic = statusCharacteristic
             if (ssidCharacteristic == null || passwordCharacteristic == null || applyCharacteristic == null || statusCharacteristic == null) {
-                onEvent(ProvisioningEvent.Failed("DriveAlert provisioning characteristics are incomplete."))
-                return
+                emit(ProvisioningEvent.Failed("DriveAlert provisioning characteristics are incomplete."))
+                return@withActiveGatt
             }
             if (!gatt.setCharacteristicNotification(statusCharacteristic, true)) {
-                onEvent(ProvisioningEvent.Failed("Could not enable provisioning status updates."))
-                return
+                emit(ProvisioningEvent.Failed("Could not enable provisioning status updates."))
+                return@withActiveGatt
             }
             val descriptor = statusCharacteristic.getDescriptor(ProvisioningProtocol.clientConfigurationUuid) ?: run {
-                onEvent(ProvisioningEvent.Failed("Provisioning notification descriptor is missing."))
-                return
+                emit(ProvisioningEvent.Failed("Provisioning notification descriptor is missing."))
+                return@withActiveGatt
             }
             if (!writeDescriptor(gatt, descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) {
-                onEvent(ProvisioningEvent.Failed("Could not subscribe to provisioning status."))
+                emit(ProvisioningEvent.Failed("Could not subscribe to provisioning status."))
             }
         }
 
-        override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+        override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) = withActiveGatt(gatt) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                onEvent(ProvisioningEvent.BleReady)
+                emit(ProvisioningEvent.BleReady)
                 queryStoredCredentials(gatt)
-            } else onEvent(ProvisioningEvent.Failed("Secure status subscription failed."))
+            } else emit(ProvisioningEvent.Failed("Secure status subscription failed."))
         }
 
-        override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+        override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) = withActiveGatt(gatt) {
             val completed = inFlightWrite
             inFlightWrite = null
             if (completed?.characteristic?.uuid == ProvisioningProtocol.passwordUuid) completed.payload.fill(0)
@@ -179,23 +190,25 @@ class AndroidBleProvisioningClient(
             if (characteristic.uuid == ProvisioningProtocol.passwordUuid) characteristic.value = ByteArray(0)
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 clearQueuedSecrets()
-                onEvent(ProvisioningEvent.Failed("Secure credential transfer failed."))
-                return
+                emit(ProvisioningEvent.Failed("Secure credential transfer failed."))
+                return@withActiveGatt
             }
-            if (completed?.startsWifiConnection == true) onEvent(ProvisioningEvent.WifiConnecting)
+            if (completed?.startsWifiConnection == true) emit(ProvisioningEvent.WifiConnecting)
             writeNext(gatt)
         }
 
         @Deprecated("Deprecated in API 33")
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-            handleStatus(characteristic.value ?: ByteArray(0))
+            @Suppress("DEPRECATION")
+            val value = characteristic.value?.copyOf() ?: ByteArray(0)
+            withActiveGatt(gatt) { handleStatus(value) }
         }
 
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray,
-        ) {
+        ) = withActiveGatt(gatt) {
             handleStatus(value)
         }
     }
@@ -210,18 +223,32 @@ class AndroidBleProvisioningClient(
         receiverRegistered = true
     }
 
-    fun startScan() {
+    private val rememberedAddresses = mutableSetOf<String>()
+
+    fun startScan(rememberedDevice: ProvisioningDevice? = null) {
         // A fast double tap or repeated lifecycle event can arrive before Compose
         // renders the SCANNING state. Registering the same callback again causes
         // ScanCallback.SCAN_FAILED_ALREADY_STARTED (error code 1).
         if (scanning) return
         closeGatt()
         devices.clear()
+        rememberedAddresses.clear()
         val scanner = adapter?.bluetoothLeScanner ?: run {
-            onEvent(ProvisioningEvent.Failed("Bluetooth is unavailable or turned off."))
+            emit(ProvisioningEvent.Failed("Bluetooth is unavailable or turned off."))
             return
         }
-        onEvent(ProvisioningEvent.ScanStarted)
+        emit(ProvisioningEvent.ScanStarted)
+        // A bonded peripheral may be absent from scan results while Android is
+        // releasing an old link. Reconnect by address instead of requiring discovery.
+        rememberedDevice?.let { remembered ->
+            if (android.bluetooth.BluetoothAdapter.checkBluetoothAddress(remembered.id)) {
+                val device = adapter?.getRemoteDevice(remembered.id)
+                if (device != null) addRememberedDevice(device, remembered.name)
+            }
+        }
+        adapter?.bondedDevices?.filter { isDriveAlertAdvertisement(it.name) }?.forEach {
+            addRememberedDevice(it, it.name ?: DEFAULT_DEVICE_NAME)
+        }
         scanning = true
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
         // Do not use a hardware service-UUID filter here. The classic ESP32 BLE
@@ -233,26 +260,39 @@ class AndroidBleProvisioningClient(
 
     fun connect(deviceId: String) {
         val device = devices[deviceId] ?: run {
-            onEvent(ProvisioningEvent.Failed("Selected DriveAlert device is no longer available."))
+            emit(ProvisioningEvent.Failed("Selected DriveAlert device is no longer available."))
             return
         }
         stopScan()
         closeGatt()
         selectedDevice = device
-        onEvent(ProvisioningEvent.Connecting(deviceId))
+        intentionalDisconnect = false
+        Log.d("DriveAlertBle", "Connecting to selected setup device")
+        emit(ProvisioningEvent.Connecting(deviceId))
         gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+        if (gatt == null) {
+            emit(ProvisioningEvent.Failed("Android could not start the Bluetooth connection. Retry setup."))
+        } else {
+            mainHandler.postDelayed(connectionTimeout, connectionTimeoutMs)
+        }
+    }
+
+    private fun addRememberedDevice(device: BluetoothDevice, name: String) {
+        if (devices.put(device.address, device) != null) return
+        rememberedAddresses.add(device.address)
+        emit(ProvisioningEvent.DeviceDiscovered(ProvisioningDevice(device.address, name, 0, previouslyKnown = true)))
     }
 
     fun submit(credentials: WifiCredentials) {
         val activeGatt = gatt ?: run {
-            onEvent(ProvisioningEvent.Failed("Bluetooth is not connected."))
+            emit(ProvisioningEvent.Failed("Bluetooth is not connected."))
             return
         }
         val ssid = ssidCharacteristic
         val password = passwordCharacteristic
         val apply = applyCharacteristic
         if (ssid == null || password == null || apply == null) {
-            onEvent(ProvisioningEvent.Failed("Provisioning service is not ready."))
+            emit(ProvisioningEvent.Failed("Provisioning service is not ready."))
             return
         }
         clearQueuedSecrets()
@@ -265,17 +305,17 @@ class AndroidBleProvisioningClient(
                 startsWifiConnection = true,
             ),
         )
-        onEvent(ProvisioningEvent.CredentialsSending)
+        emit(ProvisioningEvent.CredentialsSending)
         writeNext(activeGatt)
     }
 
     fun connectUsingSavedCredentials() {
         val activeGatt = gatt ?: run {
-            onEvent(ProvisioningEvent.Failed("Bluetooth is not connected."))
+            emit(ProvisioningEvent.Failed("Bluetooth is not connected."))
             return
         }
         val apply = applyCharacteristic ?: run {
-            onEvent(ProvisioningEvent.Failed("Provisioning service is not ready."))
+            emit(ProvisioningEvent.Failed("Provisioning service is not ready."))
             return
         }
         clearQueuedSecrets()
@@ -292,7 +332,7 @@ class AndroidBleProvisioningClient(
     fun retry() {
         stopScan()
         closeGatt()
-        onEvent(ProvisioningEvent.Retry)
+        emit(ProvisioningEvent.Retry)
     }
 
     override fun close() {
@@ -307,7 +347,7 @@ class AndroidBleProvisioningClient(
     private fun prepareGatt(gatt: BluetoothGatt?) {
         if (gatt == null) return
         if (!gatt.requestMtu(128) && !gatt.discoverServices()) {
-            onEvent(ProvisioningEvent.Failed("Could not prepare the Bluetooth connection."))
+            emit(ProvisioningEvent.Failed("Could not prepare the Bluetooth connection."))
         }
     }
 
@@ -319,34 +359,40 @@ class AndroidBleProvisioningClient(
             if (pending.characteristic.uuid == ProvisioningProtocol.passwordUuid) pending.payload.fill(0)
             inFlightWrite = null
             clearQueuedSecrets()
-            onEvent(ProvisioningEvent.Failed("Could not queue secure credential transfer."))
+            emit(ProvisioningEvent.Failed("Could not queue secure credential transfer."))
         }
     }
 
     private fun handleStatus(bytes: ByteArray) {
         val status = bytes.toString(Charsets.UTF_8)
         when {
-            status == "CONNECTING" -> onEvent(ProvisioningEvent.WifiConnecting)
-            status == "CREDENTIALS|NONE" -> onEvent(ProvisioningEvent.CredentialStatus(null))
+            status == "CONNECTING" -> emit(ProvisioningEvent.WifiConnecting)
+            status == "CREDENTIALS|NONE" -> {
+                mainHandler.removeCallbacks(connectionTimeout)
+                emit(ProvisioningEvent.CredentialStatus(null))
+            }
             status.startsWith("CREDENTIALS|SAVED|") -> {
                 val ssid = parseCredentialStatus(status)
-                if (ssid == null) onEvent(ProvisioningEvent.Failed("DriveAlert Device returned an invalid saved network."))
-                else onEvent(ProvisioningEvent.CredentialStatus(ssid))
+                if (ssid == null) emit(ProvisioningEvent.Failed("DriveAlert Device returned an invalid saved network."))
+                else {
+                    mainHandler.removeCallbacks(connectionTimeout)
+                    emit(ProvisioningEvent.CredentialStatus(ssid))
+                }
             }
             status.startsWith("CONNECTED|") -> {
                 val endpoint = parseConnectedStatus(status)
                 if (endpoint == null) {
-                    onEvent(ProvisioningEvent.Failed("DriveAlert Device returned an invalid network address."))
+                    emit(ProvisioningEvent.Failed("DriveAlert Device returned an invalid network address."))
                     return
                 }
-                onEvent(ProvisioningEvent.Provisioned(endpoint.ip, endpoint.hostname, selectedDevice?.address))
+                emit(ProvisioningEvent.Provisioned(endpoint.ip, endpoint.hostname, selectedDevice?.address))
                 clearQueuedSecrets()
                 intentionalDisconnect = true
                 gatt?.disconnect()
             }
-            status == "INVALID_CREDENTIALS" -> onEvent(ProvisioningEvent.Failed("SSID or password format was rejected."))
-            status == "CONNECTION_FAILED" -> onEvent(ProvisioningEvent.WifiConnectionFailed)
-            status == "ERROR" -> onEvent(ProvisioningEvent.Failed("DriveAlert Device could not store the working credentials."))
+            status == "INVALID_CREDENTIALS" -> emit(ProvisioningEvent.Failed("SSID or password format was rejected."))
+            status == "CONNECTION_FAILED" -> emit(ProvisioningEvent.WifiConnectionFailed)
+            status == "ERROR" -> emit(ProvisioningEvent.Failed("DriveAlert Device could not store the working credentials."))
         }
     }
 
@@ -369,16 +415,36 @@ class AndroidBleProvisioningClient(
     }
 
     private fun closeGatt() {
+        mainHandler.removeCallbacks(connectionTimeout)
         clearQueuedSecrets()
         intentionalDisconnect = true
-        gatt?.disconnect()
-        gatt?.close()
+        val previous = gatt
+        // Invalidate first: a late disconnect callback must never close a new link.
         gatt = null
         selectedDevice = null
         ssidCharacteristic = null
         passwordCharacteristic = null
         applyCharacteristic = null
         statusCharacteristic = null
+        previous?.disconnect()
+        previous?.close()
+    }
+
+    private fun emit(event: ProvisioningEvent) {
+        if (event is ProvisioningEvent.Failed) closeGatt()
+        // Log the transition type only: credential status may contain a private SSID.
+        Log.d("DriveAlertBle", "Setup event=${event.javaClass.simpleName}")
+        onEvent(event)
+    }
+
+    private fun onMain(action: () -> Unit) {
+        mainHandler.post { action() }
+    }
+
+    private fun withActiveGatt(callbackGatt: BluetoothGatt, action: () -> Unit) {
+        mainHandler.post {
+            if (gatt === callbackGatt) action()
+        }
     }
 
     private fun clearQueuedSecrets() {
@@ -414,6 +480,7 @@ class AndroidBleProvisioningClient(
 
     companion object {
         private const val SCAN_TIMEOUT_MS = 15_000L
+        private const val CONNECTION_TIMEOUT_MS = 30_000L
         private const val DEFAULT_DEVICE_NAME = "DriveAlert device"
 
         data class ConnectedEndpoint(val ip: String, val hostname: String?)

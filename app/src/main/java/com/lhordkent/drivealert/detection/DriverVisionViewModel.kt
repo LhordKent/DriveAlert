@@ -139,7 +139,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     val previewFrame: StateFlow<SharedBitmapFrame?> = mutablePreviewFrame.asStateFlow()
     private var engine = DriveAlertDetectionEngine()
     private val lightingTracker = FaceLightingTracker()
-    private val regionStore = DriverRegionStore(application)
+    private val regionStore = DriverRegionStore()
     private var regionKey: String? = null
     private var savedRegion: SavedDriverRegion? = null
     @Volatile private var targetConfigurationRevision = 0L
@@ -246,6 +246,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         deviceJob?.cancel()
         boundDriverId = driverUserId
         activeDevice = null
+        regionStore.clear()
         regionKey = null
         savedRegion = null
         targetConfigurationRevision = processor.configure(null)
@@ -319,6 +320,15 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 errorMessage = null,
             )
         }
+    }
+
+    fun beginAppAlignmentSession() {
+        // A new Activity/ViewModel can share a surviving application process.
+        // Returning to an ongoing drive must keep its foreground monitoring alive.
+        if (monitoringController.state.isActive || monitoringStarting) return
+        regionStore.clear()
+        if (mutableState.value.calibrationInProgress) cancelCalibration()
+        updateDriverRegion(DriverRegion.DEFAULT)
     }
 
     fun confirmAlignment() {
@@ -974,6 +984,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
 class DriverVisionViewModel(application: Application) : AndroidViewModel(application) {
     private val runtime = (application as DriveAlertApplication).container.driverVisionRuntime
     private var driverUserId: String? = null
+
+    init { runtime.beginAppAlignmentSession() }
 
     val state: StateFlow<DriverVisionUiState> = runtime.state
     val previewFrame: StateFlow<SharedBitmapFrame?> = runtime.previewFrame

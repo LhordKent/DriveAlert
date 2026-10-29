@@ -9,6 +9,33 @@ import org.junit.Test
 
 class ProvisioningStateTest {
     @Test
+    fun `remembered device can reconnect without a fresh advertisement and still waits for Wi-Fi consent`() {
+        val remembered = ProvisioningDevice("device-1", "DriveAlert-A1B2", 0, previouslyKnown = true)
+        var state = ProvisioningReducer.reduce(ProvisioningState(), ProvisioningEvent.ScanStarted)
+        state = ProvisioningReducer.reduce(state, ProvisioningEvent.DeviceDiscovered(remembered))
+        assertEquals(ProvisioningStage.DEVICE_FOUND, state.stage)
+        assertTrue(state.devices.single().previouslyKnown)
+        state = ProvisioningReducer.reduce(state, ProvisioningEvent.Connecting(remembered.id))
+        state = ProvisioningReducer.reduce(state, ProvisioningEvent.BleReady)
+        state = ProvisioningReducer.reduce(state, ProvisioningEvent.CredentialStatus("DriverHotspot"))
+        assertEquals(ProvisioningStage.CONNECTED_BLE, state.stage)
+        assertEquals(remembered.id, state.selectedDeviceId)
+        assertTrue(wifiCredentialFieldsAvailable(state))
+    }
+
+    @Test
+    fun `fresh advertisement replaces remembered entry without duplicates`() {
+        val remembered = ProvisioningDevice("device-1", "DriveAlert-A1B2", 0, previouslyKnown = true)
+        val state = ProvisioningReducer.reduce(
+            ProvisioningState(stage = ProvisioningStage.DEVICE_FOUND, devices = listOf(remembered)),
+            ProvisioningEvent.DeviceDiscovered(remembered.copy(rssi = -42, previouslyKnown = false)),
+        )
+        assertEquals(1, state.devices.size)
+        assertFalse(state.devices.single().previouslyKnown)
+        assertEquals(-42, state.devices.single().rssi)
+    }
+
+    @Test
     fun `scan and discovery produce selectable device state`() {
         var state = ProvisioningReducer.reduce(ProvisioningState(), ProvisioningEvent.ScanStarted)
         assertEquals(ProvisioningStage.SCANNING, state.stage)

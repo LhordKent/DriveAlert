@@ -101,18 +101,22 @@ class DriverTrackingScreenTest {
         } finally { processor.close() }
     }
 
-    @Test fun savedRegionIsScopedAndCanBeInvalidated() {
+    @Test fun previousLaunchAlignmentIsNeverRestored() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val store = DriverRegionStore(context)
+        val store = DriverRegionStore()
         val value = SavedDriverRegion(DriverRegion.DEFAULT, 640, 480)
         val key = "instrumentation-camera-region"
+        val legacyPreferences = context.getSharedPreferences("driver-region-v1", android.content.Context.MODE_PRIVATE)
         try {
+            legacyPreferences.edit().putString(key, "0.35,0.25,0.65,0.65,640,480").commit()
+            assertNull(store.load(key))
             store.save(key, value)
-            assertEquals(value, DriverRegionStore(context).load(key))
+            assertEquals(value, store.load(key))
+            assertNull(DriverRegionStore().load(key))
             assertNull(store.load("another-camera-region"))
             store.remove(key)
             assertNull(store.load(key))
-        } finally { store.remove(key) }
+        } finally { legacyPreferences.edit().remove(key).commit() }
     }
 
     private fun capture(name: String) {

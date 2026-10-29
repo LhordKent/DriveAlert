@@ -17,6 +17,7 @@ data class ProvisioningDevice(
     val id: String,
     val name: String,
     val rssi: Int,
+    val previouslyKnown: Boolean = false,
 )
 
 data class ProvisioningState(

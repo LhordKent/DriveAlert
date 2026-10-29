@@ -188,9 +188,13 @@ fun WifiProvisioningPanel(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(device.name, color = TextPrimary)
-                        Text("${device.rssi} dBm", color = TextMuted)
+                        Text(if (device.previouslyKnown) "Tap to reconnect" else "${device.rssi} dBm", color = TextMuted)
                     }
                 }
+                Text("Previously paired devices can be selected even when a new scan cannot find them.",
+                    style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Spacer(Modifier.height(12.dp))
+                SecondaryButton("Scan again", ::scanWithPermission)
             }
             ProvisioningStage.CONNECTED_BLE -> {
                 if (!wifiCredentialFieldsAvailable(state)) {

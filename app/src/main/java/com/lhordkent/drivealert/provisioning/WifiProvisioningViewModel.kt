@@ -16,6 +16,7 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
     val state: StateFlow<ProvisioningState> = mutableState.asStateFlow()
     private val client = AndroidBleProvisioningClient(application.applicationContext, ::dispatch)
     private val repository = (application as DriveAlertApplication).container.provisionedDeviceRepository
+    private val recoveryStore = BleSetupRecoveryStore(application)
     private var driverUserId: String? = null
     private var boundDriverUserId: String? = null
 
@@ -30,7 +31,7 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
         mutableState.value = ProvisioningState()
     }
 
-    fun startScan() = client.startScan()
+    fun startScan() = client.startScan(recoveryStore.load(driverUserId))
 
     fun selectDevice(deviceId: String) = client.connect(deviceId)
 
@@ -58,6 +59,12 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
 
     private fun dispatch(event: ProvisioningEvent) {
         mutableState.update { current -> ProvisioningReducer.reduce(current, event) }
+        if (event == ProvisioningEvent.BleReady) {
+            val state = mutableState.value
+            state.devices.firstOrNull { it.id == state.selectedDeviceId }?.let {
+                recoveryStore.save(driverUserId, it)
+            }
+        }
         if (event is ProvisioningEvent.Provisioned) {
             val userId = driverUserId ?: return
             val ip = event.ip ?: return
