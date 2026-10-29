@@ -10,6 +10,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FaceAttributePostProcessorTest {
+    @Test fun `target reset clears cached attributes and hysteresis`() {
+        val tracker = FaceAttributeShadowTracker()
+        val probabilities = FaceAttributeProbabilities(0.8f, 0.7f, 0.9f, 0.9f, 0.9f)
+        tracker.accept(0, probabilities, 1.0)
+        assertTrue(tracker.accept(500, probabilities, 1.0).eyeRegionObstructed == true)
+        tracker.reset()
+        assertNull(tracker.snapshot(600).probabilities)
+        assertFalse(tracker.accept(700, probabilities, 1.0).eyeRegionObstructed == true)
+    }
+
     @Test
     fun `uint8 output is dequantized and mapped in model order`() {
         val output = byteArrayOf(0, 64, 128.toByte(), 192.toByte(), 255.toByte())

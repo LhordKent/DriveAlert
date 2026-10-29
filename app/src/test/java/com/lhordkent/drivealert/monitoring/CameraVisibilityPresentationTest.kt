@@ -6,6 +6,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class CameraVisibilityPresentationTest {
+    @org.junit.Test fun `ambiguous driver overrides otherwise healthy monitoring`() {
+        val result = cameraVisibilityPresentation(
+            com.lhordkent.drivealert.detection.frame.StreamConnectionState.CONNECTED,
+            com.lhordkent.drivealert.postauth.MonitoringScenario.FACE_TRACKING_UNAVAILABLE,
+            true, false,
+            driverTracking = com.lhordkent.drivealert.detection.face.DriverTrackingState(
+                com.lhordkent.drivealert.detection.face.DriverTrackingStatus.AMBIGUOUS),
+        )
+        org.junit.Assert.assertEquals("Driver not clearly visible", result.label)
+        org.junit.Assert.assertEquals("Monitoring paused", result.monitoring.headline)
+        org.junit.Assert.assertFalse(result.monitoring.eyeAvailable)
+        org.junit.Assert.assertFalse(result.monitoring.yawningAvailable)
+        org.junit.Assert.assertFalse(result.monitoring.headAvailable)
+    }
+
     @Test
     fun `insufficient facial lighting pauses even with a detected face`() {
         val lighting = FaceLightingAssessment(0, LightingQuality.INSUFFICIENT, 20.0, 0.0)

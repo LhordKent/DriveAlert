@@ -2,6 +2,12 @@ package com.lhordkent.drivealert.detection
 
 import android.app.Application
 import android.graphics.Bitmap
+import com.lhordkent.drivealert.detection.face.DriverRegion
+import com.lhordkent.drivealert.detection.face.DriverFaceSelector
+import com.lhordkent.drivealert.detection.face.DriverRegionStore
+import com.lhordkent.drivealert.detection.face.SavedDriverRegion
+import com.lhordkent.drivealert.detection.face.DriverTrackingState
+import com.lhordkent.drivealert.detection.face.DriverTrackingStatus
 import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -83,6 +89,8 @@ data class DriverVisionUiState(
     val deviceConfigured: Boolean = false,
     val faceDetected: Boolean? = null,
     val alignmentConfirmed: Boolean = false,
+    val driverRegion: DriverRegion = DriverRegion.DEFAULT,
+    val driverTracking: DriverTrackingState = DriverTrackingState(),
     val detection: MonitoringDetectionResult? = null,
     val faceAttributes: FaceAttributeResult? = null,
     val calibrationProgress: CalibrationProgress? = null,
@@ -131,22 +139,45 @@ class DriverVisionRuntime @JvmOverloads constructor(
     val previewFrame: StateFlow<SharedBitmapFrame?> = mutablePreviewFrame.asStateFlow()
     private var engine = DriveAlertDetectionEngine()
     private val lightingTracker = FaceLightingTracker()
+    private val regionStore = DriverRegionStore(application)
+    private var regionKey: String? = null
+    private var savedRegion: SavedDriverRegion? = null
+    @Volatile private var targetConfigurationRevision = 0L
+    private var targetGeneration = -1L
     private val processor = MediaPipeFaceLandmarkerProcessor(
         context = application,
-        onObservation = { timestamp, observation, faceAttributes, lightingSample ->
+        onObservation = { timestamp, observation, faceAttributes, lightingSample, tracking, revision ->
             val generation = streamGeneration
             scope.launch {
-                if (timestamp < observationCutoffMs || !streamWanted || generation != streamGeneration ||
+                if (revision != targetConfigurationRevision || timestamp < observationCutoffMs || !streamWanted || generation != streamGeneration ||
                     mutableState.value.streamState != StreamConnectionState.CONNECTED ||
-                    elapsedClock() - timestamp > CAMERA_READING_STALE_MS
+                    elapsedClock() - timestamp > DriverFaceSelector.MAX_FRAME_GAP_MS
                 ) return@launch
+                val saved = savedRegion
+                if (saved != null && (saved.width != tracking.frameWidth || saved.height != tracking.frameHeight)) {
+                    regionKey?.let(regionStore::remove)
+                    savedRegion = null
+                    mutableState.update { it.copy(alignmentConfirmed = false) }
+                    resetLighting()
+                    return@launch
+                }
+                if (targetGeneration != tracking.generation) {
+                    targetGeneration = tracking.generation
+                    lightingTracker.reset()
+                    engine.invalidateDriverTarget()
+                    monitoringController.accept(emptyList(), emptySet())
+                    if (mutableState.value.calibrationInProgress) {
+                        mutableState.update { it.copy(errorMessage = "Driver tracking changed. Restart calibration from the neutral position.") }
+                    }
+                }
+                mutableState.update { it.copy(driverTracking = tracking) }
                 // Serialize quality, engine and session decisions on the runtime's main scope.
                 val lighting = lightingTracker.update(elapsedClock(), lightingSample?.takeIf { it.timestampMs >= observationCutoffMs })
                 val result = engine.process(
                     timestamp,
                     observation,
                     effectiveRegionalVisibility(faceAttributes),
-                    assessmentAllowed = lighting.allowsAssessment(elapsedClock()),
+                    assessmentAllowed = tracking.locked && mutableState.value.alignmentConfirmed && lighting.allowsAssessment(elapsedClock()),
                 )
                 acceptDetection(result, faceAttributes, lighting)
             }
@@ -211,6 +242,9 @@ class DriverVisionRuntime @JvmOverloads constructor(
         deviceJob?.cancel()
         boundDriverId = driverUserId
         activeDevice = null
+        regionKey = null
+        savedRegion = null
+        targetConfigurationRevision = processor.configure(null)
         engine = DriveAlertDetectionEngine()
         persistedCalibrationId = null
         mutableState.value = DriverVisionUiState()
@@ -224,11 +258,18 @@ class DriverVisionRuntime @JvmOverloads constructor(
             deviceRepository.observeActive(driverUserId).collect { device ->
                 val endpointChanged = activeDevice?.deviceId != device?.deviceId
                 activeDevice = device
+                val nextRegionKey = device?.let { "${it.driverUserId}/${it.deviceId}/${it.streamPort}${it.streamPath}" }
+                if (nextRegionKey != regionKey) {
+                    regionKey = nextRegionKey
+                    savedRegion = nextRegionKey?.let(regionStore::load)
+                    mutableState.update { it.copy(driverRegion = savedRegion?.region ?: DriverRegion.DEFAULT, alignmentConfirmed = savedRegion != null) }
+                    resetLighting()
+                }
                 mutableState.update {
                     it.copy(
                         streamState = if (device == null) StreamConnectionState.SETUP_REQUIRED else it.streamState,
                         deviceConfigured = device != null,
-                        alignmentConfirmed = if (endpointChanged) false else it.alignmentConfirmed,
+                        alignmentConfirmed = if (endpointChanged) savedRegion != null else it.alignmentConfirmed,
                     ).let { updated ->
                         if (device != null && updated.streamState == StreamConnectionState.SETUP_REQUIRED) {
                             updated.copy(streamState = StreamConnectionState.READY)
@@ -277,9 +318,21 @@ class DriverVisionRuntime @JvmOverloads constructor(
     }
 
     fun confirmAlignment() {
-        if (mutableState.value.streamState == StreamConnectionState.CONNECTED) {
-            mutableState.update { it.copy(alignmentConfirmed = true) }
-        }
+        val current = mutableState.value
+        val key = regionKey ?: return
+        if (current.streamState != StreamConnectionState.CONNECTED || !current.driverTracking.locked ||
+            current.monitoring.isActive || current.calibrationInProgress) return
+        savedRegion = SavedDriverRegion(current.driverRegion, current.driverTracking.frameWidth, current.driverTracking.frameHeight)
+        regionStore.save(key, checkNotNull(savedRegion))
+        mutableState.update { it.copy(alignmentConfirmed = true) }
+    }
+
+    fun updateDriverRegion(region: DriverRegion) {
+        if (monitoringController.state.isActive || monitoringStarting || mutableState.value.calibrationInProgress) return
+        regionKey?.let(regionStore::remove)
+        savedRegion = null
+        mutableState.update { it.copy(driverRegion = region, alignmentConfirmed = false) }
+        resetLighting()
     }
 
     fun disconnectCurrentSession(onDisconnected: () -> Unit = {}) {
@@ -339,13 +392,18 @@ class DriverVisionRuntime @JvmOverloads constructor(
     }
 
     fun startCalibration() {
-        if (!mutableState.value.alignmentConfirmed || mutableState.value.streamState != StreamConnectionState.CONNECTED) return
+        if (!mutableState.value.alignmentConfirmed || !mutableState.value.driverTracking.locked || !mutableState.value.lighting.allowsAssessment(elapsedClock()) || mutableState.value.streamState != StreamConnectionState.CONNECTED || monitoringController.state.isActive) return
         engine.startCalibration()
         engine.beginCalibrationPhase()
         mutableState.update { it.copy(calibrationProgress = null, calibrationInProgress = true, errorMessage = null) }
     }
 
-    fun beginCalibrationPhase() = engine.beginCalibrationPhase()
+    fun beginCalibrationPhase() {
+        if (mutableState.value.driverTracking.locked && mutableState.value.alignmentConfirmed && mutableState.value.lighting.allowsAssessment(elapsedClock())) {
+            engine.beginCalibrationPhase()
+            mutableState.update { it.copy(errorMessage = null) }
+        }
+    }
 
     fun repeatCalibrationPhase() = engine.repeatCalibrationPhase()
 
@@ -380,6 +438,10 @@ class DriverVisionRuntime @JvmOverloads constructor(
         if (mutableState.value.streamState != StreamConnectionState.CONNECTED) {
             return onFailure(IllegalStateException("The DriveAlert camera is not connected."))
         }
+        if (!mutableState.value.alignmentConfirmed) {
+            return onFailure(IllegalStateException("Confirm the driver area in Camera Alignment first."))
+        }
+        if (mutableState.value.calibrationInProgress) return onFailure(IllegalStateException("Finish calibration first."))
         monitoringStarting = true
         monitoringSound = sound
         monitoringVolume = volume
@@ -610,6 +672,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         )
         val observedVisibilityIssue = if (monitoringController.state.isActive) {
             when {
+                !mutableState.value.alignmentConfirmed || !mutableState.value.driverTracking.locked -> VisibilityIssue.FACE_UNAVAILABLE
                 lightingIssue != null -> lightingIssue
                 !lighting.allowsAssessment(elapsedClock()) -> null
                 regionalVisibility.lowerFaceObstructed && regionalVisibility.eyeRegionObstructed ->
@@ -638,7 +701,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 },
             )
         }
-        if (!lighting.allowsAssessment(elapsedClock())) {
+        if (!mutableState.value.driverTracking.locked || !mutableState.value.alignmentConfirmed || !lighting.allowsAssessment(elapsedClock())) {
             monitoringController.accept(emptyList(), emptySet())
         }
         val calibration = result.activeCalibration ?: return
@@ -792,9 +855,11 @@ class DriverVisionRuntime @JvmOverloads constructor(
     private fun resetLighting() {
         // Prevent queued results from the previous session from reusing cached quality.
         observationCutoffMs = elapsedClock()
+        targetConfigurationRevision = processor.configure(if (regionKey != null) mutableState.value.driverRegion else null)
+        targetGeneration = -1L
         lightingTracker.reset()
-        engine.invalidateTracking()
-        mutableState.update { it.copy(lighting = FaceLightingAssessment()) }
+        engine.invalidateDriverTarget()
+        mutableState.update { it.copy(lighting = FaceLightingAssessment(), driverTracking = DriverTrackingState(if (regionKey == null) DriverTrackingStatus.UNCONFIGURED else DriverTrackingStatus.ACQUIRING), detection = null, faceAttributes = null) }
     }
 
     private fun clearCameraReadings() {
@@ -818,7 +883,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         if (mutableState.value.streamState != StreamConnectionState.CONNECTED) return
         val now = elapsedClock()
         val frameStale = lastFrameTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true
-        val detectionStale = lastDetectionTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true
+        val detectionStale = lastDetectionTimestampMs?.let { now - it > DriverFaceSelector.MAX_FRAME_GAP_MS } == true
         if (frameStale || detectionStale) {
             clearCameraReadings()
         } else {
@@ -924,6 +989,7 @@ class DriverVisionViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun confirmAlignment() = runtime.confirmAlignment()
+    fun updateDriverRegion(region: DriverRegion) = runtime.updateDriverRegion(region)
 
     fun disconnectCurrentSession(onDisconnected: () -> Unit = {}) {
         runtime.disconnectCurrentSession(onDisconnected)

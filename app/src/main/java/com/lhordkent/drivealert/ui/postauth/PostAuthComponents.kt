@@ -177,10 +177,12 @@ fun ScrollableScreen(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    pinnedContent: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(modifier.fillMaxSize().background(Ink)) {
         DriveAlertTopBar(title = title, onBack = onBack)
+        pinnedContent?.invoke()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

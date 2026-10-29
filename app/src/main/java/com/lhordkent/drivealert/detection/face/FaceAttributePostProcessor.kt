@@ -93,6 +93,13 @@ internal class FaceAttributeShadowTracker(
         return checkNotNull(latest)
     }
 
+    fun reset() {
+        latest = null
+        eyeglasses.reset()
+        lowerFaceObstruction.reset()
+        eyeRegionObstruction.reset()
+    }
+
     fun disable(reason: String): FaceAttributeResult {
         disabledReason = reason
         latest = null

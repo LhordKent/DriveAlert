@@ -222,6 +222,7 @@ fun DriveAlertApp() {
         provisioningViewModel = provisioningViewModel,
         onStartVision = visionViewModel::startVision,
         onConfirmAlignment = visionViewModel::confirmAlignment,
+        onDriverRegionChange = visionViewModel::updateDriverRegion,
         onStartCalibration = visionViewModel::startCalibration,
         onBeginCalibrationPhase = visionViewModel::beginCalibrationPhase,
         onRepeatCalibrationPhase = visionViewModel::repeatCalibrationPhase,
@@ -321,6 +322,7 @@ fun DriveAlertApp(
     provisioningViewModel: WifiProvisioningViewModel? = null,
     onStartVision: () -> Unit = {},
     onConfirmAlignment: () -> Unit = {},
+    onDriverRegionChange: (com.lhordkent.drivealert.detection.face.DriverRegion) -> Unit = {},
     onStartCalibration: () -> Unit = {},
     onBeginCalibrationPhase: () -> Unit = {},
     onRepeatCalibrationPhase: () -> Unit = {},
@@ -438,6 +440,7 @@ fun DriveAlertApp(
                     previewFrames = previewFrames,
                     onStartVision = onStartVision,
                     onConfirmAlignment = onConfirmAlignment,
+                    onDriverRegionChange = onDriverRegionChange,
                     onBack = navController::popBackStack,
                 )
             }
@@ -462,6 +465,7 @@ fun DriveAlertApp(
                             when {
                                 visionState.streamState != com.lhordkent.drivealert.detection.frame.StreamConnectionState.CONNECTED ->
                                     navController.navigate(PostAuthRoutes.DRIVER_DEVICE_CONNECTION)
+                                !visionState.alignmentConfirmed -> navController.navigate(PostAuthRoutes.DRIVER_ALIGNMENT)
                                 visionState.activeCalibration == null -> navController.navigate(PostAuthRoutes.DRIVER_CALIBRATION)
                                 else -> onStartMonitoring(
                                     postAuthState.warningSound,
@@ -481,6 +485,8 @@ fun DriveAlertApp(
             composable(PostAuthRoutes.DRIVER_MONITORING) {
                 LaunchedEffect(Unit) { onStartVision() }
                 MonitoringPreviewScreen(
+                    vision = visionState,
+                    previewFrames = previewFrames,
                     scenario = visionState.detection.toMonitoringScenario(),
                     monitoring = visionState.monitoring,
                     onExit = navController::popBackStack,
@@ -495,6 +501,8 @@ fun DriveAlertApp(
                         pendingIssue = visionState.visibilityIssue,
                         headAvailable = visionState.detection?.head?.state != TemporalState.UNAVAILABLE,
                         lighting = visionState.lighting,
+                        driverTracking = visionState.driverTracking,
+                        alignmentConfirmed = visionState.alignmentConfirmed,
                     ),
                     ambientLuminance = visionState.ambientLuminance,
                     smoothedLuminance = visionState.smoothedLuminance,

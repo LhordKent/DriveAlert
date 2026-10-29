@@ -41,13 +41,16 @@ class SetupConnectionStatusTest {
             DriverVisionUiState(
                 streamState = StreamConnectionState.CONNECTED,
                 activeCalibration = calibration,
+                alignmentConfirmed = true,
             ).isMonitoringReady(),
         )
+        assertFalse(DriverVisionUiState(streamState = StreamConnectionState.CONNECTED, activeCalibration = calibration).isMonitoringReady())
         assertFalse(
             DriverVisionUiState(
                 deviceConfigured = true,
                 streamState = StreamConnectionState.READY,
                 activeCalibration = calibration,
+                alignmentConfirmed = true,
             ).isMonitoringReady(),
         )
     }

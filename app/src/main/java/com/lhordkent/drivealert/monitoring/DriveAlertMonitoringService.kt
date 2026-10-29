@@ -51,6 +51,8 @@ class DriveAlertMonitoringService : Service() {
                 if (wakeLock?.isHeld == true) {
                     val status = when {
                         state.streamState != StreamConnectionState.CONNECTED -> state.streamState.name.lowercase()
+                        !state.alignmentConfirmed -> "Monitoring paused; confirm driver area"
+                        !state.driverTracking.locked -> "Monitoring paused; ${state.driverTracking.label.lowercase()}"
                         state.lighting.recovering -> "Monitoring paused; checking visibility"
                         state.visibilityIssue == VisibilityIssue.INSUFFICIENT_LIGHTING ||
                             state.lighting.quality == LightingQuality.INSUFFICIENT -> "Monitoring paused; insufficient lighting"
@@ -176,7 +178,7 @@ class DriveAlertMonitoringService : Service() {
                     ),
                 )
                 showForegroundNotification(
-                    if (runtime.state.value.lighting.quality == LightingQuality.USABLE) "active"
+                    if (runtime.state.value.alignmentConfirmed && runtime.state.value.driverTracking.locked && runtime.state.value.lighting.quality == LightingQuality.USABLE) "active"
                     else "Monitoring paused; checking visibility",
                 )
             },

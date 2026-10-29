@@ -205,6 +205,13 @@ class DriveAlertDetectionEngine(
         lastTimestampMs?.let { calibration.update(it, FacialMeasurements(null, null, null)) }
     }
 
+    /** A new spatial track cannot reuse any unfinished multi-phase calibration. */
+    @Synchronized
+    fun invalidateDriverTarget() {
+        invalidateTracking()
+        if (activeCalibration == null) calibration.start()
+    }
+
     private fun clearDetectorEvidence() {
         eyeDetector?.reset()
         yawnDetector?.reset()

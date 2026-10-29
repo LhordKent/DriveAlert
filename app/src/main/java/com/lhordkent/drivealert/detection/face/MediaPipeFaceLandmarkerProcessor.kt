@@ -26,9 +26,12 @@ class MediaPipeFaceLandmarkerProcessor(
         observation: FaceObservation?,
         faceAttributes: FaceAttributeResult,
         lightingSample: FaceLightingSample?,
+        tracking: DriverTrackingState,
+        configurationRevision: Long,
     ) -> Unit,
     private val onError: (Throwable) -> Unit = {},
     modelAssetPath: String = MODEL_ASSET_PATH,
+    maxFaces: Int = 4,
 ) : Closeable {
     private val executor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "drivealert-face-landmarker")
@@ -36,6 +39,25 @@ class MediaPipeFaceLandmarkerProcessor(
     private val busy = AtomicBoolean(false)
     private val closed = AtomicBoolean(false)
     private val landmarker: FaceLandmarker
+    private data class Configuration(val region: DriverRegion?, val revision: Long)
+    @Volatile private var configuration = Configuration(null, 0)
+    private var appliedRevision = -1L
+    private val selector = DriverFaceSelector(capacity = maxFaces)
+    private var lastTargetGeneration = -1L
+
+    @Synchronized
+    fun configure(region: DriverRegion?): Long {
+        configuration = Configuration(region, configuration.revision + 1)
+        return configuration.revision
+    }
+
+    private fun resetFaceCaches() {
+        attributeTracker.reset()
+        lastAttributeAttemptTimestampMs = null
+        lightingSample = null
+        lastLightingAttemptTimestampMs = null
+    }
+
     private val attributeTracker = FaceAttributeShadowTracker()
     private var attributeClassifier: FaceAttribNetClassifier? = null
     private var attributeFailureReason: String? = null
@@ -44,13 +66,14 @@ class MediaPipeFaceLandmarkerProcessor(
     private var lastLightingAttemptTimestampMs: Long? = null
 
     init {
+        require(maxFaces >= 2) { "Driver selection requires detection of competing faces." }
         val baseOptions = BaseOptions.builder()
             .setModelAssetPath(modelAssetPath)
             .build()
         val options = FaceLandmarker.FaceLandmarkerOptions.builder()
             .setBaseOptions(baseOptions)
             .setRunningMode(RunningMode.VIDEO)
-            .setNumFaces(1)
+            .setNumFaces(maxFaces)
             .setOutputFaceBlendshapes(false)
             .setOutputFacialTransformationMatrixes(true)
             .build()
@@ -75,12 +98,13 @@ class MediaPipeFaceLandmarkerProcessor(
             releaseSource()
             return false
         }
+        val submittedConfiguration = configuration
         return enqueue(
             work = {
                 var bitmap: Bitmap? = null
                 try {
                     bitmap = bitmapFactory()
-                    process(bitmap, width, height, timestampMs)
+                    process(bitmap, width, height, timestampMs, submittedConfiguration)
                 } finally {
                     try {
                         bitmap?.recycle()
@@ -113,24 +137,27 @@ class MediaPipeFaceLandmarkerProcessor(
         }
     }
 
-    private fun process(bitmap: Bitmap, width: Int, height: Int, timestampMs: Long) {
+    private fun process(bitmap: Bitmap, width: Int, height: Int, timestampMs: Long, submittedConfiguration: Configuration) {
+        if (submittedConfiguration.revision != configuration.revision) return
+        if (appliedRevision != submittedConfiguration.revision) {
+            selector.reset()
+            resetFaceCaches()
+            appliedRevision = submittedConfiguration.revision
+        }
         val image = BitmapImageBuilder(bitmap).build()
         try {
             val result = landmarker.detectForVideo(image, timestampMs)
-            val landmarks = result.faceLandmarks().firstOrNull()?.map { landmark ->
-                NormalizedLandmark(landmark.x().toDouble(), landmark.y().toDouble())
+            val matrices = result.facialTransformationMatrixes().orElse(emptyList())
+            val candidates = result.faceLandmarks().mapIndexed { index, points ->
+                FaceObservation(timestampMs, width, height,
+                    points.map { NormalizedLandmark(it.x().toDouble(), it.y().toDouble()) },
+                    matrices.getOrNull(index))
             }
-            val observation = landmarks?.let {
-                FaceObservation(
-                    timestampMs = timestampMs,
-                    frameWidth = width,
-                    frameHeight = height,
-                    landmarks = it,
-                    facialTransformationMatrix = result.facialTransformationMatrixes()
-                        .orElse(emptyList())
-                        .firstOrNull(),
-                )
-            }
+            val selection = selector.select(timestampMs, candidates, submittedConfiguration.region, width, height)
+            if (!selection.tracking.locked || lastTargetGeneration != selection.tracking.generation) resetFaceCaches()
+            lastTargetGeneration = selection.tracking.generation
+            val observation = selection.observation
+            val landmarks = observation?.landmarks
             val attributes = processFaceAttributes(bitmap, landmarks, width, height, timestampMs)
             if (landmarks == null) {
                 lightingSample = null
@@ -139,7 +166,7 @@ class MediaPipeFaceLandmarkerProcessor(
                 lastLightingAttemptTimestampMs = timestampMs
                 lightingSample = FrameLuminanceSampler.sampleFace(bitmap, landmarks, timestampMs)
             }
-            onObservation(timestampMs, observation, attributes, lightingSample)
+            onObservation(timestampMs, observation, attributes, lightingSample, selection.tracking, submittedConfiguration.revision)
         } finally {
             image.close()
         }

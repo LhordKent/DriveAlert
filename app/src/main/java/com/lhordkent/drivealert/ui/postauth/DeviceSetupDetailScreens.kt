@@ -5,6 +5,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,11 +27,21 @@ import androidx.compose.material.icons.rounded.Router
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Slider
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import com.lhordkent.drivealert.detection.face.DriverRegion
+import com.lhordkent.drivealert.detection.face.DriverTrackingState
+import com.lhordkent.drivealert.ui.theme.Success
+import com.lhordkent.drivealert.ui.theme.Info
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.lhordkent.drivealert.detection.model.CalibrationProgress
 import com.lhordkent.drivealert.detection.DriverVisionUiState
 import com.lhordkent.drivealert.detection.frame.StreamConnectionState
@@ -89,24 +101,43 @@ fun CameraAlignmentScreen(
     onStartVision: () -> Unit,
     onConfirmAlignment: () -> Unit,
     onBack: () -> Unit,
+    onDriverRegionChange: (DriverRegion) -> Unit = {},
 ) {
     androidx.compose.runtime.LaunchedEffect(Unit) { onStartVision() }
-    ScrollableScreen(title = "Camera Alignment", onBack = onBack) {
+    ScrollableScreen(title = "Camera Alignment", onBack = onBack, pinnedContent = {
+        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+            LiveCameraPreview(vision.streamState, previewFrames, vision.driverRegion, vision.driverTracking, maxPreviewHeight = 180.dp)
+        }
+    }) {
         Text("Position the camera", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
         Text("Keep the full face visible, look forward, and keep the camera mount steady.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(20.dp))
-        LiveCameraPreview(vision.streamState, previewFrames)
         Spacer(Modifier.height(18.dp))
+        Text("Driver area", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Text("While parked, adjust the blue box around the driver's seating area. Leave room for head movement and keep passengers outside it. Realign after moving the camera.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        val editable = !vision.monitoring.isActive && !vision.calibrationInProgress
+        val region = vision.driverRegion
+        RegionSlider("Horizontal position", region.centerX, (region.width / 2)..(1.0 - region.width / 2), editable) { center ->
+            onDriverRegionChange(region.copy(left = center - region.width / 2, right = center + region.width / 2))
+        }
+        RegionSlider("Vertical position", region.centerY, (region.height / 2)..(1.0 - region.height / 2), editable) { center ->
+            onDriverRegionChange(region.copy(top = center - region.height / 2, bottom = center + region.height / 2))
+        }
+        RegionSlider("Area width", region.width, 0.25..0.9, editable) { width ->
+            val left = (region.centerX - width / 2).coerceIn(0.0, 1.0 - width)
+            onDriverRegionChange(region.copy(left = left, right = left + width))
+        }
+        RegionSlider("Area height", region.height, 0.3..0.95, editable) { height ->
+            val top = (region.centerY - height / 2).coerceIn(0.0, 1.0 - height)
+            onDriverRegionChange(region.copy(top = top, bottom = top + height))
+        }
+        if (!editable) Text("Stop monitoring and finish calibration before adjusting the driver area.", color = TextSecondary)
+        DriverTrackingGuidance(vision)
         SetupDetailRow(
             "Camera stream",
             vision.streamState.readableLabel(),
             if (vision.streamState == StreamConnectionState.CONNECTED) StatusTone.SUCCESS else StatusTone.WARNING,
-        )
-        SetupDetailRow(
-            "Face view",
-            when (vision.faceDetected) { true -> "Face visible"; false -> "Face not detected"; null -> "Waiting for video" },
-            if (vision.faceDetected == true) StatusTone.SUCCESS else StatusTone.WARNING,
         )
         SetupDetailRow("Alignment", if (vision.alignmentConfirmed) "Confirmed" else "Confirmation needed", if (vision.alignmentConfirmed) StatusTone.SUCCESS else StatusTone.WARNING)
         LightingGuidance(vision)
@@ -115,7 +146,7 @@ fun CameraAlignmentScreen(
         PrimaryButton(
             if (vision.alignmentConfirmed) "Alignment Confirmed" else "Confirm Alignment",
             onConfirmAlignment,
-            enabled = vision.streamState == StreamConnectionState.CONNECTED && !vision.alignmentConfirmed,
+            enabled = vision.streamState == StreamConnectionState.CONNECTED && vision.driverTracking.locked && !vision.alignmentConfirmed && editable,
         )
         Spacer(Modifier.height(16.dp))
     }
@@ -139,9 +170,11 @@ fun CalibrationScreen(
         Spacer(Modifier.height(6.dp))
         Text("Follow each step while the camera measures your natural eye, mouth, and head positions.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(22.dp))
-        LiveCameraPreview(vision.streamState, previewFrames)
+        LiveCameraPreview(vision.streamState, previewFrames, vision.driverRegion, vision.driverTracking)
         Spacer(Modifier.height(18.dp))
+        DriverTrackingGuidance(vision)
         LightingGuidance(vision)
+        vision.errorMessage?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = TextSecondary) }
         SetupDetailRow(
             "Calibration status",
             when {
@@ -174,13 +207,13 @@ fun CalibrationScreen(
         }
         Spacer(Modifier.height(22.dp))
         val canStart = vision.alignmentConfirmed && vision.streamState == StreamConnectionState.CONNECTED &&
-            vision.lighting.quality == LightingQuality.USABLE
+            vision.lighting.quality == LightingQuality.USABLE && vision.driverTracking.locked && !vision.monitoring.isActive
         when {
             !vision.calibrationInProgress ->
                 PrimaryButton(if (vision.activeCalibration == null) "Start Calibration" else "Recalibrate", onStartCalibration, enabled = canStart)
             progress?.status == CalibrationStatus.READY ->
                 PrimaryButton("Start ${progress.phase.instruction()}", onBeginPhase, enabled = canStart)
-            else -> PrimaryButton("Collecting valid measurements", {}, enabled = false)
+            else -> PrimaryButton(if (vision.driverTracking.locked) "Collecting valid measurements" else "Waiting for driver tracking", {}, enabled = false)
         }
         if (vision.calibrationInProgress && progress != null && progress.status != CalibrationStatus.COMPLETE) {
             Spacer(Modifier.height(10.dp))
@@ -216,32 +249,48 @@ private fun LightingGuidance(vision: DriverVisionUiState) {
 }
 
 @Composable
-private fun LiveCameraPreview(
+internal fun LiveCameraPreview(
     streamState: StreamConnectionState,
     previewFrames: StateFlow<SharedBitmapFrame?>?,
+    region: DriverRegion = DriverRegion.DEFAULT,
+    tracking: DriverTrackingState = DriverTrackingState(),
+    maxPreviewHeight: Dp? = null,
 ) {
     // Collect the high-frequency image flow only inside the preview. Detection,
     // navigation and the rest of the screen no longer recompose for every JPEG.
     val sharedFrame = previewFrames?.collectAsState()?.value
-    Box(
-        modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp)).background(Surface),
-        contentAlignment = Alignment.Center,
-    ) {
-        // Released SharedBitmapFrames deliberately leave Bitmap lifetime to the
-        // Android/Compose GC contract. A composition that already observed a frame
-        // can therefore finish drawing it without briefly showing the placeholder.
-        val bitmap = sharedFrame?.bitmap
-        if (bitmap != null && !bitmap.isRecycled) {
-            Image(bitmap.asImageBitmap(), "Live DriveAlert camera preview", Modifier.matchParentSize(), contentScale = ContentScale.Crop)
-            Canvas(Modifier.matchParentSize().padding(horizontal = 54.dp, vertical = 30.dp)) {
-                drawOval(Color.White.copy(alpha = 0.82f), style = Stroke(width = 4f))
-            }
-        } else {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Rounded.CameraAlt, contentDescription = null, modifier = Modifier.size(42.dp), tint = TextMuted)
-                Spacer(Modifier.height(10.dp))
-                Text(streamState.readableLabel(), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                Text("Keep the camera powered and on the same network", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+    val bitmap = sharedFrame?.bitmap
+    // Preview and inference consume the same unrotated, unmirrored decoded bitmap.
+    // Matching its aspect ratio avoids any crop/letterbox coordinate conversion.
+    val ratio = bitmap?.let { it.width.toFloat() / it.height } ?: (4f / 3f)
+    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        val previewWidth = maxPreviewHeight?.let { minOf(maxWidth, it * ratio) } ?: maxWidth
+        Box(
+            modifier = Modifier.width(previewWidth).aspectRatio(ratio).clip(RoundedCornerShape(16.dp)).background(Surface),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Released SharedBitmapFrames deliberately leave Bitmap lifetime to the
+            // Android/Compose GC contract. A composition that already observed a frame
+            // can therefore finish drawing it without briefly showing the placeholder.
+            if (bitmap != null && !bitmap.isRecycled) {
+                Image(bitmap.asImageBitmap(), "Live DriveAlert camera preview", Modifier.matchParentSize(), contentScale = ContentScale.Fit)
+                Canvas(Modifier.matchParentSize()) {
+                    fun outline(box: DriverRegion, color: Color, stroke: Float) {
+                        drawRect(color, Offset((box.left * size.width).toFloat(), (box.top * size.height).toFloat()),
+                            Size((box.width * size.width).toFloat(), (box.height * size.height).toFloat()), style = Stroke(stroke))
+                    }
+                    outline(region, Info, 2.dp.toPx())
+                    if (tracking.frameWidth == bitmap.width && tracking.frameHeight == bitmap.height) {
+                        tracking.bounds?.let { outline(it, Success, 3.dp.toPx()) }
+                    }
+                }
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Rounded.CameraAlt, contentDescription = null, modifier = Modifier.size(42.dp), tint = TextMuted)
+                    Spacer(Modifier.height(10.dp))
+                    Text(streamState.readableLabel(), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text("Keep the camera powered and on the same network", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                }
             }
         }
     }
@@ -285,4 +334,20 @@ private fun SetupDetailRow(label: String, value: String, tone: StatusTone) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, modifier = Modifier.weight(1f))
         StatusPill(value, tone)
     }
+}
+
+@Composable
+private fun RegionSlider(label: String, value: Double, range: ClosedFloatingPointRange<Double>, enabled: Boolean, onChange: (Double) -> Unit) {
+    Text(label, style = MaterialTheme.typography.labelLarge, color = TextPrimary, modifier = Modifier.padding(top = 12.dp))
+    Slider(value = value.toFloat().coerceIn(range.start.toFloat(), range.endInclusive.toFloat()),
+        onValueChange = { onChange(it.toDouble().coerceIn(range.start, range.endInclusive)) },
+        valueRange = range.start.toFloat()..range.endInclusive.toFloat(), enabled = enabled,
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = label })
+}
+
+@Composable
+internal fun DriverTrackingGuidance(vision: DriverVisionUiState) {
+    Text(vision.driverTracking.label, style = MaterialTheme.typography.titleMedium, color = TextPrimary,
+        modifier = Modifier.padding(top = 12.dp))
+    Text(vision.driverTracking.guidance, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
 }

@@ -75,6 +75,8 @@ fun MonitoringPreviewScreen(
     ambientLuminance: Double? = null,
     smoothedLuminance: Double? = null,
     lighting: FaceLightingAssessment? = null,
+    vision: com.lhordkent.drivealert.detection.DriverVisionUiState? = null,
+    previewFrames: kotlinx.coroutines.flow.StateFlow<com.lhordkent.drivealert.detection.frame.SharedBitmapFrame?>? = null,
 ) {
     val visibility = cameraVisibility ?: cameraVisibilityPresentation(StreamConnectionState.CONNECTED, scenario, true, null)
     val presentation = visibility.monitoring
@@ -105,6 +107,11 @@ fun MonitoringPreviewScreen(
             )
         }
         Spacer(Modifier.height(24.dp))
+        vision?.let {
+            LiveCameraPreview(it.streamState, previewFrames, it.driverRegion, it.driverTracking)
+            DriverTrackingGuidance(it)
+            Spacer(Modifier.height(16.dp))
+        }
         GroupSurface {
             KeyValueRow("Session duration", monitoring.durationMs.durationText())
             Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

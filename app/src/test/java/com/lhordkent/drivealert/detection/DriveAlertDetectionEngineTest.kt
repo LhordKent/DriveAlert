@@ -10,6 +10,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DriveAlertDetectionEngineTest {
+    @Test fun `driver target loss discards all unfinished calibration phases`() {
+        val engine = DriveAlertDetectionEngine(calibrationDurationMs = 100)
+        engine.startCalibration()
+        collect(engine, 0, ear = 0.40, mar = 0.10, pitch = 10.0)
+        engine.beginCalibrationPhase()
+        engine.process(face(200, 0.1, 0.1, 10.0))
+        engine.invalidateDriverTarget()
+        val result = engine.process(300, null)
+        assertEquals(com.lhordkent.drivealert.detection.model.CalibrationPhase.NEUTRAL, result.calibration.phase)
+        assertEquals(com.lhordkent.drivealert.detection.model.CalibrationStatus.READY, result.calibration.status)
+        assertEquals(0, result.calibration.validSampleCount)
+        assertEquals(0L, result.calibration.validDurationMs)
+    }
+
+    @Test fun `driver target loss resets closure evidence but retains completed calibration`() {
+        val engine = calibratedEngine()
+        engine.process(face(0, 0.10, 0.1, 4.0))
+        engine.process(face(1_900, 0.10, 0.1, 4.0))
+        engine.invalidateDriverTarget()
+        val result = engine.process(face(2_000, 0.10, 0.1, 4.0))
+        assertTrue(result.events.isEmpty())
+        assertEquals("stored", result.activeCalibration?.calibrationId)
+        assertEquals(0L, result.eye.candidateDurationMs)
+    }
+
     @Test
     fun `lighting gate preserves face and calibration but suppresses all signs`() {
         val engine = calibratedEngine()

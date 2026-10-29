@@ -22,6 +22,8 @@ fun cameraVisibilityPresentation(
     pendingIssue: VisibilityIssue? = null,
     headAvailable: Boolean = true,
     lighting: FaceLightingAssessment? = null,
+    driverTracking: com.lhordkent.drivealert.detection.face.DriverTrackingState? = null,
+    alignmentConfirmed: Boolean = true,
 ): CameraVisibilityPresentation {
     fun unavailable(label: String, detail: String, tone: CameraVisibilityTone) = CameraVisibilityPresentation(
         label, detail, tone, MonitoringPresentation("Monitoring paused", detail, false, false, false),
@@ -40,6 +42,8 @@ fun cameraVisibilityPresentation(
         )
         StreamConnectionState.CONNECTED -> Unit
     }
+    if (!alignmentConfirmed) return unavailable("Set driver area", "Confirm the driver area in Camera Alignment before monitoring.", CameraVisibilityTone.INFO)
+    if (driverTracking != null && !driverTracking.locked) return unavailable(driverTracking.label, driverTracking.guidance, CameraVisibilityTone.UNAVAILABLE)
     if (!hasFreshDetection) return unavailable(
         "Checking view", "Waiting for a fresh face-tracking result. Monitoring is unavailable while the view is being checked.",
         CameraVisibilityTone.INFO,

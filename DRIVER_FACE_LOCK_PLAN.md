@@ -1,6 +1,6 @@
 # Driver face lock implementation plan
 
-Status: planned; no feature implementation yet.
+Status: implemented on the feature branch; automated validation passed. Real-camera validation remains a release requirement.
 Branch: `codex/driver-face-lock`, based on `main` at `00747cd`.
 
 ## Objective and boundaries
@@ -84,3 +84,18 @@ Run focused selector, engine, calibration, and monitoring-controller tests, then
 ## Known limitation
 
 Spatial tracking reduces unintended switches but cannot prove identity. A sufficiently similar replacement in the driver's position may be accepted, and detection errors may still defeat geometric association. Camera framing, region setup, conservative ambiguity handling, and real-device validation remain essential.
+
+
+## Implementation and validation record - 2026-10-29
+
+- Added a pure spatial selector with one-second acquisition, a 500 ms continuity limit, conservative ambiguity handling, and a configurable detector capacity (default four). At capacity, assessment pauses.
+- Added locally saved region geometry scoped to account, camera ID, stream port/path, and decoded frame dimensions. Existing installations must confirm a region. IP address changes do not invalidate a fixed mount; frame-dimension changes do.
+- Selection precedes attribute classification and lighting samples. Configuration revisions reject old processor results; track generations reset caches and incomplete evidence.
+- Target loss restarts **all unfinished calibration phases**, including neutral samples. The user explicitly starts the neutral phase again after reacquisition. Completed calibration and confirmed warning history are preserved.
+- The preview uses the same decoded bitmap and its native aspect ratio as inference, without cropping, rotation, or mirroring. This avoids preview-to-inference coordinate conversion. A future display transform must also transform the overlay.
+- Added region controls and outlines to alignment, driver tracking guidance to calibration and monitoring, and paused state integration in home/service presentation. Adjustment is disabled during calibration and monitoring.
+- Validation: Android debug build and 215 unit tests passed; four dedicated UI/persistence/native-processor instrumentation tests passed on a Pixel 7 API 35 emulator, including 1.3 font scale. The native smoke test loads the multi-face processor and verifies a blank frame is rejected. Screenshot fixtures use a blank synthetic frame and do not demonstrate real face inference.
+- MediaPipe documentation confirms smoothing is applied only for one-face mode: https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker . Multi-face measurement stability, latency, and threshold suitability require actual camera testing. No unvalidated smoothing filter or threshold retuning was added.
+- Remaining release checks: real driver/passenger entry, overlap, disappearance, head poses, lighting transitions, frame rates and capacity on the target phone/ESP32-CAM installation. A geometric match cannot establish identity.
+
+UI review corrections: the alignment preview stays pinned above the scrolling controls, and the foreground notification asks users to confirm the driver area when alignment is invalidated. Existing design tokens and visual-system documents are unchanged.
