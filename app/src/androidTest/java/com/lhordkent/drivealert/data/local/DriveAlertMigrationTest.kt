@@ -8,6 +8,29 @@ import org.junit.Rule
 import org.junit.Test
 
 class DriveAlertMigrationTest {
+    @Test
+    fun migration4To5PreservesPreferencesCalibrationAndAlertsAndDefaultsToManual() {
+        val name = "history-retention-migration-test"
+        helper.createDatabase(name, 4).apply {
+            execSQL("INSERT INTO driver_preferences (driverUserId, selectedWarningSound, preferredWarningVolume, setupAndDeviceRemindersEnabled, contactRequestUpdatesEnabled, trustedRequestUpdatesEnabled, sharedStage3RecordsEnabled, warningAlertsEnabled, updatedAtEpochMillis) VALUES ('a', 'ROOSTER_CALL', 'HIGH', 1, 0, 1, 0, 0, 1000)")
+            execSQL("INSERT INTO driver_calibrations (calibrationId, driverUserId, earThreshold, marThreshold, headPitchThresholdDegrees, neutralHeadPitchDegrees, calibratedAtEpochMillis, isActive) VALUES ('cal', 'a', 0.2, 0.6, 15.0, 0.0, 1000, 1)")
+            execSQL("INSERT INTO monitoring_sessions (sessionId, driverUserId, calibrationId, deviceId, startedAtEpochMillis, endedAtEpochMillis, status, highestWarningStage, createdAtEpochMillis, updatedAtEpochMillis) VALUES ('session', 'a', 'cal', 'device', 1000, 2000, 'COMPLETED', 'STAGE_3', 1000, 2000)")
+            execSQL("INSERT INTO alerts (alertId, sessionId, driverUserId, detectedAtEpochMillis, warningStageAtDetection, alarmTriggered, alarmTriggeredAtEpochMillis, createdAtEpochMillis) VALUES ('alert', 'session', 'a', 1500, 'STAGE_3', 0, NULL, 1500)")
+            execSQL("INSERT INTO alert_signs (alertId, signType) VALUES ('alert', 'YAWNING')")
+            close()
+        }
+        helper.runMigrationsAndValidate(name, 5, true, DriveAlertDatabase.MIGRATION_4_5).use { migrated ->
+            migrated.query("SELECT selectedWarningSound, preferredWarningVolume, warningAlertsEnabled, historyRetentionDays FROM driver_preferences WHERE driverUserId = 'a'").use {
+                it.moveToFirst(); assertEquals("ROOSTER_CALL", it.getString(0)); assertEquals("HIGH", it.getString(1))
+                assertEquals(0, it.getInt(2)); org.junit.Assert.assertTrue(it.isNull(3))
+            }
+            listOf("alerts", "alert_signs", "driver_calibrations", "monitoring_sessions").forEach { table ->
+                migrated.query("SELECT COUNT(*) FROM $table").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
+            }
+            migrated.query("SELECT COUNT(*) FROM shared_history_dismissals").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        }
+    }
+
     @get:Rule
     val helper = MigrationTestHelper(
         InstrumentationRegistry.getInstrumentation(),

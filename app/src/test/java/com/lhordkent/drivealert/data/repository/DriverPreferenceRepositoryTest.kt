@@ -82,6 +82,7 @@ class DriverPreferenceRepositoryTest {
 
 private class FakePreferenceDao(initial: DriverPreferenceEntity?) : DriverPreferenceDao {
     val current = MutableStateFlow(initial)
+    override suspend fun usersWithRetention(): List<String> = current.value?.takeIf { it.historyRetentionDays != null }?.let { listOf(it.driverUserId) }.orEmpty()
 
     override suspend fun upsert(preference: DriverPreferenceEntity) {
         current.value = preference

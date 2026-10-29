@@ -113,6 +113,7 @@ data class Stage3SyncRecord(
     val receivedAt: LocalDateTime? = null,
     val sessionId: String? = null,
     val eventCount: Int = 1,
+    val occurredAtEpochMillis: Long? = null,
 )
 
 enum class AlertTrend(val label: String) {
@@ -194,6 +195,8 @@ data class ConnectionInviteUiState(
     val requestSent: Boolean = false,
 )
 
+data class HistoryRetentionPreview(val days: Int?, val affectedRecords: Int)
+
 data class PostAuthUiState(
     val activeView: UserView = UserView.DRIVER,
     val driverSetupComplete: Boolean = false,
@@ -211,6 +214,12 @@ data class PostAuthUiState(
     val profileUpdateSuccessMessage: String? = null,
     val profileUpdateErrorMessage: String? = null,
     val userRole: UserRole? = null,
+    val historyRetentionDays: Int? = null,
+    val historyPreferencesLoaded: Boolean = false,
+    val historyBusy: Boolean = false,
+    val historyError: String? = null,
+    val historyMessage: String? = null,
+    val historyPreview: HistoryRetentionPreview? = null,
     val alertFilter: WarningStage? = null,
     val driverAlerts: List<AlertEvent> = emptyList(),
     val alertInsights: AlertHistoryInsights = AlertHistoryInsights(),

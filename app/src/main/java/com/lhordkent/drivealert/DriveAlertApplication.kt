@@ -55,6 +55,7 @@ class DriveAlertApplication : Application() {
         DriveAlertMessagingService.createChannels(this)
         DriveAlertMonitoringService.createChannel(this)
         container.interruptRecoveryFromPreviousBoot()
+        com.lhordkent.drivealert.data.history.HistoryCleanupWorker.schedule(this)
     }
 }
 
@@ -68,6 +69,7 @@ class AppContainer(private val application: Application) {
                 .build()
         }
     }
+    val historyRepository = com.lhordkent.drivealert.data.history.HistoryRepository(database)
     val alertRepository: AlertRepository = RoomAlertRepository(database.alertDao())
     val driverWarningNotificationCoordinator = DriverWarningNotificationCoordinator(
         AndroidDriverWarningNotificationGateway(application),
@@ -77,7 +79,7 @@ class AppContainer(private val application: Application) {
     )
     val trustedContactDeviceRegistrar = TrustedContactDeviceRegistrar(application)
     val monitoringSessionRepository: MonitoringSessionRepository =
-        RoomMonitoringSessionRepository(database.monitoringSessionDao())
+        RoomMonitoringSessionRepository(database.monitoringSessionDao(), onSessionFinished = historyRepository::cleanup)
     val driverPreferenceRepository: DriverPreferenceRepository =
         RoomDriverPreferenceRepository(database.driverPreferenceDao())
     val calibrationRepository: CalibrationRepository = RoomCalibrationRepository(database.calibrationDao())

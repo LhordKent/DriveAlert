@@ -44,6 +44,7 @@ class FirestoreSharedStage3Repository(
                     val records = snapshot?.documents.orEmpty().mapNotNull { document ->
                         val occurredAt = document.getTimestamp("periodStartedAt") ?: return@mapNotNull null
                         Stage3SyncRecord(
+                            occurredAtEpochMillis = occurredAt.toDate().time,
                             id = document.getString("stageSyncRecordId") ?: document.id,
                             occurredAt = occurredAt.toDate().toInstant().atZone(zoneId).toLocalDateTime(),
                             kind = document.getString("recordType").toSyncRecordKind(),

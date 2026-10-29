@@ -1,5 +1,6 @@
 package com.lhordkent.drivealert.data.local
 
+import com.lhordkent.drivealert.data.history.*
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
@@ -29,6 +30,8 @@ import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
 
 @Database(
     entities = [
+        SharedHistoryExpiry::class,
+        SharedHistoryDismissal::class,
         CalibrationEntity::class,
         MonitoringSessionEntity::class,
         AlertEntity::class,
@@ -41,11 +44,12 @@ import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
         StageNotificationGroupEntity::class,
         StageNotificationGroupRecordEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(DriveAlertTypeConverters::class)
 abstract class DriveAlertDatabase : RoomDatabase() {
+    abstract fun historyDao(): HistoryDao
     abstract fun monitoringSessionDao(): MonitoringSessionDao
     abstract fun alertDao(): AlertDao
     abstract fun calibrationDao(): CalibrationDao
@@ -65,7 +69,15 @@ abstract class DriveAlertDatabase : RoomDatabase() {
                 context.applicationContext,
                 DriveAlertDatabase::class.java,
                 DATABASE_NAME,
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE driver_preferences ADD COLUMN historyRetentionDays INTEGER DEFAULT NULL")
+                db.execSQL("CREATE TABLE IF NOT EXISTS shared_history_expiry (viewerUserId TEXT NOT NULL, expiredBeforeEpochMillis INTEGER NOT NULL, PRIMARY KEY(viewerUserId))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS shared_history_dismissals (viewerUserId TEXT NOT NULL, driverUserId TEXT NOT NULL, recordId TEXT NOT NULL, PRIMARY KEY(viewerUserId, driverUserId, recordId))")
+            }
         }
 
         val MIGRATION_1_2 = object : Migration(1, 2) {

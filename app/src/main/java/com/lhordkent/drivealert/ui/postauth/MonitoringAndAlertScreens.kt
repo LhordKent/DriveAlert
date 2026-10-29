@@ -296,12 +296,20 @@ fun AlertHistoryScreen(
     sessions: List<MonitoringSessionSummary> = emptyList(),
     errorMessage: String? = null,
     isLoading: Boolean = false,
+    onClearHistory: () -> Unit = {},
+    historyBusy: Boolean = false,
+    historyError: String? = null,
+    historyMessage: String? = null,
     onEventSelected: (String) -> Unit,
 ) {
     val today = LocalDate.now()
     val filtered = events.filter { selectedFilter == null || it.stage == selectedFilter }.sortedByDescending { it.occurredAt }
 
     Column {
+        HistoryFeedback(historyError, historyMessage)
+        HistoryDeleteButton("Clear history", "Remove your Driver Alert History from this phone? Current drive records are kept until monitoring ends.",
+            enabled = events.isNotEmpty() && !isLoading && !historyBusy, onConfirm = onClearHistory)
+        Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SummaryValue("Today", insights.alertsToday.toString(), Modifier.weight(1f))
             SummaryValue("7 days", insights.weeklyAlerts.toString(), Modifier.weight(1f))
@@ -331,7 +339,7 @@ fun AlertHistoryScreen(
         } else if (isLoading) {
             EmptyState("Loading alert history", "Your locally stored records will appear here shortly.")
         } else if (filtered.isEmpty() && events.isEmpty()) {
-            EmptyState("No alerts recorded yet", "Confirmed warning events will appear here after monitoring.")
+            EmptyState("No alert history", "New confirmed events will appear here after monitoring. Older history may have been removed by your retention setting.")
         } else if (filtered.isEmpty()) {
             EmptyState("No alerts in this filter", "Choose another Warning Stage to review your event history.")
         } else {
@@ -419,6 +427,8 @@ fun AlertDetailScreen(
     onBack: () -> Unit,
     session: MonitoringSessionSummary? = null,
     syncRecords: List<Stage3SyncRecord> = emptyList(),
+    onDelete: () -> Unit = {},
+    canDelete: Boolean = true,
 ) {
     ScrollableScreen(title = "Alert Detail", onBack = onBack) {
         Text(
@@ -427,6 +437,9 @@ fun AlertDetailScreen(
             color = TextPrimary,
         )
         Spacer(Modifier.height(24.dp))
+        HistoryDeleteButton("Delete record", "Remove this record from your history on this phone?", enabled = canDelete, onConfirm = onDelete)
+        if (!canDelete) Text("Current drive records are kept until monitoring ends.", color = TextSecondary)
+        Spacer(Modifier.height(20.dp))
         SectionTitle("Event information")
         Spacer(Modifier.height(8.dp))
         KeyValueRow("Detected visible sign(s)", event.signs.joinToString { it.label })
@@ -479,8 +492,10 @@ fun AlertDetailScreen(
 }
 
 @Composable
-fun Stage3SyncRecordDetailScreen(record: Stage3SyncRecord, onBack: () -> Unit) {
+fun Stage3SyncRecordDetailScreen(record: Stage3SyncRecord, onBack: () -> Unit, onDelete: () -> Unit = {}, deleteEnabled: Boolean = true) {
     ScrollableScreen(title = "Shared Record", onBack = onBack) {
+        HistoryDeleteButton("Delete record", "Remove this shared record only from your history on this phone? The driver's record and other contacts' history are kept.", enabled = deleteEnabled, onConfirm = onDelete)
+        Spacer(Modifier.height(20.dp))
         Text(record.occurredAt.format(DateTimeFormatter.ofPattern("MMMM d, yyyy 'at' h:mm a")), style = MaterialTheme.typography.titleLarge, color = TextPrimary)
         record.sourceDriverName?.let {
             Spacer(Modifier.height(4.dp))

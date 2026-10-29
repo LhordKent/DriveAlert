@@ -26,6 +26,9 @@ import java.time.ZoneId
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import com.lhordkent.drivealert.data.history.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -41,6 +44,7 @@ class PostAuthViewModel(
     private val sharedStage3Repository: SharedStage3Repository? = null,
     initialState: PostAuthUiState = seedState(),
     private val todayProvider: () -> LocalDate = LocalDate::now,
+    private val historyRepository: HistoryRepository? = null,
 ) : ViewModel() {
     private var accountEmail: String = ""
     private var boundDriverUserId: String? = null
@@ -49,6 +53,8 @@ class PostAuthViewModel(
     private var localDataJob: Job? = null
     private var profileJob: Job? = null
     private var preferenceJob: Job? = null
+    private var historyUserId: String? = null
+    private var historyActionJob: Job? = null
     private var driverConnectionsJob: Job? = null
     private var trustedConnectionsJob: Job? = null
     private var syncRecordsJob: Job? = null
@@ -179,14 +185,24 @@ class PostAuthViewModel(
     }
 
     fun bindPreferences(userId: String) {
+        if (historyUserId != userId) {
+            historyActionJob?.cancel()
+            historyUserId = userId
+            refreshHistory()
+            state = state.copy(historyPreferencesLoaded = false, historyBusy = false, historyPreview = null, historyError = null, historyMessage = null)
+        }
         val repository = driverPreferenceRepository ?: return
         preferenceJob?.cancel()
         preferenceJob = viewModelScope.launch {
-            repository.observe(userId).collect { preferences ->
+            repository.observe(userId).catch {
+                state = state.copy(historyError = "History settings could not load. Reopen settings to retry.")
+            }.collect { preferences ->
                 state = state.copy(
                     warningSound = preferences.warningSound,
                     preferredVolume = preferences.preferredVolume,
                     notifications = preferences.notifications,
+                    historyRetentionDays = preferences.historyRetentionDays,
+                    historyPreferencesLoaded = true,
                 )
             }
         }
@@ -194,6 +210,13 @@ class PostAuthViewModel(
 
     fun bindConnections(userId: String) {
         val repository = trustedContactRepository ?: return
+        if (boundConnectionUserId != userId) {
+            sharedRecordJobs.values.forEach(Job::cancel)
+            sharedRecordJobs.clear()
+            sharedViewStateJobs.values.forEach(Job::cancel)
+            sharedViewStateJobs.clear()
+            state = state.copy(connectedDrivers = emptyList())
+        }
         boundConnectionUserId = userId
         driverConnectionsJob?.cancel()
         trustedConnectionsJob?.cancel()
@@ -230,8 +253,15 @@ class PostAuthViewModel(
                 if (it.id == driverId) it.copy(sharedRecordsLoading = true, sharedRecordsErrorMessage = null) else it
             })
             val approvedAtEpochMillis = driver.connectedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val trustedUserId = boundConnectionUserId ?: return@forEach
             sharedRecordJobs[driverId] = viewModelScope.launch {
-                repository.observeSharedRecords(driverId, approvedAtEpochMillis)
+                val recordsFlow = repository.observeSharedRecords(driverId, approvedAtEpochMillis)
+                val retainedFlow = historyRepository?.let { history ->
+                    combine(recordsFlow, history.observeVisibility(trustedUserId)) { records, visibility ->
+                        records.filter { visibility.allows(driverId, it) }
+                    }.onStart { history.cleanup(trustedUserId) }
+                } ?: recordsFlow
+                retainedFlow
                     .catch {
                         state = state.copy(connectedDrivers = state.connectedDrivers.map { driver ->
                             if (driver.id == driverId) driver.copy(sharedRecordsLoading = false, sharedRecordsErrorMessage = CLOUD_CONNECTION_ERROR) else driver
@@ -250,7 +280,6 @@ class PostAuthViewModel(
                         )
                     }
             }
-            val trustedUserId = boundConnectionUserId ?: return@forEach
             sharedViewStateJobs[driverId] = viewModelScope.launch {
                 repository.observeViewState(trustedUserId, driverId)
                     .catch { emit(com.lhordkent.drivealert.data.sync.TrustedDriverViewState()) }
@@ -267,6 +296,66 @@ class PostAuthViewModel(
                     }
             }
         }
+    }
+
+    fun refreshHistory() {
+        val userId = historyUserId ?: return
+        val repository = historyRepository ?: return
+        if (!state.historyPreferencesLoaded && preferenceJob?.isActive == false) bindPreferences(userId)
+        viewModelScope.launch {
+            try { repository.cleanup(userId) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { if (historyUserId == userId) state = state.copy(historyError = "History cleanup could not finish. It will retry automatically.") }
+        }
+    }
+
+    private fun historyAction(action: suspend (String, HistoryRepository) -> Unit) {
+        val userId = historyUserId ?: return
+        val repository = historyRepository ?: return
+        if (state.historyBusy) return
+        state = state.copy(historyBusy = true, historyError = null, historyMessage = null)
+        historyActionJob = viewModelScope.launch {
+            try { action(userId, repository) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { if (historyUserId == userId) state = state.copy(historyError = "History could not be updated. Please try again.") }
+            finally { if (historyUserId == userId) state = state.copy(historyBusy = false) }
+        }
+    }
+
+    fun previewRetention(days: Int?) = historyAction { userId, repository ->
+        HistoryRetention.validate(days)
+        if (HistoryRetention.isShorter(state.historyRetentionDays, days)) {
+            val cutoff = repository.expiryCutoff(checkNotNull(days))
+            val shared = state.connectedDrivers.sumOf { driver -> driver.sharedRecords.count { it.eventEpochMillis() < cutoff } }
+            val count = repository.countExpiredAlerts(userId, days) + shared
+            if (historyUserId == userId) state = state.copy(historyPreview = HistoryRetentionPreview(days, count))
+        } else saveRetentionInside(userId, repository, days)
+    }
+
+    private suspend fun saveRetentionInside(userId: String, repository: HistoryRepository, days: Int?) {
+        repository.setRetention(userId, days)
+        if (historyUserId == userId) state = state.copy(historyRetentionDays = days, historyPreview = null,
+            historyMessage = "History setting saved on this phone.")
+    }
+
+    fun confirmRetention() {
+        val preview = state.historyPreview ?: return
+        historyAction { userId, repository -> saveRetentionInside(userId, repository, preview.days) }
+    }
+    fun dismissRetentionPreview() { state = state.copy(historyPreview = null) }
+    fun deleteHistoryAlert(alertId: String) = historyAction { userId, repository ->
+        val count = repository.deleteAlert(userId, alertId)
+        if (historyUserId == userId) state = state.copy(historyMessage = if (count > 0) "Record deleted." else "Current drive records are kept until monitoring ends.")
+    }
+    fun clearAlertHistory() = historyAction { userId, repository ->
+        val count = repository.clearAlerts(userId)
+        if (historyUserId == userId) state = state.copy(historyMessage = "$count records deleted. Current drive records are kept until monitoring ends.")
+    }
+    fun deleteSharedHistory(driverId: String, recordId: String? = null) = historyAction { userId, repository ->
+        val driver = state.connectedDrivers.firstOrNull { it.id == driverId } ?: return@historyAction
+        val ids = if (recordId == null) driver.sharedRecords.map { it.id } else listOf(recordId).filter { id -> driver.sharedRecords.any { it.id == id } }
+        repository.dismissShared(userId, driverId, ids)
+        if (historyUserId == userId) state = state.copy(historyMessage = "Removed from your history on this phone.")
     }
 
     fun markSharedRecordsViewed(driverUserId: String) {
@@ -508,6 +597,8 @@ class PostAuthViewModel(
     }
 
     fun clearForSignOut() {
+        historyActionJob?.cancel()
+        historyUserId = null
         boundDriverUserId?.let { stageSyncRepository?.cancelPendingWork(it) }
         localDataJob?.cancel()
         localDataJob = null
@@ -585,6 +676,7 @@ class PostAuthViewModelFactory(
     private val trustedContactRepository: TrustedContactRepository,
     private val stageSyncRepository: StageSyncRepository,
     private val sharedStage3Repository: SharedStage3Repository,
+    private val historyRepository: HistoryRepository? = null,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -597,6 +689,7 @@ class PostAuthViewModelFactory(
             trustedContactRepository = trustedContactRepository,
             stageSyncRepository = stageSyncRepository,
             sharedStage3Repository = sharedStage3Repository,
+            historyRepository = historyRepository,
             initialState = PostAuthUiState(isLocalDataLoading = true),
         ) as T
     }

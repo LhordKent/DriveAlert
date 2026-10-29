@@ -387,10 +387,18 @@ fun InviteConnectionScreen(
 @Composable
 fun SharedRecordsScreen(
     driver: ConnectedDriver,
+    onClearHistory: () -> Unit = {},
+    historyBusy: Boolean = false,
+    historyError: String? = null,
+    historyMessage: String? = null,
     onEventSelected: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     ScrollableScreen(title = "Shared Alerts", onBack = onBack) {
+        HistoryFeedback(historyError, historyMessage)
+        HistoryDeleteButton("Clear history", "Remove this driver's shared records only from your history on this phone? The driver's record and other contacts' history are kept.",
+            enabled = !historyBusy && !driver.sharedRecordsLoading && driver.sharedRecords.isNotEmpty(), onConfirm = onClearHistory)
+        Spacer(Modifier.height(20.dp))
         Text(driver.name, style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Text(driver.email, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(18.dp))

@@ -64,6 +64,7 @@ fun SettingsScreen(
     onWarningSound: () -> Unit,
     onAbout: () -> Unit,
     onLogout: () -> Unit,
+    onHistory: () -> Unit = {},
 ) {
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
     val isDriver = view == UserView.DRIVER
@@ -79,6 +80,7 @@ fun SettingsScreen(
     SectionTitle("Account and preferences")
     SettingsRow("Account", onAccount, supportingText = "Name and signed-in email")
     if (isDriver) SettingsRow("Setup & Device", onSetupDevice, supportingText = "Connection, camera alignment, and notification readiness")
+    SettingsRow("History & Storage", onHistory, supportingText = "Automatic deletion and history retention on this phone")
     SettingsRow("Notifications", onNotifications, supportingText = "Choose which interface updates are enabled")
     if (isDriver) SettingsRow("Warning Sound", onWarningSound, supportingText = "Sound and preferred device volume")
     SettingsRow("About DriveAlert", onAbout, supportingText = "Purpose, Warning Stages, privacy, and limitations")

@@ -139,6 +139,7 @@ data class DriverPreferenceEntity(
     val trustedRequestUpdatesEnabled: Boolean,
     val sharedStage3RecordsEnabled: Boolean,
     @ColumnInfo(defaultValue = "1") val warningAlertsEnabled: Boolean = true,
+    @ColumnInfo(defaultValue = "NULL") val historyRetentionDays: Int? = null,
     val updatedAtEpochMillis: Long,
 )
 

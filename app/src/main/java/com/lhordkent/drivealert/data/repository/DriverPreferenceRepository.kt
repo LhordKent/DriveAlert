@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 data class DriverPreferences(
+    val historyRetentionDays: Int? = null,
     val warningSound: WarningSound = WarningSound.DIGITAL_BEEP,
     val preferredVolume: PreferredVolume = PreferredVolume.MEDIUM,
     val notifications: NotificationPreferences = NotificationPreferences(),
@@ -46,7 +47,7 @@ class RoomDriverPreferenceRepository(
     }
 
     private suspend fun save(driverUserId: String, preferences: DriverPreferences) {
-        dao.upsert(
+        dao.upsertPreservingRetention(
             DriverPreferenceEntity(
                 driverUserId = driverUserId,
                 selectedWarningSound = preferences.warningSound.toStored(),
@@ -63,6 +64,7 @@ class RoomDriverPreferenceRepository(
 }
 
 private fun DriverPreferenceEntity.toDomain() = DriverPreferences(
+    historyRetentionDays = historyRetentionDays,
     warningSound = when (selectedWarningSound) {
         StoredWarningSound.ROOSTER_CALL -> WarningSound.ROOSTER_CALL
         StoredWarningSound.ALARM_CLOCK -> WarningSound.ALARM_CLOCK

@@ -1,5 +1,10 @@
 package com.lhordkent.drivealert.ui
 
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
+import com.lhordkent.drivealert.ui.postauth.HistorySettingsScreen
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -120,6 +125,7 @@ object PostAuthRoutes {
     const val TRUSTED_INVITE = "trusted/requests/invite"
     const val TRUSTED_SETTINGS = "trusted/settings"
     const val ACCOUNT = "post-auth/account"
+    const val HISTORY_STORAGE = "post-auth/history-storage"
     const val NOTIFICATIONS = "post-auth/notifications"
     const val WARNING_SOUND = "post-auth/warning-sound"
     const val ABOUT = "post-auth/about"
@@ -178,8 +184,16 @@ fun DriveAlertApp() {
             application.container.trustedContactRepository,
             application.container.stageSyncRepository,
             application.container.sharedStage3Repository,
+            application.container.historyRepository,
         ),
     )
+    val historyLifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(authViewModel.sessionState.user?.uid, historyLifecycle) {
+        if (authViewModel.sessionState.user == null) return@LaunchedEffect
+        historyLifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) { postAuthViewModel.refreshHistory(); delay(60_000) }
+        }
+    }
     val provisioningViewModel: WifiProvisioningViewModel = viewModel()
     val visionViewModel: DriverVisionViewModel = viewModel()
     val visionState by visionViewModel.state.collectAsState()
@@ -270,6 +284,13 @@ fun DriveAlertApp() {
         onWarningSoundChange = postAuthViewModel::selectWarningSound,
         onVolumeChange = postAuthViewModel::selectPreferredVolume,
         onNotificationsChange = postAuthViewModel::updateNotifications,
+        onPreviewRetention = postAuthViewModel::previewRetention,
+        onConfirmRetention = postAuthViewModel::confirmRetention,
+        onDismissRetention = postAuthViewModel::dismissRetentionPreview,
+        onDeleteAlert = postAuthViewModel::deleteHistoryAlert,
+        onClearAlertHistory = postAuthViewModel::clearAlertHistory,
+        onDeleteSharedHistory = postAuthViewModel::deleteSharedHistory,
+        onRefreshHistory = postAuthViewModel::refreshHistory,
         onRequestNotificationPermission = requestNotificationPermission,
         onShowSetupNotificationPrompt = showSetupNotificationPrompt,
         onClearPostAuth = postAuthViewModel::clearForSignOut,
@@ -360,6 +381,13 @@ fun DriveAlertApp(
     onNotificationsChange: (com.lhordkent.drivealert.postauth.NotificationPreferences) -> Unit = {},
     onRequestNotificationPermission: () -> Unit = {},
     onShowSetupNotificationPrompt: () -> Unit = {},
+    onPreviewRetention: (Int?) -> Unit = {},
+    onConfirmRetention: () -> Unit = {},
+    onDismissRetention: () -> Unit = {},
+    onDeleteAlert: (String) -> Unit = {},
+    onClearAlertHistory: () -> Unit = {},
+    onDeleteSharedHistory: (String, String?) -> Unit = { _, _ -> },
+    onRefreshHistory: () -> Unit = {},
     onClearPostAuth: () -> Unit = {},
 ) {
     if (sessionState.isResolving) {
@@ -510,6 +538,7 @@ fun DriveAlertApp(
                 )
             }
             composable(PostAuthRoutes.DRIVER_ALERTS) {
+                LaunchedEffect(Unit) { onRefreshHistory() }
                 DriverRoot(navController, PostAuthRoutes.DRIVER_ALERTS, "Alert History") {
                     AlertHistoryScreen(
                         postAuthState.driverAlerts,
@@ -520,6 +549,10 @@ fun DriveAlertApp(
                         sessions = postAuthState.monitoringSessions,
                         errorMessage = postAuthState.localDataErrorMessage,
                         isLoading = postAuthState.isLocalDataLoading,
+                        onClearHistory = onClearAlertHistory,
+                        historyBusy = postAuthState.historyBusy,
+                        historyError = postAuthState.historyError,
+                        historyMessage = postAuthState.historyMessage,
                     ) {
                         navController.navigate(PostAuthRoutes.driverAlert(it))
                     }
@@ -533,10 +566,15 @@ fun DriveAlertApp(
                 val event = postAuthState.driverAlerts.firstOrNull { it.id == eventId }
                 if (event != null) AlertDetailScreen(
                     event = event,
+                    onDelete = { onDeleteAlert(event.id); navController.popBackStack() },
+                    canDelete = !postAuthState.historyBusy && postAuthState.monitoringSessions.any { it.id == event.sessionId && it.status in listOf("Completed", "Interrupted") },
                     session = postAuthState.monitoringSessions.firstOrNull { it.id == event.sessionId },
                     syncRecords = postAuthState.driverSyncRecords.filter { it.sessionId != null && it.sessionId == event.sessionId },
                     onBack = navController::popBackStack,
                 )
+                else com.lhordkent.drivealert.ui.postauth.ScrollableScreen("Alert Detail", navController::popBackStack) {
+                    Text("This record is no longer in your history.")
+                }
             }
             composable(PostAuthRoutes.DRIVER_CONTACTS) {
                 DriverRoot(navController, PostAuthRoutes.DRIVER_CONTACTS, "Trusted Contacts") {
@@ -578,6 +616,7 @@ fun DriveAlertApp(
                         onAccount = { navController.navigate(PostAuthRoutes.ACCOUNT) },
                         onSetupDevice = { navController.navigate(PostAuthRoutes.DRIVER_SETUP) },
                         onNotifications = { navController.navigate(PostAuthRoutes.NOTIFICATIONS) },
+                        onHistory = { navController.navigate(PostAuthRoutes.HISTORY_STORAGE) },
                         onWarningSound = { navController.navigate(PostAuthRoutes.WARNING_SOUND) },
                         onAbout = { navController.navigate(PostAuthRoutes.ABOUT) },
                         onLogout = {
@@ -609,9 +648,13 @@ fun DriveAlertApp(
             ) { entry ->
                 val driverId = entry.arguments?.getString("driverId")
                 val driver = postAuthState.connectedDrivers.firstOrNull { it.id == driverId }
-                LaunchedEffect(driverId) { driverId?.let(onMarkSharedRecordsViewed) }
+                LaunchedEffect(driverId) { onRefreshHistory(); driverId?.let(onMarkSharedRecordsViewed) }
                 if (driver != null) SharedRecordsScreen(
                     driver = driver,
+                    onClearHistory = { onDeleteSharedHistory(driver.id, null) },
+                    historyBusy = postAuthState.historyBusy,
+                    historyError = postAuthState.historyError,
+                    historyMessage = postAuthState.historyMessage,
                     onEventSelected = { navController.navigate(PostAuthRoutes.trustedAlert(driver.id, it)) },
                     onBack = navController::popBackStack,
                 )
@@ -625,7 +668,12 @@ fun DriveAlertApp(
             ) { entry ->
                 val driver = postAuthState.connectedDrivers.firstOrNull { it.id == entry.arguments?.getString("driverId") }
                 val record = driver?.sharedRecords?.firstOrNull { it.id == entry.arguments?.getString("eventId") }
-                if (record != null) Stage3SyncRecordDetailScreen(record, onBack = navController::popBackStack)
+                if (record != null) Stage3SyncRecordDetailScreen(record, onBack = navController::popBackStack,
+                    deleteEnabled = !postAuthState.historyBusy,
+                    onDelete = { onDeleteSharedHistory(driver.id, record.id); navController.popBackStack() })
+                else com.lhordkent.drivealert.ui.postauth.ScrollableScreen("Shared Record", navController::popBackStack) {
+                    Text("This record is no longer in your history.")
+                }
             }
             composable(PostAuthRoutes.TRUSTED_REQUESTS) {
                 TrustedRoot(navController, postAuthState, PostAuthRoutes.TRUSTED_REQUESTS, "Requests") {
@@ -664,6 +712,7 @@ fun DriveAlertApp(
                         onAccount = { navController.navigate(PostAuthRoutes.ACCOUNT) },
                         onSetupDevice = {},
                         onNotifications = { navController.navigate(PostAuthRoutes.NOTIFICATIONS) },
+                        onHistory = { navController.navigate(PostAuthRoutes.HISTORY_STORAGE) },
                         onWarningSound = {},
                         onAbout = { navController.navigate(PostAuthRoutes.ABOUT) },
                         onLogout = {
@@ -691,6 +740,10 @@ fun DriveAlertApp(
                     onUpdateProfile = onUpdateProfile,
                     onBack = navController::popBackStack,
                 )
+            }
+            composable(PostAuthRoutes.HISTORY_STORAGE) {
+                LaunchedEffect(Unit) { onRefreshHistory() }
+                HistorySettingsScreen(postAuthState, onPreviewRetention, onConfirmRetention, onDismissRetention, navController::popBackStack)
             }
             composable(PostAuthRoutes.NOTIFICATIONS) {
                 NotificationSettingsScreen(
