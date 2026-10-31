@@ -126,6 +126,7 @@ object PostAuthRoutes {
     const val TRUSTED_SETTINGS = "trusted/settings"
     const val ACCOUNT = "post-auth/account"
     const val HISTORY_STORAGE = "post-auth/history-storage"
+    const val MONITORING_LOGS = "driver/monitoring-logs"
     const val NOTIFICATIONS = "post-auth/notifications"
     const val WARNING_SOUND = "post-auth/warning-sound"
     const val ABOUT = "post-auth/about"
@@ -228,6 +229,8 @@ fun DriveAlertApp() {
     }
     DriveAlertApp(
         callbacks = authViewModel.callbacks,
+        monitoringLogRepository = application.container.monitoringLogRepository,
+        monitoringLogWriter = application.container.monitoringLogWriter,
         operationState = authViewModel.state,
         sessionState = authViewModel.sessionState,
         postAuthState = postAuthViewModel.state,
@@ -252,9 +255,9 @@ fun DriveAlertApp() {
             visionViewModel.disconnectCurrentSession(provisioningViewModel::resetAfterManualDisconnect)
         },
         onReturnToBleSetup = {
-            visionViewModel.returnToBleProvisioning()
-            provisioningViewModel.retry()
+            visionViewModel.returnToBleProvisioning(provisioningViewModel::resetAfterManualDisconnect)
         },
+        onOpenBleSetup = { visionViewModel.openBleSetup(provisioningViewModel::resetAfterManualDisconnect) },
         onPrepareSignOut = { onComplete ->
             visionViewModel.prepareForAccountChange {
                 provisioningViewModel.resetAfterManualDisconnect()
@@ -355,6 +358,7 @@ fun DriveAlertApp(
     onStopMonitoring: () -> Unit = {},
     onDisconnectDevice: () -> Unit = {},
     onReturnToBleSetup: () -> Unit = {},
+    onOpenBleSetup: () -> Unit = {},
     onPrepareSignOut: (() -> Unit) -> Unit = { onComplete -> onComplete() },
     onNavigate: () -> Unit = {},
     onSetAccountEmail: (String) -> Unit = {},
@@ -389,6 +393,8 @@ fun DriveAlertApp(
     onDeleteSharedHistory: (String, String?) -> Unit = { _, _ -> },
     onRefreshHistory: () -> Unit = {},
     onClearPostAuth: () -> Unit = {},
+    monitoringLogRepository: com.lhordkent.drivealert.data.monitoringlog.MonitoringLogRepository? = null,
+    monitoringLogWriter: com.lhordkent.drivealert.data.monitoringlog.MonitoringLogWriter? = null,
 ) {
     if (sessionState.isResolving) {
         SessionLoadingScreen()
@@ -453,6 +459,7 @@ fun DriveAlertApp(
                 )
             }
             composable(PostAuthRoutes.DRIVER_DEVICE_CONNECTION) {
+                LaunchedEffect(Unit) { if (!visionState.bleSetupRequested) onStartVision() }
                 DeviceConnectionScreen(
                     onBack = navController::popBackStack,
                     provisioningViewModel = provisioningViewModel,
@@ -460,6 +467,7 @@ fun DriveAlertApp(
                     onDisconnect = onDisconnectDevice,
                     onRetryConnection = onStartVision,
                     onReturnToBleSetup = onReturnToBleSetup,
+                    onOpenBleSetup = onOpenBleSetup,
                 )
             }
             composable(PostAuthRoutes.DRIVER_ALIGNMENT) {
@@ -617,6 +625,7 @@ fun DriveAlertApp(
                         onSetupDevice = { navController.navigate(PostAuthRoutes.DRIVER_SETUP) },
                         onNotifications = { navController.navigate(PostAuthRoutes.NOTIFICATIONS) },
                         onHistory = { navController.navigate(PostAuthRoutes.HISTORY_STORAGE) },
+                        onMonitoringLogs = { navController.navigate(PostAuthRoutes.MONITORING_LOGS) },
                         onWarningSound = { navController.navigate(PostAuthRoutes.WARNING_SOUND) },
                         onAbout = { navController.navigate(PostAuthRoutes.ABOUT) },
                         onLogout = {
@@ -744,6 +753,14 @@ fun DriveAlertApp(
             composable(PostAuthRoutes.HISTORY_STORAGE) {
                 LaunchedEffect(Unit) { onRefreshHistory() }
                 HistorySettingsScreen(postAuthState, onPreviewRetention, onConfirmRetention, onDismissRetention, navController::popBackStack)
+            }
+            composable(PostAuthRoutes.MONITORING_LOGS) {
+                if (user != null && postAuthState.activeView == UserView.DRIVER &&
+                    postAuthState.userRole in setOf(UserRole.DRIVER, UserRole.BOTH) &&
+                    monitoringLogRepository != null && monitoringLogWriter != null) {
+                    com.lhordkent.drivealert.ui.postauth.MonitoringLogsScreen(user.uid,
+                        monitoringLogRepository, monitoringLogWriter, navController::popBackStack)
+                } else LaunchedEffect(Unit) { navController.popBackStack() }
             }
             composable(PostAuthRoutes.NOTIFICATIONS) {
                 NotificationSettingsScreen(

@@ -1,0 +1,11 @@
+# Monitoring Logs
+
+Driver Settings → Monitoring Logs is an Android-only, local, account-scoped record of monitoring sessions. It does not share records with Trusted Contacts or the website and does not backfill earlier sessions.
+
+The screen follows the existing dark native settings design (Operate mode): dated compact session rows, current session first, then a session summary and one chronological timeline. Sign measurements and thresholds are visible directly. Live updates preserve reading position; Jump to latest moves to new events. Screens support loading, empty, missing/deleted, storage failure and interrupted states. Destructive actions require confirmation.
+
+Each confirmed sign snapshots the detector's value, threshold and calibration identity/version. Eye closure and yawning include actual qualifying duration and required duration. Head nodding includes the required observation window, downward ratio and required ratio; its window is not an independently measured continuous head-down duration. Calibration identity/version is retained in storage; the timeline shows measurements and thresholds. Detection decisions are unchanged. Each actual warning request, including repeats, records its stage and result. An ESP32 acceptance is command acceptance, not proof of audible output. Debug previews and visibility advisories are excluded.
+
+Room version 6 adds three independent tables. Log deletion never deletes core monitoring sessions, calibration, Alert History or Stage 3 delivery queues. Retention is separate: manual by default, 1/3/7/custom 1–3650 days, measured from session end. Current sessions are protected. Cleanup runs while Monitoring Logs is open, after a session ends, and through the existing hourly worker; Android may delay background cleanup.
+
+An application-lifetime bounded ordered writer keeps disk IO off the detection and warning path. Header/start and end/event writes are transactional within log storage. Core session persistence remains unchanged so logging failures cannot stop monitoring. Storage errors and queue overflow mark incomplete logs, surfaced in the UI. Requests left pending by a prior process become unknown/interrupted. Recovery does not invent unobserved sign evidence; interruption end time is when the app records the interruption.

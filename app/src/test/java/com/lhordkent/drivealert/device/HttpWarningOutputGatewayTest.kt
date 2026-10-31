@@ -2,6 +2,7 @@ package com.lhordkent.drivealert.device
 
 import com.lhordkent.drivealert.data.repository.ProvisionedDevice
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
+import com.lhordkent.drivealert.monitoring.activateSafely
 import com.lhordkent.drivealert.monitoring.warningOutputCommand
 import com.lhordkent.drivealert.postauth.PreferredVolume
 import com.lhordkent.drivealert.postauth.WarningSound
@@ -10,11 +11,46 @@ import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HttpWarningOutputGatewayTest {
+    @Test
+    fun `cancelled reminder resolution does not become a delivery failure or send a request`() = runBlocking {
+        val device = ProvisionedDevice(
+            deviceId = "camera",
+            driverUserId = "driver",
+            hostname = "drivealert.local",
+            lastKnownIp = "127.0.0.1",
+            lastConnectedAtEpochMillis = 1L,
+        )
+        val gateway = HttpWarningOutputGateway(
+            deviceProvider = { device },
+            endpointResolver = object : DriveAlertEndpointResolver {
+                override suspend fun resolve(device: ProvisionedDevice): ProvisionedDevice? {
+                    throw CancellationException("Sign recovered")
+                }
+            },
+        )
+        try {
+            gateway.activateSafely(WarningStage.STAGE_1.command().copy(repeat = true))
+            throw AssertionError("Cancellation must propagate")
+        } catch (expected: CancellationException) {
+            assertEquals("Sign recovered", expected.message)
+        }
+    }
+
+    @Test
+    fun `repeat intent is sent explicitly without changing initial warning payload`() = runBlocking {
+        val request = AtomicReference<String>()
+        withServer(200, HttpWarningOutputGateway.ACCEPTED_RESPONSE, request = request) { port ->
+            assertEquals(WarningDeliveryStatus.DELIVERED, gateway(port).activate(WarningStage.STAGE_2.command().copy(repeat = true)))
+            assertEquals("stage=2&sound=DIGITAL_BEEP&volume=MEDIUM&repeat=1", request.get())
+        }
+    }
+
     @Test
     fun `all sound identifiers serialize without physical track numbers`() {
         WarningSound.values().forEach { sound ->

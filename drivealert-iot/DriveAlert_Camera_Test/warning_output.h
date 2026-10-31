@@ -36,6 +36,7 @@ struct Command {
   uint8_t stage;
   Sound sound;
   Volume volume;
+  bool repeat = false;
 };
 
 struct VisibilityCommand {

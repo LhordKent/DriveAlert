@@ -1,6 +1,7 @@
 package com.lhordkent.drivealert.data.local
 
 import com.lhordkent.drivealert.data.history.*
+import com.lhordkent.drivealert.data.monitoringlog.*
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
@@ -31,6 +32,9 @@ import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
 @Database(
     entities = [
         SharedHistoryExpiry::class,
+        MonitoringLog::class,
+        MonitoringLogEvent::class,
+        MonitoringLogPreference::class,
         SharedHistoryDismissal::class,
         CalibrationEntity::class,
         MonitoringSessionEntity::class,
@@ -44,12 +48,13 @@ import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
         StageNotificationGroupEntity::class,
         StageNotificationGroupRecordEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(DriveAlertTypeConverters::class)
 abstract class DriveAlertDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
+    abstract fun monitoringLogDao(): MonitoringLogDao
     abstract fun monitoringSessionDao(): MonitoringSessionDao
     abstract fun alertDao(): AlertDao
     abstract fun calibrationDao(): CalibrationDao
@@ -69,7 +74,26 @@ abstract class DriveAlertDatabase : RoomDatabase() {
                 context.applicationContext,
                 DriveAlertDatabase::class.java,
                 DATABASE_NAME,
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { instance = it }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS monitoring_logs (sessionId TEXT NOT NULL PRIMARY KEY, driverUserId TEXT NOT NULL, startedAt INTEGER NOT NULL, endedAt INTEGER, status TEXT NOT NULL, recordingGap INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_monitoring_logs_driverUserId ON monitoring_logs(driverUserId)")
+                db.execSQL("""CREATE TABLE IF NOT EXISTS monitoring_log_events (
+                    sequence INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, eventId TEXT NOT NULL,
+                    sessionId TEXT NOT NULL, driverUserId TEXT NOT NULL, occurredAt INTEGER NOT NULL,
+                    kind TEXT NOT NULL, sign TEXT, measuredValue REAL, threshold REAL, durationMs INTEGER,
+                    requiredDurationMs INTEGER, downwardRatio REAL, ratioThreshold REAL,
+                    calibrationId TEXT, calibrationVersion INTEGER, stage INTEGER, repeated INTEGER NOT NULL,
+                    result TEXT, responseAt INTEGER, processId TEXT,
+                    FOREIGN KEY(sessionId) REFERENCES monitoring_logs(sessionId) ON UPDATE NO ACTION ON DELETE CASCADE
+                )""".trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_monitoring_log_events_sessionId ON monitoring_log_events(sessionId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_monitoring_log_events_eventId ON monitoring_log_events(eventId)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS monitoring_log_preferences (driverUserId TEXT NOT NULL PRIMARY KEY, retentionDays INTEGER)")
+            }
         }
 
         val MIGRATION_4_5 = object : Migration(4, 5) {

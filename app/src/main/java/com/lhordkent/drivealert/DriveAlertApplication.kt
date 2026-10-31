@@ -70,6 +70,8 @@ class AppContainer(private val application: Application) {
         }
     }
     val historyRepository = com.lhordkent.drivealert.data.history.HistoryRepository(database)
+    val monitoringLogRepository = com.lhordkent.drivealert.data.monitoringlog.MonitoringLogRepository(database)
+    val monitoringLogWriter = com.lhordkent.drivealert.data.monitoringlog.MonitoringLogWriter(monitoringLogRepository, applicationScope)
     val alertRepository: AlertRepository = RoomAlertRepository(database.alertDao())
     val driverWarningNotificationCoordinator = DriverWarningNotificationCoordinator(
         AndroidDriverWarningNotificationGateway(application),
@@ -79,7 +81,8 @@ class AppContainer(private val application: Application) {
     )
     val trustedContactDeviceRegistrar = TrustedContactDeviceRegistrar(application)
     val monitoringSessionRepository: MonitoringSessionRepository =
-        RoomMonitoringSessionRepository(database.monitoringSessionDao(), onSessionFinished = historyRepository::cleanup)
+        RoomMonitoringSessionRepository(database.monitoringSessionDao(), onSessionFinished = historyRepository::cleanup,
+            onSessionClosed = monitoringLogWriter::end)
     val driverPreferenceRepository: DriverPreferenceRepository =
         RoomDriverPreferenceRepository(database.driverPreferenceDao())
     val calibrationRepository: CalibrationRepository = RoomCalibrationRepository(database.calibrationDao())
@@ -121,6 +124,7 @@ class AppContainer(private val application: Application) {
             stageSyncRepository = stageSyncRepository,
             notificationCoordinator = driverWarningNotificationCoordinator,
             visibilityNotificationCoordinator = driverVisibilityNotificationCoordinator,
+            monitoringLogWriter = monitoringLogWriter,
         )
     }
 

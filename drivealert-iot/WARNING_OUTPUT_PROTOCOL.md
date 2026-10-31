@@ -1,7 +1,8 @@
-# DriveAlert warning-output protocol v1
+# DriveAlert warning-output protocol v2
 
 Android sends one warning command to the ESP32-CAM control server for each
-`MonitoringEffect.ActivateWarning` produced by the existing warning-stage controller.
+`MonitoringEffect.ActivateWarning` produced by the existing warning-stage controller,
+and repeat-only commands for `MonitoringEffect.RepeatWarning` while signs persist.
 
 ## Request
 
@@ -13,12 +14,14 @@ Accept: application/json
 stage=2&sound=DIGITAL_BEEP&volume=MEDIUM
 ```
 
-The body contains exactly three fields. Unknown, missing, duplicate, or invalid
-fields are rejected.
+Initial/stage-change requests contain exactly three fields. Repeat-only requests
+add the optional fourth field `repeat=1`. Unknown, missing, duplicate, or invalid
+fields are rejected. Omitting `repeat` preserves the original request behavior.
 
 - `stage`: `1`, `2`, or `3`
 - `sound`: `DIGITAL_BEEP`, `ROOSTER_CALL`, `ALARM_CLOCK`, `DIGITAL_BEEP_2`, or `BELL_CHIME`
 - `volume`: `MINIMUM`, `MEDIUM`, or `HIGH`
+- `repeat`: optional, only `1` is accepted; identifies a disposable reminder
 
 Android never transmits advisory text or physical track numbers. Firmware uses
 the stage and sound to choose the physical file.
@@ -28,11 +31,39 @@ the stage and sound to choose the physical file.
 - `200 OK` with `{"status":"accepted"}`: the command was queued for playback.
 - `400 Bad Request` with `{"error":"invalid_request"}`: the command was invalid.
 - `503 Service Unavailable` with `{"error":"warning_output_unavailable"}`: DFPlayer initialization is incomplete or failed.
-- `503 Service Unavailable` with `{"error":"warning_output_busy"}`: a prior command is waiting to be consumed.
+- `503 Service Unavailable` with `{"error":"warning_output_busy"}`: a prior command is waiting to be consumed, or a repeat was suppressed during a playback reservation.
 
 Android treats only the exact `200 OK` accepted response as `DELIVERED`. Network
 errors, timeouts, other status codes, and malformed response bodies are `FAILED`.
 There are no automatic retries, preventing unintentional duplicate playback.
+
+## Persistent-sign reminders
+
+Android requests reminders every two seconds for confirmed eye closure, or every
+three seconds for confirmed yawning/head down. Each uninterrupted occurrence
+remains one detection incident. Reminders neither restart the warning-stage period
+nor increase its event count; the existing 60-second persistence transitions still
+apply. Recovery or unavailable observations discard reminders. A delayed update
+emits at most one request, and Android never queues reminders behind an in-flight
+reminder request. Repeats do not create new history rows or phone notifications.
+
+Firmware drops repeat-only requests if any command is pending or an estimated
+playback reservation is active. Initial/stage-change warnings may replace pending
+reminders and may interrupt playback. Reminders waiting in the firmware queue
+for 500 ms are discarded rather than played late.
+
+**Playback limitation:** the physically verified UART is transmit-only, without a
+DFPlayer BUSY connection or completion feedback. Firmware therefore uses minimum
+reservations of 2 seconds for normal tracks, 10 seconds for mixed Stage 3 tracks,
+and 4 seconds for visibility tracks. These are engineering estimates, not measured
+track lengths or proof that playback has finished. Validate and adjust the
+`*_PLAYBACK_GUARD_MS` constants in `warning_output.cpp` against every actual SD-card
+recording before hardware acceptance. Longer recordings could still be interrupted
+after their reservation expires; accurate completion requires feedback or verified
+per-track durations. Audible reminders can be less frequent than Android requests.
+
+Flash the updated firmware before using reminders in the updated app. Older
+firmware rejects `repeat=1`; initial and stage-change requests remain compatible.
 
 ## Visibility speech request
 
@@ -82,7 +113,7 @@ The final files use `/mp3/NNNN.mp3` and `player.playMp3Folder(trackNumber)`.
 Stage 3 tracks 6-10 already contain the warning and spoken rest advisory mixed
 together, so firmware plays exactly one file.
 
-Warning commands have queue priority over visibility speech. A pending
+Initial and stage-change warning commands have queue priority over visibility speech. A pending
 visibility command may be replaced by a drowsiness warning; visibility speech
 never replaces a pending warning. The four speech MP3 files must be created and
 copied to the DFPlayer microSD card before hardware testing.

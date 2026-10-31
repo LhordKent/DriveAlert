@@ -48,6 +48,7 @@ class EyeClosureDetector(
             threshold,
             calibrationId,
             calibrationVersion,
+            temporalContext = mapOf("requiredDurationMs" to confirmationMs.toDouble()),
         )
     }
 
@@ -113,6 +114,7 @@ class YawnDetector(
             threshold,
             calibrationId,
             calibrationVersion,
+            temporalContext = mapOf("requiredDurationMs" to confirmationMs.toDouble()),
         )
     }
 
@@ -193,6 +195,7 @@ class HeadDownDetector(
                 "downwardRatio" to ratio,
                 "validObservationCount" to observations.size.toDouble(),
                 "windowMs" to windowMs.toDouble(),
+                "downwardRatioThreshold" to downwardRatioThreshold,
             ),
         )
     }

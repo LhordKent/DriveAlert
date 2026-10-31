@@ -59,6 +59,7 @@ import com.lhordkent.drivealert.monitoring.MonitoringRecoveryStore
 import com.lhordkent.drivealert.monitoring.activateSafely
 import com.lhordkent.drivealert.monitoring.warningOutputCommand
 import com.lhordkent.drivealert.monitoring.toVisibleSign
+import com.lhordkent.drivealert.postauth.VisibleSign
 import com.lhordkent.drivealert.notification.DriverWarningNotificationCoordinator
 import com.lhordkent.drivealert.notification.DriverVisibilityNotificationCoordinator
 import com.lhordkent.drivealert.postauth.PreferredVolume
@@ -87,6 +88,9 @@ import kotlinx.coroutines.withContext
 data class DriverVisionUiState(
     val streamState: StreamConnectionState = StreamConnectionState.SETUP_REQUIRED,
     val deviceConfigured: Boolean = false,
+    val deviceAddress: String? = null,
+    val deviceName: String? = null,
+    val bleSetupRequested: Boolean = false,
     val faceDetected: Boolean? = null,
     val alignmentConfirmed: Boolean = false,
     val driverRegion: DriverRegion = DriverRegion.DEFAULT,
@@ -132,6 +136,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     private val elapsedClock: () -> Long = SystemClock::elapsedRealtime,
     private val wallClock: () -> Long = System::currentTimeMillis,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    private val monitoringLogWriter: com.lhordkent.drivealert.data.monitoringlog.MonitoringLogWriter? = null,
 ) : Closeable {
     private val mutableState = MutableStateFlow(DriverVisionUiState())
     val state: StateFlow<DriverVisionUiState> = mutableState.asStateFlow()
@@ -209,6 +214,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
     private var deviceJob: Job? = null
     private var reconnectJob: Job? = null
     private var monitoringJob: Job? = null
+    private var repeatWarningJob: Job? = null
+    private var repeatWarningSigns = emptySet<VisibleSign>()
     private var monitoringStartJob: Job? = null
     private var brightnessSampleJob: Job? = null
     private var visionHealthJob: Job? = null
@@ -222,6 +229,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     private var lastDetectionTimestampMs: Long? = null
     private var lastBrightnessTimestampMs: Long? = null
     private var reconnectAttempt = 0
+    private var heartbeatJob: Job? = null
     private val inferenceGate = MonotonicFrameGate(INFERENCE_INTERVAL_MS)
     private val brightnessGate = MonotonicFrameGate(BRIGHTNESS_SAMPLE_INTERVAL_MS)
     private val brightnessTracker = SceneBrightnessTracker()
@@ -274,6 +282,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     it.copy(
                         streamState = if (device == null) StreamConnectionState.SETUP_REQUIRED else it.streamState,
                         deviceConfigured = device != null,
+                        deviceAddress = device?.lastKnownIp,
+                        deviceName = device?.hostname ?: device?.deviceId,
                         alignmentConfirmed = if (endpointChanged) savedRegion != null else it.alignmentConfirmed,
                     ).let { updated ->
                         if (device != null && updated.streamState == StreamConnectionState.SETUP_REQUIRED) {
@@ -293,7 +303,15 @@ class DriverVisionRuntime @JvmOverloads constructor(
     }
 
     fun startVision() {
+        if (mutableState.value.disconnectInProgress) return
         streamWanted = true
+        mutableState.update { it.copy(bleSetupRequested = false) }
+        if (heartbeatJob?.isActive != true) heartbeatJob = scope.launch {
+            while (streamWanted) {
+                activeDevice?.let { sessionController.heartbeat(it) }
+                delay(10_000)
+            }
+        }
         if (visionHealthJob?.isActive != true) {
             visionHealthJob = scope.launch {
                 while (streamWanted) {
@@ -310,16 +328,18 @@ class DriverVisionRuntime @JvmOverloads constructor(
         }
     }
 
-    fun returnToBleProvisioning() {
+    fun returnToBleProvisioning(onReady: () -> Unit = {}) {
+        if (activeDevice == null) {
+            mutableState.update { it.copy(bleSetupRequested = true) }
+            onReady()
+        } else disconnectCurrentSession(onReady)
+    }
+
+    fun openBleSetup(onReady: () -> Unit = {}) {
         stopMonitoring(interrupted = true)
         stopStream(resetAlignment = true)
-        reconnectAttempt = 0
-        mutableState.update {
-            it.copy(
-                streamState = if (activeDevice == null) StreamConnectionState.SETUP_REQUIRED else StreamConnectionState.READY,
-                errorMessage = null,
-            )
-        }
+        mutableState.update { it.copy(bleSetupRequested = true, streamState = StreamConnectionState.READY, errorMessage = null) }
+        onReady()
     }
 
     fun beginAppAlignmentSession() {
@@ -351,15 +371,18 @@ class DriverVisionRuntime @JvmOverloads constructor(
 
     fun disconnectCurrentSession(onDisconnected: () -> Unit = {}) {
         val device = activeDevice
-        if (device == null || mutableState.value.streamState != StreamConnectionState.CONNECTED) {
-            mutableState.update { it.copy(errorMessage = "The DriveAlert camera is not currently connected.") }
+        if (device == null) {
+            mutableState.update { it.copy(errorMessage = "No saved DriveAlert camera is available.") }
             return
         }
         if (mutableState.value.disconnectInProgress) return
+        val driverAtRequest = boundDriverId
         stopMonitoring(interrupted = true)
         mutableState.update { it.copy(disconnectInProgress = true, errorMessage = null) }
         scope.launch {
-            sessionController.disconnect(device).fold(
+            val result = sessionController.disconnect(device)
+            if (boundDriverId != driverAtRequest) return@launch
+            result.fold(
                 onSuccess = {
                     stopStream(resetAlignment = true)
                     reconnectAttempt = 0
@@ -367,6 +390,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                         it.copy(
                             streamState = StreamConnectionState.READY,
                             disconnectInProgress = false,
+                            bleSetupRequested = true,
                             errorMessage = null,
                         )
                     }
@@ -488,6 +512,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     )
                 }
                 publishMonitoringState()
+                monitoringLogWriter?.begin(driverId, sessionId, startedAtEpoch, existingSessionId != null)
                 onStarted(sessionId, startedAtEpoch)
                 monitoringJob?.cancel()
                 monitoringJob = scope.launch {
@@ -517,6 +542,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
         monitoringStarting = false
         monitoringJob?.cancel()
         monitoringJob = null
+        repeatWarningJob?.cancel()
+        repeatWarningJob = null
         val sessionId = monitoringController.state.sessionId
         val driverId = boundDriverId
         monitoringController.stop()
@@ -716,8 +743,10 @@ class DriverVisionRuntime @JvmOverloads constructor(
             )
         }
         if (!mutableState.value.driverTracking.locked || !mutableState.value.alignmentConfirmed || !lighting.allowsAssessment(elapsedClock())) {
+            repeatWarningJob?.cancel()
             monitoringController.accept(emptyList(), emptySet())
         }
+        if (repeatWarningSigns.none { it in result.currentlyConfirmedSigns() }) repeatWarningJob?.cancel()
         val calibration = result.activeCalibration ?: return
         val userId = boundDriverId ?: return
         if (calibrationCompleted && calibration.calibrationId != persistedCalibrationId) {
@@ -726,6 +755,9 @@ class DriverVisionRuntime @JvmOverloads constructor(
         }
         val sessionId = monitoringController.state.sessionId
         if (sessionId != null) {
+            result.events.forEach { sign ->
+                monitoringLogWriter?.sign(userId, sessionId, toEpochMillis(sign.timestampMs), sign)
+            }
             val effects = monitoringController.accept(result.events, result.currentlyConfirmedSigns())
             handleMonitoringEffects(effects, userId, sessionId)
             persistHighestStage(userId, sessionId)
@@ -793,10 +825,33 @@ class DriverVisionRuntime @JvmOverloads constructor(
     ) {
         for (effect in effects) when (effect) {
             is MonitoringEffect.ActivateWarning -> {
-                val delivery = warningOutputGateway.activateSafely(
+                repeatWarningJob?.cancel()
+                val delivery = activateLoggedWarning(driverId, sessionId,
                     effect.stage.warningOutputCommand(monitoringSound, monitoringVolume),
                 )
                 monitoringController.setWarningDelivery(delivery)
+            }
+            is MonitoringEffect.RepeatWarning -> {
+                // Do not block frame processing or queue reminders behind a slow HTTP request.
+                if (repeatWarningJob?.isActive == true) continue
+                val generation = streamGeneration
+                repeatWarningSigns = effect.signs
+                repeatWarningJob = scope.launch {
+                    val current = mutableState.value
+                    val detection = current.detection ?: return@launch
+                    if (sessionId != monitoringController.state.sessionId || generation != streamGeneration ||
+                        monitoringController.state.currentStage != effect.stage ||
+                        current.streamState != StreamConnectionState.CONNECTED ||
+                        !current.driverTracking.locked || !current.alignmentConfirmed ||
+                        !current.lighting.allowsAssessment(elapsedClock()) ||
+                        detection.timestampMs < observationCutoffMs ||
+                        elapsedClock() - detection.timestampMs > DriverFaceSelector.MAX_FRAME_GAP_MS ||
+                        effect.signs.none { it in detection.currentlyConfirmedSigns() }
+                    ) return@launch
+                    activateLoggedWarning(driverId, sessionId,
+                        effect.stage.warningOutputCommand(monitoringSound, monitoringVolume).copy(repeat = true),
+                    )
+                }
             }
             is MonitoringEffect.RecordAlert -> {
                 val delivered = monitoringController.state.warningDelivery == WarningDeliveryStatus.DELIVERED
@@ -845,6 +900,21 @@ class DriverVisionRuntime @JvmOverloads constructor(
         }
     }
 
+    private suspend fun activateLoggedWarning(
+        driverId: String, sessionId: String,
+        command: com.lhordkent.drivealert.monitoring.WarningOutputCommand,
+    ): WarningDeliveryStatus {
+        val requestId = monitoringLogWriter?.request(driverId, sessionId, wallClock(), command.stage.ordinal + 1, command.repeat)
+        try {
+            val result = warningOutputGateway.activateSafely(command)
+            requestId?.let { monitoringLogWriter?.result(driverId, sessionId, it, wallClock(), result) }
+            return result
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            requestId?.let { monitoringLogWriter?.result(driverId, sessionId, it, wallClock(), null) }
+            throw cancelled
+        }
+    }
+
     private suspend fun persistHighestStage(driverId: String, sessionId: String) {
         val stage = monitoringController.state.currentStage ?: return
         if ((highestPersistedStage?.ordinal ?: -1) >= stage.ordinal) return
@@ -867,6 +937,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     }
 
     private fun resetLighting() {
+        repeatWarningJob?.cancel()
         // Prevent queued results from the previous session from reusing cached quality.
         observationCutoffMs = elapsedClock()
         targetConfigurationRevision = processor.configure(if (regionKey != null) mutableState.value.driverRegion else null)
@@ -944,6 +1015,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
 
     private fun stopStream(resetAlignment: Boolean) {
         streamWanted = false
+        heartbeatJob?.cancel()
+        heartbeatJob = null
         streamGeneration++
         visionHealthJob?.cancel()
         visionHealthJob = null
@@ -1000,8 +1073,13 @@ class DriverVisionViewModel(application: Application) : AndroidViewModel(applica
 
     fun startVision() = runtime.startVision()
 
-    fun returnToBleProvisioning() {
-        runtime.returnToBleProvisioning()
+    fun returnToBleProvisioning(onReady: () -> Unit = {}) {
+        runtime.returnToBleProvisioning(onReady)
+        DriveAlertMonitoringService.dismissAfterRuntimeStop(getApplication())
+    }
+
+    fun openBleSetup(onReady: () -> Unit = {}) {
+        runtime.openBleSetup(onReady)
         DriveAlertMonitoringService.dismissAfterRuntimeStop(getApplication())
     }
 

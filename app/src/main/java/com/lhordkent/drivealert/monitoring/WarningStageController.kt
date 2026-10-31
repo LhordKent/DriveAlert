@@ -7,6 +7,7 @@ import com.lhordkent.drivealert.postauth.PreferredVolume
 import com.lhordkent.drivealert.postauth.VisibleSign
 import com.lhordkent.drivealert.postauth.WarningSound
 import com.lhordkent.drivealert.postauth.WarningStage
+import kotlinx.coroutines.CancellationException
 
 data class ActiveMonitoringState(
     val isActive: Boolean = false,
@@ -32,6 +33,7 @@ data class WarningOutputCommand(
     val sound: WarningSound,
     val volume: PreferredVolume,
     val spokenAdvisory: String?,
+    val repeat: Boolean = false,
 )
 
 fun interface WarningOutputGateway {
@@ -39,7 +41,13 @@ fun interface WarningOutputGateway {
 }
 
 suspend fun WarningOutputGateway.activateSafely(command: WarningOutputCommand): WarningDeliveryStatus =
-    runCatching { activate(command) }.getOrElse { WarningDeliveryStatus.FAILED }
+    try {
+        activate(command)
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        WarningDeliveryStatus.FAILED
+    }
 
 /** Legacy fallback for previews/tests that intentionally do not perform physical delivery. */
 class PendingHardwareWarningOutputGateway : WarningOutputGateway {
@@ -54,6 +62,8 @@ sealed interface MonitoringEffect {
     ) : MonitoringEffect
 
     data class ActivateWarning(val stage: WarningStage) : MonitoringEffect
+
+    data class RepeatWarning(val stage: WarningStage, val signs: Set<VisibleSign>) : MonitoringEffect
 
     data class MergeLatestAlertSigns(val signs: Set<VisibleSign>) : MonitoringEffect
 
@@ -204,6 +214,7 @@ class MonitoringSessionController(
 ) {
     private val seenEvents = mutableSetOf<Pair<SignType, Long>>()
     private var activeEpisodeSigns = emptySet<VisibleSign>()
+    private val warningRepeater = PersistentWarningRepeater()
     var state: ActiveMonitoringState = ActiveMonitoringState()
         private set
 
@@ -211,6 +222,7 @@ class MonitoringSessionController(
         require(sessionId.isNotBlank())
         require(initialDurationMs >= 0L)
         warningStages.reset()
+        warningRepeater.reset()
         seenEvents.clear()
         activeEpisodeSigns = emptySet()
         val now = clock()
@@ -224,6 +236,7 @@ class MonitoringSessionController(
 
     fun stop() {
         warningStages.reset()
+        warningRepeater.reset()
         seenEvents.clear()
         activeEpisodeSigns = emptySet()
         state = ActiveMonitoringState()
@@ -232,6 +245,26 @@ class MonitoringSessionController(
     fun accept(
         events: List<ConfirmedSignEvent>,
         currentlyConfirmedSigns: Set<VisibleSign> = events.mapTo(linkedSetOf()) { it.type.toVisibleSign() },
+    ): List<MonitoringEffect> {
+        if (!state.isActive) return emptyList()
+        val effects = acceptEvents(events, currentlyConfirmedSigns).toMutableList()
+        val now = clock()
+        // Empty-sign calls also clear evidence on camera loss; their callers may
+        // intentionally ignore effects. Leave quiet-period transitions to tick().
+        if (currentlyConfirmedSigns.isNotEmpty()) effects += warningStages.advance(now, activeEpisodeSigns)
+        state = state.copy(durationMs = duration(now), currentStage = warningStages.stage)
+        val due = warningRepeater.update(now, currentlyConfirmedSigns)
+        if (effects.any { it is MonitoringEffect.ActivateWarning }) {
+            warningRepeater.warningActivated(now)
+        } else if (due.isNotEmpty()) {
+            state.currentStage?.let { effects += MonitoringEffect.RepeatWarning(it, due) }
+        }
+        return effects
+    }
+
+    private fun acceptEvents(
+        events: List<ConfirmedSignEvent>,
+        currentlyConfirmedSigns: Set<VisibleSign>,
     ): List<MonitoringEffect> {
         if (!state.isActive) return emptyList()
         val episodeContinues = activeEpisodeSigns.any { it in currentlyConfirmedSigns }
@@ -272,6 +305,7 @@ class MonitoringSessionController(
         if (!state.isActive) return emptyList()
         val now = clock()
         val effects = warningStages.advance(now, activeEpisodeSigns)
+        if (effects.any { it is MonitoringEffect.ActivateWarning }) warningRepeater.warningActivated(now)
         state = state.copy(durationMs = duration(now), currentStage = warningStages.stage)
         return effects
     }

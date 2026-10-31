@@ -64,12 +64,14 @@ fun DeviceConnectionScreen(
     onDisconnect: () -> Unit = {},
     onRetryConnection: () -> Unit = {},
     onReturnToBleSetup: () -> Unit = {},
+    onOpenBleSetup: () -> Unit = {},
 ) {
     ScrollableScreen(title = "Device Connection", onBack = onBack) {
-        Text("Connect your DriveAlert camera", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
+        Text(if (showsSavedCameraConnection(vision)) "Your DriveAlert camera" else "Connect your DriveAlert camera", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
         Text(
-            "Use secure Bluetooth provisioning to send your hotspot or local Wi-Fi details to the ESP32-CAM.",
+            if (showsSavedCameraConnection(vision)) "Review the saved camera connection or return the camera to Bluetooth setup."
+            else "Use secure Bluetooth provisioning to send your hotspot or local Wi-Fi details to the ESP32-CAM.",
             style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
         )
@@ -80,6 +82,7 @@ fun DeviceConnectionScreen(
                 onDisconnect = onDisconnect,
                 onRetryConnection = onRetryConnection,
                 onReturnToBleSetup = onReturnToBleSetup,
+                onOpenBleSetup = onOpenBleSetup,
             )
         } else {
             WifiProvisioningPanel(
@@ -88,6 +91,7 @@ fun DeviceConnectionScreen(
                 onDisconnect = onDisconnect,
                 onRetryConnection = onRetryConnection,
                 onReturnToBleSetup = onReturnToBleSetup,
+                onOpenBleSetup = onOpenBleSetup,
             )
         }
         Spacer(Modifier.height(16.dp))

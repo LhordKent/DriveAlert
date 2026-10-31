@@ -25,6 +25,7 @@
 #include "warning_output.h"
 
 void requestManualDisconnect();
+void noteDriveAlertClientActivity();
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_ARDUHAL_ESP_LOG)
 #include "esp32-hal-log.h"
@@ -268,6 +269,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     }
     if (res == ESP_OK) {
       res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
+      if (res == ESP_OK) noteDriveAlertClientActivity();
     }
     if (fb) {
       esp_camera_fb_return(fb);
@@ -685,6 +687,13 @@ static esp_err_t drivealert_disconnect_handler(httpd_req_t *req) {
   return response;
 }
 
+static esp_err_t drivealert_heartbeat_handler(httpd_req_t *req) {
+  noteDriveAlertClientActivity();
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+  return httpd_resp_sendstr(req, "{\"status\":\"active\"}");
+}
+
 static esp_err_t send_output_json(httpd_req_t *req, const char *status, const char *body) {
   httpd_resp_set_status(req, status);
   httpd_resp_set_type(req, "application/json");
@@ -697,6 +706,8 @@ static bool parse_warning_body(char *body, WarningOutput::Command *command) {
   bool stageSeen = false;
   bool soundSeen = false;
   bool volumeSeen = false;
+  bool repeatSeen = false;
+  command->repeat = false;
   unsigned fieldCount = 0;
   char *save = NULL;
   for (char *field = strtok_r(body, "&", &save); field != NULL; field = strtok_r(NULL, "&", &save)) {
@@ -718,11 +729,15 @@ static bool parse_warning_body(char *body, WarningOutput::Command *command) {
     } else if (!strcmp(key, "volume") && !volumeSeen) {
       if (!WarningOutput::parseVolume(value, &command->volume)) return false;
       volumeSeen = true;
+    } else if (!strcmp(key, "repeat") && !repeatSeen) {
+      if (strcmp(value, "1")) return false;
+      command->repeat = true;
+      repeatSeen = true;
     } else {
       return false;
     }
   }
-  return fieldCount == 3 && stageSeen && soundSeen && volumeSeen &&
+  return fieldCount == (repeatSeen ? 4u : 3u) && stageSeen && soundSeen && volumeSeen &&
          WarningOutput::isValid(*command);
 }
 
@@ -813,6 +828,7 @@ static esp_err_t drivealert_visibility_handler(httpd_req_t *req) {
 bool startCameraServer() {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.max_uri_handlers = 16;
+  config.send_wait_timeout = 5;
 
   httpd_uri_t index_uri = {
     .uri = "/",
@@ -891,6 +907,11 @@ bool startCameraServer() {
     .supported_subprotocol = NULL
 #endif
   };
+
+  httpd_uri_t drivealert_heartbeat_uri = {};
+  drivealert_heartbeat_uri.uri = "/drivealert/heartbeat";
+  drivealert_heartbeat_uri.method = HTTP_POST;
+  drivealert_heartbeat_uri.handler = drivealert_heartbeat_handler;
 
   httpd_uri_t drivealert_warning_uri = {
     .uri = "/drivealert/warning",
@@ -1013,6 +1034,7 @@ bool startCameraServer() {
     httpd_register_uri_handler(camera_httpd, &pll_uri);
     httpd_register_uri_handler(camera_httpd, &win_uri);
     httpd_register_uri_handler(camera_httpd, &drivealert_disconnect_uri);
+    httpd_register_uri_handler(camera_httpd, &drivealert_heartbeat_uri);
     httpd_register_uri_handler(camera_httpd, &drivealert_warning_uri);
     httpd_register_uri_handler(camera_httpd, &drivealert_visibility_uri);
   }

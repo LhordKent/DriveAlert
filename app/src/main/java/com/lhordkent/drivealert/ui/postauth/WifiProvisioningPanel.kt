@@ -55,6 +55,7 @@ fun WifiProvisioningPanel(
     onDisconnect: () -> Unit = {},
     onRetryConnection: () -> Unit = {},
     onReturnToBleSetup: () -> Unit = {},
+    onOpenBleSetup: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val bluetoothAdapter = remember {
@@ -69,6 +70,10 @@ fun WifiProvisioningPanel(
     val permissions = remember { BlePermissionPolicy.runtimePermissions() }
     val streamState = vision?.streamState
     val connectionVerified = streamState == StreamConnectionState.CONNECTED
+    if (showsSavedCameraConnection(vision)) {
+        SavedCameraConnectionPanel(checkNotNull(vision), onDisconnect, onRetryConnection, onReturnToBleSetup, onOpenBleSetup)
+        return
+    }
     fun locationServicesRequiredAndOff(): Boolean =
         BlePermissionPolicy.requiresLocationServices() &&
             !LocationManagerCompat.isLocationEnabled(locationManager)
@@ -188,10 +193,10 @@ fun WifiProvisioningPanel(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(device.name, color = TextPrimary)
-                        Text(if (device.previouslyKnown) "Tap to reconnect" else "${device.rssi} dBm", color = TextMuted)
+                        Text(if (device.previouslyKnown) "Saved device" else "${device.rssi} dBm", color = TextMuted)
                     }
                 }
-                Text("Previously paired devices can be selected even when a new scan cannot find them.",
+                Text("Saved devices may be offline or outside Bluetooth setup mode. Scan again to check availability.",
                     style = MaterialTheme.typography.bodySmall, color = TextMuted)
                 Spacer(Modifier.height(12.dp))
                 SecondaryButton("Scan again", ::scanWithPermission)
@@ -291,7 +296,7 @@ fun WifiProvisioningPanel(
                     }
                     if (shouldOfferBleRecovery(streamState)) {
                         Spacer(Modifier.height(12.dp))
-                        SecondaryButton("Switch to Bluetooth setup", onReturnToBleSetup)
+                        SecondaryButton("Go back to Bluetooth (BLE) setup", onReturnToBleSetup)
                     }
                 } else {
                     Text("Connection verified through the live stream.", style = MaterialTheme.typography.bodySmall, color = TextMuted)

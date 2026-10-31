@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 class HistoryCleanupWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = try {
         (applicationContext as DriveAlertApplication).container.historyRepository.cleanupAll()
+        (applicationContext as DriveAlertApplication).container.monitoringLogRepository.cleanupAll()
         Result.success()
     } catch (cancelled: CancellationException) { throw cancelled
     } catch (_: Exception) { Result.retry() }

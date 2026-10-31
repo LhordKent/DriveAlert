@@ -70,6 +70,16 @@ Model provenance and tensor metadata are recorded in
 - A valid head observation is downward only when relative pitch is strictly greater than `15.0°`. Head nodding confirms when at least 80% of valid observations in the rolling 3,000 ms window are downward.
 - Timing uses monotonic frame timestamps, never frame counts or wall-clock time.
 - A continuous qualifying episode emits one event. A valid recovery observation re-arms its detector.
+- While a confirmed sign remains observable, Android requests a current-stage
+  warning reminder every 2,000 ms for eye closure and every 3,000 ms for yawning
+  or head down, measured from confirmation. Reminders do not create detection
+  events, history entries, phone notifications, or independently advance stages.
+  Existing 60-second persistence escalation remains active. Simultaneous due
+  reminders share one request; stage-change warnings supersede reminders.
+- Recovery or channel unavailability clears that sign's reminder schedule.
+  Missing/stale tracking, lighting pauses, and session termination stop reminders;
+  delayed observations never produce a backlog. Delivery runs separately from
+  frame processing, with at most one reminder request in flight.
 - Missing measurements never become positive detections. Eye/yawn candidates reset on invalid input; invalid head observations are excluded. Face loss clears all temporal evidence.
 
 ## Calibration and event boundary
@@ -107,5 +117,12 @@ The JVM tests use deterministic numeric landmarks, matrices, and measurement seq
 2. Open Camera Alignment, verify live frames and face visibility, then confirm alignment manually.
 3. Complete each guided calibration phase and restart the app to verify offline restoration.
 4. Exercise eye closure, yawn, head-down, face loss, stream restart, and DHCP-address-change recovery.
+5. With updated firmware, sustain each sign: eye closure should request warnings
+   at roughly 2/4/6 seconds; yawning and qualifying head-down at roughly 3/6/9
+   seconds. Confirm a single history incident, no repeat-driven escalation,
+   recovery stopping reminders, and the existing 60-second stage transition.
+   Check all sound tracks, especially long mixed Stage 3 recordings: firmware
+   suppresses reminders during estimated playback reservations, so actual audible
+   repetitions can be slower than requests. See the warning-output protocol.
 
 Live ESP32-to-Android operation remains physically unvalidated until these device tests complete.

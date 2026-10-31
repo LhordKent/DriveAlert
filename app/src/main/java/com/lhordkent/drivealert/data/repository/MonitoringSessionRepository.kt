@@ -38,6 +38,7 @@ class RoomMonitoringSessionRepository(
     private val idFactory: () -> String = { UUID.randomUUID().toString() },
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val onSessionFinished: suspend (String) -> Unit = {},
+    private val onSessionClosed: (String, String, Long, String) -> Unit = { _, _, _, _ -> },
 ) : MonitoringSessionRepository {
     override fun observeSessions(driverUserId: String): Flow<List<MonitoringSessionSummary>> =
         dao.observeForDriver(driverUserId).map { sessions ->
@@ -106,6 +107,7 @@ class RoomMonitoringSessionRepository(
                 updatedAtEpochMillis = clock(),
             ),
         )
+        onSessionClosed(driverUserId, sessionId, endedAtEpochMillis, status.name)
         try { onSessionFinished(driverUserId) }
         catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
         catch (_: Exception) { /* Periodic cleanup retries without failing session completion. */ }

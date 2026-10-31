@@ -9,6 +9,9 @@ import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 
 class HttpWarningOutputGateway internal constructor(
     private val deviceProvider: () -> ProvisionedDevice?,
@@ -25,12 +28,16 @@ class HttpWarningOutputGateway internal constructor(
                 val resolved = endpointResolver.resolve(device) ?: error("DriveAlert device is unavailable.")
                 if (resolved != device) onDeviceResolved(resolved)
                 send(resolved.lastKnownIp, command)
-            }.getOrElse { WarningDeliveryStatus.FAILED }
+            }.getOrElse {
+                if (it is CancellationException) throw it
+                WarningDeliveryStatus.FAILED
+            }
         } ?: WarningDeliveryStatus.FAILED
     }
 
     private suspend fun send(host: String, command: WarningOutputCommand): WarningDeliveryStatus =
         withContext(Dispatchers.IO) {
+            coroutineContext.ensureActive()
             val payload = command.toWarningWirePayload().toByteArray(Charsets.UTF_8)
             val connection = URL(warningUrl(host, controlPort)).openConnection() as HttpURLConnection
             try {
@@ -79,4 +86,5 @@ internal fun WarningOutputCommand.toWarningWirePayload(): String = buildString {
     append(sound.name)
     append("&volume=")
     append(volume.name)
+    if (repeat) append("&repeat=1")
 }

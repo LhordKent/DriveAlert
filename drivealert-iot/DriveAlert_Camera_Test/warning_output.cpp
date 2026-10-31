@@ -6,6 +6,12 @@ namespace WarningOutput {
 namespace {
 constexpr unsigned long PLAYER_POWER_UP_MS = 5000;
 constexpr unsigned long PLAYER_COMMAND_SETTLE_MS = 1000;
+// One-way UART has no playback-complete signal. These minimum reservations must
+// be checked against the actual SD-card recordings; they are not measured busy state.
+constexpr unsigned long NORMAL_PLAYBACK_GUARD_MS = 2000;
+constexpr unsigned long MIXED_PLAYBACK_GUARD_MS = 10000;
+constexpr unsigned long VISIBILITY_PLAYBACK_GUARD_MS = 4000;
+constexpr unsigned long REMINDER_MAX_QUEUE_AGE_MS = 500;
 
 enum class StartupStep : uint8_t {
   WAIT_FOR_PLAYER,
@@ -25,9 +31,13 @@ struct PlaybackCommand {
   uint16_t track;
   Volume volume;
   bool highPriority;
+  bool repeat;
+  unsigned long queuedAtMs;
 };
 PlaybackCommand pendingCommand = {};
 volatile bool commandPending = false;
+unsigned long playbackStartedAtMs = 0;
+unsigned long playbackGuardMs = 0;
 
 bool elapsed(unsigned long now, unsigned long startedAt, unsigned long duration) {
   return now - startedAt >= duration;
@@ -39,18 +49,26 @@ bool takePending(PlaybackCommand *command) {
   if (commandPending) {
     *command = pendingCommand;
     commandPending = false;
-    available = true;
+    const unsigned long now = millis();
+    available = !command->repeat || !elapsed(now, command->queuedAtMs, REMINDER_MAX_QUEUE_AGE_MS);
+    if (available) {
+      playbackStartedAtMs = now;
+      playbackGuardMs = command->track >= EYES_BLOCKED_TRACK ? VISIBILITY_PLAYBACK_GUARD_MS
+          : command->track >= DIGITAL_BEEP_STAGE_3_TRACK ? MIXED_PLAYBACK_GUARD_MS
+          : NORMAL_PLAYBACK_GUARD_MS;
+    }
   }
   portEXIT_CRITICAL(&commandMux);
   return available;
 }
 
-bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority) {
+bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority, bool repeat = false) {
   if (!isAvailable() || track == 0 || valueForVolume(volume) == 0) return false;
   bool accepted = false;
   portENTER_CRITICAL(&commandMux);
-  if (!commandPending || (highPriority && !pendingCommand.highPriority)) {
-    pendingCommand = {track, volume, highPriority};
+  const bool repeatAllowed = !repeat || (!commandPending && elapsed(millis(), playbackStartedAtMs, playbackGuardMs));
+  if (repeatAllowed && (!commandPending || (highPriority && !pendingCommand.highPriority))) {
+    pendingCommand = {track, volume, highPriority, repeat, millis()};
     commandPending = true;
     accepted = true;
   }
@@ -188,7 +206,7 @@ bool isValid(const VisibilityCommand &command) {
 
 bool enqueue(const Command &command) {
   if (!isValid(command)) return false;
-  return enqueuePlayback(trackForStage(command.stage, command.sound), command.volume, true);
+  return enqueuePlayback(trackForStage(command.stage, command.sound), command.volume, !command.repeat, command.repeat);
 }
 
 bool enqueue(const VisibilityCommand &command) {

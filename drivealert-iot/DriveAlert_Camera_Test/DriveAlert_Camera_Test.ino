@@ -9,6 +9,7 @@
 #include "board_config.h"
 #include "warning_output.h"
 #include "wifi_provisioning.h"
+#include "session_watchdog.h"
 
 bool startCameraServer();
 void setupLedFlash();
@@ -33,6 +34,8 @@ bool mdnsAttemptedForConnection = false;
 bool connectionLedOn = false;
 unsigned long wifiLostAtMs = 0;
 unsigned long lastReconnectAttemptMs = 0;
+SessionWatchdog sessionWatchdog;
+portMUX_TYPE sessionWatchdogMux = portMUX_INITIALIZER_UNLOCKED;
 
 void updateConnectionLed() {
   if (WiFi.status() == WL_CONNECTED) {
@@ -162,6 +165,9 @@ void startNormalMode() {
   }
   startMdnsOnceForConnection();
   normalModeActive = true;
+  portENTER_CRITICAL(&sessionWatchdogMux);
+  sessionWatchdog.begin(millis());
+  portEXIT_CRITICAL(&sessionWatchdogMux);
   wifiLostAtMs = 0;
   Serial.print("Camera Ready! Control UI: http://");
   Serial.println(WiFi.localIP());
@@ -201,6 +207,14 @@ void maintainWifiConnection() {
 // loop performs the restart so the request handler never tears down its own server.
 void requestManualDisconnect() {
   manualDisconnectRequested = true;
+}
+
+// Only explicit app heartbeats and successfully sent video renew the session.
+// Generic /status checks and Wi-Fi association do not prove the app is alive.
+void noteDriveAlertClientActivity() {
+  portENTER_CRITICAL(&sessionWatchdogMux);
+  sessionWatchdog.touch(millis());
+  portEXIT_CRITICAL(&sessionWatchdogMux);
 }
 
 void setup() {
@@ -251,6 +265,15 @@ void loop() {
     delay(100);
     ESP.restart();
   }
-  if (normalModeActive) maintainWifiConnection();
+  if (normalModeActive) {
+    maintainWifiConnection();
+    portENTER_CRITICAL(&sessionWatchdogMux);
+    const bool abandoned = sessionWatchdog.expired(millis());
+    portEXIT_CRITICAL(&sessionWatchdogMux);
+    if (abandoned) {
+      Serial.println("No app heartbeat or delivered video for 180 seconds; returning to BLE setup with saved credentials retained.");
+      requestManualDisconnect();
+    }
+  }
   delay(20);
 }
