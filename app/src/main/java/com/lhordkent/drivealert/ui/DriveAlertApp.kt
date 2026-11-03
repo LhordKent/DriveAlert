@@ -110,6 +110,7 @@ object PostAuthRoutes {
     const val DRIVER_SETUP = "driver/setup"
     const val DRIVER_DEVICE_CONNECTION = "driver/setup/connection"
     const val DRIVER_ALIGNMENT = "driver/setup/alignment"
+    const val DRIVER_CAMERA_PREVIEW = "driver/camera-preview"
     const val DRIVER_CALIBRATION = "driver/setup/calibration"
     const val DRIVER_HOME = "driver/home"
     const val DRIVER_MONITORING = "driver/monitoring"
@@ -470,6 +471,14 @@ fun DriveAlertApp(
                     onOpenBleSetup = onOpenBleSetup,
                 )
             }
+            composable(PostAuthRoutes.DRIVER_CAMERA_PREVIEW) {
+                com.lhordkent.drivealert.ui.postauth.CameraPreviewScreen(
+                    vision = visionState,
+                    previewFrames = previewFrames,
+                    onStartVision = onStartVision,
+                    onBack = navController::popBackStack,
+                )
+            }
             composable(PostAuthRoutes.DRIVER_ALIGNMENT) {
                 CameraAlignmentScreen(
                     vision = visionState,
@@ -512,7 +521,7 @@ fun DriveAlertApp(
                             }
                         },
                         onStopMonitoring = onStopMonitoring,
-                        onOpenMonitoringActivity = { navController.navigate(PostAuthRoutes.DRIVER_MONITORING) },
+                        onPreviewCamera = { navController.navigate(PostAuthRoutes.DRIVER_CAMERA_PREVIEW) },
                         onSetupDevice = { navController.navigate(PostAuthRoutes.DRIVER_SETUP) },
                         onOpenAlerts = { navigateRoot(navController, PostAuthRoutes.DRIVER_ALERTS, PostAuthRoutes.DRIVER_HOME) },
                     )
@@ -615,6 +624,7 @@ fun DriveAlertApp(
                 DriverRoot(navController, PostAuthRoutes.DRIVER_SETTINGS, "Driver Settings") {
                     SettingsScreen(
                         view = UserView.DRIVER,
+                        onMonitoringActivity = { navController.navigate(PostAuthRoutes.DRIVER_MONITORING) },
                         onSwitchView = {
                             onChooseView(UserView.TRUSTED_CONTACT)
                             navController.navigate(PostAuthRoutes.TRUSTED_DRIVERS) {

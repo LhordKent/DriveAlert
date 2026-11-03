@@ -66,6 +66,7 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     onHistory: () -> Unit = {},
     onMonitoringLogs: () -> Unit = {},
+    onMonitoringActivity: () -> Unit = {},
 ) {
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
     val isDriver = view == UserView.DRIVER
@@ -81,6 +82,7 @@ fun SettingsScreen(
     SectionTitle("Account and preferences")
     SettingsRow("Account", onAccount, supportingText = "Name and signed-in email")
     if (isDriver) SettingsRow("Setup & Device", onSetupDevice, supportingText = "Connection, camera alignment, and notification readiness")
+    if (isDriver) SettingsRow("Monitoring Activity", onMonitoringActivity, supportingText = "Current monitoring status and detected signs")
     SettingsRow("History & Storage", onHistory, supportingText = "Automatic deletion and history retention on this phone")
     if (isDriver) SettingsRow("Monitoring Logs", onMonitoringLogs, supportingText = "Session timeline, sign values, alarm results and log deletion")
     SettingsRow("Notifications", onNotifications, supportingText = "Choose which interface updates are enabled")

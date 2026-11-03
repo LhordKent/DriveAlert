@@ -120,7 +120,7 @@ class PostAuthFlowTest {
     }
 
     @Test
-    fun driverHomeSeparatesMonitoringToggleFromActivityNavigation() {
+    fun driverHomeSeparatesMonitoringToggleFromCameraPreview() {
         var startCount = 0
         var stopCount = 0
         var activityCount = 0
@@ -143,7 +143,7 @@ class PostAuthFlowTest {
                     ),
                     onStartMonitoring = { selected -> accessoryMode = selected; startCount++; active.value = true },
                     onStopMonitoring = { stopCount++; active.value = false },
-                    onOpenMonitoringActivity = { activityCount++ },
+                    onPreviewCamera = { activityCount++ },
                     onSetupDevice = {},
                     onOpenAlerts = {},
                 )
@@ -154,7 +154,7 @@ class PostAuthFlowTest {
         composeRule.onNodeWithText("Face mask").performClick()
         composeRule.onNodeWithText("Start monitoring").performClick()
         composeRule.onNodeWithText("Stop Monitoring").assertIsDisplayed()
-        composeRule.onNodeWithText("Monitoring Activity").performClick()
+        composeRule.onNodeWithText("Preview Camera").performClick()
         composeRule.onNodeWithText("Stop Monitoring").performClick()
         composeRule.runOnIdle {
             assertEquals(1, startCount)
@@ -223,6 +223,48 @@ class PostAuthFlowTest {
         composeRule.onNodeWithText("Connected Drivers").assertIsDisplayed()
         composeRule.onNodeWithText("Requests", substring = true).performClick()
         composeRule.onNodeWithText("Requests to you").assertIsDisplayed()
+    }
+
+    @Test
+    fun homeCameraPreviewAndSettingsMonitoringActivityNavigateAndCapture() {
+        launchSignedIn(AuthenticationEntry.RESTORED)
+        composeRule.onNodeWithText("Continue to Home").performScrollTo().performClick()
+        composeRule.onNodeWithText("Preview Camera").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Monitoring Activity").assertCountEquals(0)
+        captureNavigationScreen("home")
+        composeRule.onNodeWithText("Preview Camera").performClick()
+        composeRule.onNodeWithText("Preview Camera").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Horizontal position").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Confirm Alignment").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Driver area").assertCountEquals(0)
+        captureNavigationScreen("camera-preview")
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.onNodeWithText("Setup & Device").performClick()
+        composeRule.onNodeWithText("Camera alignment").performScrollTo().performClick()
+        composeRule.onNodeWithText("Camera Alignment").assertIsDisplayed()
+        composeRule.onNodeWithText("Horizontal position").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNodeWithText("Monitoring Activity").performScrollTo().assertIsDisplayed()
+        captureNavigationScreen("settings")
+        composeRule.onNodeWithText("Monitoring Activity").performClick()
+        composeRule.onNodeWithText("Monitoring Activity").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.onNodeWithText("Driver Settings").assertIsDisplayed()
+        composeRule.onNodeWithText("Switch to Trusted Contact view").performScrollTo().performClick()
+        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onAllNodesWithText("Monitoring Activity").assertCountEquals(0)
+    }
+
+    private fun captureNavigationScreen(name: String) {
+        composeRule.waitForIdle()
+        // Allow the emulator to present the completed navigation transition.
+        android.os.SystemClock.sleep(600)
+        val device = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val output = java.io.File(context.getExternalFilesDir(null), "home-navigation-$name.png")
+        output.outputStream().use { device.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     private fun launchSignedIn(entry: AuthenticationEntry) {

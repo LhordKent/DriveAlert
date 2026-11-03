@@ -337,6 +337,7 @@ internal fun LiveCameraPreview(
     region: DriverRegion = DriverRegion.DEFAULT,
     tracking: DriverTrackingState = DriverTrackingState(),
     maxPreviewHeight: Dp? = null,
+    showOverlays: Boolean = true,
 ) {
     // Collect the high-frequency image flow only inside the preview. Detection,
     // navigation and the rest of the screen no longer recompose for every JPEG.
@@ -356,7 +357,7 @@ internal fun LiveCameraPreview(
             // can therefore finish drawing it without briefly showing the placeholder.
             if (bitmap != null && !bitmap.isRecycled) {
                 Image(bitmap.asImageBitmap(), "Live DriveAlert camera preview", Modifier.matchParentSize(), contentScale = ContentScale.Fit)
-                Canvas(Modifier.matchParentSize()) {
+                if (showOverlays) Canvas(Modifier.matchParentSize()) {
                     fun outline(box: DriverRegion, color: Color, stroke: Float) {
                         drawRect(color, Offset((box.left * size.width).toFloat(), (box.top * size.height).toFloat()),
                             Size((box.width * size.width).toFloat(), (box.height * size.height).toFloat()), style = Stroke(stroke))

@@ -244,7 +244,7 @@ fun DriverHomeScreen(
     vision: DriverVisionUiState = DriverVisionUiState(),
     onStartMonitoring: (DriverAccessoryMode) -> Unit,
     onStopMonitoring: () -> Unit,
-    onOpenMonitoringActivity: () -> Unit,
+    onPreviewCamera: () -> Unit,
     onSetupDevice: () -> Unit,
     onOpenAlerts: () -> Unit,
 ) {
@@ -316,7 +316,7 @@ fun DriverHomeScreen(
                 Text(vision.accessoryMode.monitoringSummary, style = MaterialTheme.typography.bodySmall, color = TextMuted)
                 Spacer(Modifier.height(10.dp))
             }
-            SecondaryButton("Monitoring Activity", onOpenMonitoringActivity)
+            SecondaryButton("Preview Camera", onPreviewCamera)
             Spacer(Modifier.height(10.dp))
             SecondaryButton("Setup & Device", onSetupDevice)
         }
