@@ -117,12 +117,23 @@ class DriverFaceSelector(private val acquisitionMs: Long = 1_000, private val ca
     }
 
     private fun continuous(old: DriverRegion, next: DriverRegion): Boolean {
-        val overlap = old.intersection(next) / (old.area + next.area - old.intersection(next))
+        // Head turns change the landmark box's size as well as its position.
+        // Overlap relative to the smaller box tolerates that change without
+        // allowing an unrelated, non-overlapping detection to inherit the lock.
+        val overlap = old.intersection(next) / min(old.area, next.area)
         val displacement = hypot(old.centerX - next.centerX, old.centerY - next.centerY)
-        return overlap >= 0.25 && displacement <= max(old.width, old.height) * 0.45 && next.area / old.area in 0.5..2.0
+        return overlap >= MIN_CONTINUITY_OVERLAP &&
+            displacement <= max(old.width, old.height) * MAX_CENTER_SHIFT &&
+            next.area / old.area in MIN_AREA_RATIO..MAX_AREA_RATIO
     }
 
     companion object {
+        // Provisional spatial association limits, not face-identity verification.
+        // Region eligibility and competing-face checks still apply every frame.
+        private const val MIN_CONTINUITY_OVERLAP = 0.35
+        private const val MAX_CENTER_SHIFT = 0.8
+        private const val MIN_AREA_RATIO = 0.4
+        private const val MAX_AREA_RATIO = 2.5
         // The serial attribute pass takes ~300 ms on the target phone, on top of
         // landmarks and camera cadence. 500 ms caused valid work to reset its own
         // target. Bound continuity and result age to the lighting freshness window.

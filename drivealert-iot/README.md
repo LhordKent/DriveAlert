@@ -85,6 +85,11 @@ Rebooting avoids keeping BLE, camera, Wi-Fi, and the HTTP stream allocated toget
 
 ## Build verification
 
+The driver-movement advisory adds visibility intent `MOVEMENT` and recording
+`/mp3/0015.mp3`. Movement analysis stays on Android. See
+[deployment instructions](deployment/README.md) for the one-time firmware update,
+packaged recording, host-test commands and quick hardware checks.
+
 Required toolchain:
 
 - Arduino IDE/CLI

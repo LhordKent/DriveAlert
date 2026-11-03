@@ -23,6 +23,22 @@ No CameraX dependency, phone-camera source, `PreviewView`, `ImageAnalysis`, or A
 
 Inference runs on a dedicated single-thread executor. If an inference is already active, a newly submitted stale frame is released and dropped. Closing the processor queues MediaPipe resource closure on the same executor.
 
+MediaPipe and FaceAttribNet initialize lazily on that executor when the first
+camera frame is processed. App launch, sign-in, alignment configuration and closing
+an unused processor do not load either model. Initialization therefore does not
+block the main UI thread; the first camera assessment waits for model readiness.
+
+## Driver movement continuity
+
+Driver selection allows overlapping head movement inside the configured driver
+area: successive boxes must share at least 35% of the smaller box, center shift
+must be at most 80% of the previous box's larger dimension, and the area ratio
+must remain between 0.4 and 2.5. These are provisional spatial association
+defaults. Missing faces, competing faces, out-of-area detections, non-overlapping
+jumps and stale frames still break tracking and temporal evidence. This is not
+identity verification. Automated movement tests do not validate real-camera
+noise tolerance or every head turn.
+
 ## FaceAttribNet lower-face visibility
 
 The Android processor also packages Qualcomm's universal W8A8 FaceAttribNet
@@ -84,9 +100,71 @@ Model provenance and tensor metadata are recorded in
 
 ## Calibration and event boundary
 
+Each calibration step waits in READY until the user acknowledges its instructions
+with **Okay**. The UI gives a three-second preparation countdown, then requests
+collection with the expected phase and navigation revision. A stale acknowledgment
+cannot start a step after a reset or a different step. Lighting/tracking pauses
+still require fresh usable observations before collection can start.
+
+**Go Back to Previous Step** clears that previous step and all later measurements,
+retaining earlier completed steps. It is disabled on the first step. **Redo All
+Steps**, directly below it, requires confirmation and resets the attempt to normal
+driving posture. Previously persisted calibration is replaced only on successful
+completion, as before. The calibration revision is in-memory UI coordination;
+there is no database migration or durable acknowledgment log.
+
+Instructions explicitly use the driver's normal posture looking ahead toward the
+road, while parked, rather than asking the driver to turn toward the camera. Eye,
+mouth and head-down instructions are shown before and during their respective steps.
+
+Transient measurement/lighting freshness timeouts pause evidence without
+reconfiguring the face selector or declaring a new driver. They break calibration
+timing continuity and drowsiness candidates, but preserve valid calibration time
+and completed phases. True target changes, realignment and disconnects still
+invalidate unfinished calibration as before.
+
+Missing/stale lighting samples never enable assessment. A new explicitly usable
+sample may restore a previously usable lighting decision within two seconds of
+the previous sample, avoiding repeated recovery loops during brief processing
+delays. Initial lighting, actual poor pixels, borderline pixels after a gap and
+longer interruptions still require the normal two-second recovery. The one-second
+sample freshness bound and all pixel thresholds remain unchanged.
+
 Calibration follows `NEUTRAL -> EYES_CLOSED -> MOUTH_OPEN -> HEAD_DOWN`. Each phase accumulates five seconds of valid contiguous intervals. Invalid observations break timing continuity and are not stored as zero. Completed results are persisted in Room per Firebase Driver ID; history is retained and one record is active per Driver for offline monitoring.
 
 `ConfirmedSignEvent` is the output boundary for later warning-stage work. It includes sign type, monotonic confirmation timestamp, qualifying duration, measurement, threshold, calibration ID/version, and optional temporal context.
+
+## Driver movement advisory
+
+`DriverMovementTracker` runs only in active monitoring with fresh selected-driver
+observations, confirmed alignment and usable lighting. It reuses numerical landmarks
+at most five times per second; no additional inference or image history is needed.
+The left/right eye and mouth groups match the existing measurement landmarks.
+Median landmark displacement within any group must reach 2% of reference face
+width in two consecutive samples at least 200 ms apart. Coordinates are in pixels;
+whole-face position, rotation and size changes deliberately count as movement.
+The reference is the coordinate-wise median of three samples and is retained until
+qualifying movement, allowing gradual changes to accumulate.
+
+Both inactivity timers start at the first eligible observation, then reset on each
+qualifying movement. At 10 seconds the monitoring screen shows **No movement
+detected**; at 25 seconds total Android requests `issue=MOVEMENT` once per episode.
+Drowsiness signs, existing visibility guidance and in-flight speaker requests have
+priority. A suppressed advisory may be sent after those conditions clear. A failed
+request is recorded in memory and is not automatically retried.
+
+Tracking loss, invalid or stale input, poor lighting, target changes, realignment,
+disconnects and session termination clear movement evidence and timers. Restored
+observations start fresh. This tracker never pauses drowsiness assessment, changes
+calibration, creates drowsiness history or changes warning-stage counts.
+
+These are configurable **provisional engineering defaults**, not validated liveness
+thresholds. Moving photographs and replayed videos can pass. Stationary closed-eye
+photographs can still trigger drowsiness alerts by design; the movement advisory is
+separate and does not authenticate the input. Camera-noise tolerance and physical
+speaker playback remain hardware acceptance tasks.
+
+See `drivealert-iot/deployment/README.md` for the firmware update and track 15.
 
 ## Integration boundaries
 

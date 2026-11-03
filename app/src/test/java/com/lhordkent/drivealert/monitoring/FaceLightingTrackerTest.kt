@@ -49,14 +49,14 @@ class FaceLightingTrackerTest {
     }
 
     @Test
-    fun `stale gaps missing samples and reset discard previous usability`() {
+    fun `stale samples pause and only fresh good samples can restore recent usability`() {
         assertFalse(readyTracker().update(5_000, sample(5_000)).allowsAssessment(5_000))
         val tracker = readyTracker()
         val usable = tracker.update(2_000, sample(2_000))
         assertTrue(usable.allowsAssessment(3_000))
         assertFalse(usable.allowsAssessment(3_001))
         assertEquals(LightingQuality.UNKNOWN, tracker.update(3_001, sample(2_000)).quality)
-        assertFalse(tracker.update(3_200, sample(3_200)).allowsAssessment(3_200))
+        assertTrue(tracker.update(3_200, sample(3_200)).allowsAssessment(3_200))
         tracker.reset()
         assertEquals(LightingQuality.UNKNOWN, tracker.update(3_400, null).quality)
     }
@@ -69,6 +69,40 @@ class FaceLightingTrackerTest {
         tracker.update(900, first)
         assertFalse(tracker.update(1_001, first).allowsAssessment(1_001))
         assertFalse(tracker.update(2_200, sample(2_200)).allowsAssessment(2_200))
+    }
+
+    @Test fun `brief missing sample pauses without repeating two second recovery for unchanged good lighting`() {
+        val tracker = readyTracker()
+        assertFalse(tracker.update(2_200, null).allowsAssessment(2_200))
+        assertFalse(tracker.update(2_400, sample(2_000)).allowsAssessment(2_400))
+        assertTrue(tracker.update(2_600, sample(2_600)).allowsAssessment(2_600))
+    }
+
+    @Test fun `freshness gaps do not make a stable well lit face restart recovery forever`() {
+        val tracker = readyTracker()
+        for (time in listOf(3_200L, 4_400L, 5_600L, 6_800L)) {
+            assertFalse(tracker.update(time - 100, null).allowsAssessment(time - 100))
+            assertTrue(tracker.update(time, sample(time)).allowsAssessment(time))
+        }
+    }
+
+    @Test fun `dark or borderline pixels after a sample gap cannot use the quick resume path`() {
+        for (luminance in listOf(20.0, 50.0)) {
+            val tracker = readyTracker()
+            tracker.update(2_200, null)
+            assertFalse(tracker.update(2_400, sample(2_400, luminance, 35.0)).allowsAssessment(2_400))
+            for (time in 2_600L..4_400L step 200) assertFalse(tracker.update(time, sample(time)).allowsAssessment(time))
+            assertTrue(tracker.update(4_600, sample(4_600)).allowsAssessment(4_600))
+        }
+    }
+
+    @Test fun `missing samples cannot bypass real darkness recovery or explicit target reset`() {
+        val tracker = readyTracker()
+        tracker.update(2_200, sample(2_200, 20.0, 0.0))
+        tracker.update(2_400, null)
+        assertFalse(tracker.update(2_600, sample(2_600)).allowsAssessment(2_600))
+        tracker.reset()
+        assertFalse(tracker.update(3_000, sample(3_000)).allowsAssessment(3_000))
     }
 
     @Test

@@ -78,8 +78,8 @@ Accept: application/json
 issue=EYES&volume=MEDIUM
 ```
 
-The body contains exactly `issue` and `volume`. `issue` is `EYES`, `MOUTH`, `FACE`, or
-`LIGHT`; volume uses the same identifiers as warning commands. Android sends the
+The body contains exactly `issue` and `volume`. `issue` is `EYES`, `MOUTH`, `FACE`,
+`LIGHT`, or `MOVEMENT`; volume uses the same identifiers as warning commands. For visibility loss, Android sends the
 first request after three seconds of sustained visibility loss and repeats it every 30 seconds while
 the condition remains active. The warning clears after two seconds of restored
 visibility. `LIGHT` uses a dedicated recording and cannot be acknowledged away.
@@ -102,6 +102,7 @@ The endpoint uses the same response contract as
 | `MOUTH` | `/mp3/0012.mp3` | Mouth blocked. Remove the obstruction. |
 | `FACE` | `/mp3/0013.mp3` | Face not visible. Restore camera view. |
 | `LIGHT` | `/mp3/0014.mp3` | Insufficient lighting. Restore camera visibility. |
+| `MOVEMENT` | `/mp3/0015.mp3` | Driver movement not detected. Please check the camera view when safe. |
 
 | Logical volume | DFPlayer volume |
 |---|---:|
@@ -118,6 +119,31 @@ visibility command may be replaced by a drowsiness warning; visibility speech
 never replaces a pending warning. The four speech MP3 files must be created and
 copied to the DFPlayer microSD card before hardware testing.
 
+## Driver movement advisory
+
+Android independently tracks movement during active monitoring. At 10 seconds
+without qualifying movement it displays **No movement detected**; at 25 seconds
+total it requests `issue=MOVEMENT` once per uninterrupted inactivity episode.
+Movement clears the status and rearms the request. Unlike visibility loss, movement
+inactivity never pauses drowsiness assessment or changes warning-stage history.
+
+Confirmed drowsiness signs, visibility issues and in-flight warning requests defer
+movement speech. A deferred request is eligible once those conditions clear.
+Failures (including an older firmware's HTTP 400) are recorded without retries.
+Firmware accepts movement only while the playback reservation and queue are idle;
+pending movement can be replaced by normal visibility guidance or drowsiness
+warnings. Movement queued for 500 ms is discarded, preventing stale speech.
+
+Track 15 is included in `deployment/mp3/0015.mp3`. Its playback reservation is
+5,934 ms, covering the 5.433469387755102-second MP3 duration rounded up plus 500 ms. This is a media-based
+estimate; UART remains transmit-only. If replacing the recording, remeasure the
+MP3 duration and update `MOVEMENT_PLAYBACK_GUARD_MS` before flashing.
+
+Install the updated firmware and track 15 before using the new audio. The camera,
+Wi-Fi provisioning and existing tracks are unchanged. See `deployment/README.md`.
+The movement and timing thresholds are provisional engineering choices; moving
+photos and video replays can pass. This feature does not establish verified liveness.
+
 ## Insufficient-lighting protection
 
 Android samples the detected face's bounding region from the inference bitmap at
@@ -131,6 +157,11 @@ scales. These are image-quality heuristics, **not MediaPipe confidence scores**.
   the previous decision.
 - Unknown, invalid crops, missing samples, or readings older than one second
   cannot enable assessment. Initial usable readings also require two seconds.
+- A temporary sample gap does not reconfigure Android's face selector. A NEW,
+  explicitly usable sample within two seconds of a previously usable sample may
+  resume assessment immediately. Missing/cached samples never enable it; darkness,
+  borderline pixels after a gap, longer gaps and target changes still require the
+  normal recovery. This is Android-only and needs no additional firmware flash.
 - Gated frames preserve actual face-detected status, produce no drowsiness events,
   reset candidate evidence, and do not advance calibration's valid time. Camera
   streaming, foreground monitoring, saved calibration and alert history continue.

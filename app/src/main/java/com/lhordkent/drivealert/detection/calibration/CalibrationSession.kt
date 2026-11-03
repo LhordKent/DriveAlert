@@ -25,6 +25,7 @@ class CalibrationSession(
     private var lastValidTimestampMs: Long? = null
     private var neutralPitch: Double? = null
     private var downwardPitchMultiplier: Double? = null
+    private var revision = 0L
 
     var status: CalibrationStatus = CalibrationStatus.READY
         private set
@@ -32,6 +33,7 @@ class CalibrationSession(
         private set
 
     fun start() {
+        revision++
         samples.clear()
         neutralPitch = null
         downwardPitchMultiplier = null
@@ -47,17 +49,15 @@ class CalibrationSession(
         resetPhaseProgress()
     }
 
-    fun repeatPhase() {
-        if (phase == CalibrationPhase.COMPLETE) return
-        samples.remove(phase)
-        when (phase) {
-            CalibrationPhase.NEUTRAL -> {
-                neutralPitch = null
-                downwardPitchMultiplier = null
-            }
-            CalibrationPhase.HEAD_DOWN -> downwardPitchMultiplier = null
-            else -> Unit
-        }
+    fun previousPhase() {
+        val index = phaseOrder.indexOf(phase)
+        if (index <= 0) return
+        val previousIndex = index - 1
+        phaseOrder.drop(previousIndex).forEach(samples::remove)
+        phase = phaseOrder[previousIndex]
+        if (phase == CalibrationPhase.NEUTRAL) neutralPitch = null
+        downwardPitchMultiplier = null
+        revision++
         status = CalibrationStatus.READY
         resetPhaseProgress()
     }
@@ -96,6 +96,7 @@ class CalibrationSession(
             validDurationMs = validElapsedMs,
             requiredDurationMs = requiredDurationMs,
             validSampleCount = counts.minOrNull() ?: 0,
+            revision = revision,
         )
     }
 
@@ -130,6 +131,7 @@ class CalibrationSession(
             }
             val medianDelta = median(rawDeltas)
             if (medianDelta == 0.0) {
+                revision++
                 status = CalibrationStatus.READY
                 resetPhaseProgress()
                 return

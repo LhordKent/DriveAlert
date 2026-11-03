@@ -28,26 +28,38 @@ class FaceLightingTracker(
     private val usableDarkThreshold: Double = 35.0,
     private val usableContrastThreshold: Double = 40.0,
     private val recoveryMs: Long = 2_000L,
+    private val resumeWindowMs: Long = 2_000L,
 ) {
     private var latest = FaceLightingAssessment()
     private var usableSinceMs: Long? = null
+    private var interrupted = false
 
     fun update(nowMs: Long, sample: FaceLightingSample?): FaceLightingAssessment {
         if (sample == null || nowMs - sample.timestampMs !in 0L..FaceLightingAssessment.FRESHNESS_MS) {
-            reset()
-            return latest
+            // Pause immediately, but do not mistake a brief sample gap for darkness.
+            // Only a NEW, explicitly usable sample can restore a recent usable decision.
+            interrupted = true
+            usableSinceMs = null
+            return FaceLightingAssessment()
         }
         require(sample.luminance.isFinite() && sample.luminance in 0.0..255.0)
         require(sample.contrast.isFinite() && sample.contrast in 0.0..255.0)
         val previousTimestamp = latest.timestampMs
-        if (previousTimestamp != null && sample.timestampMs < previousTimestamp) return latest
-        if (previousTimestamp != null && sample.timestampMs - previousTimestamp > FaceLightingAssessment.FRESHNESS_MS) reset()
-        if (sample.timestampMs == latest.timestampMs) return latest
+        if (previousTimestamp != null && sample.timestampMs <= previousTimestamp) {
+            return if (interrupted) FaceLightingAssessment() else latest
+        }
 
         val poor = sample.luminance < severeDarkThreshold ||
             sample.luminance < darkThreshold && sample.contrast < poorContrastThreshold
         val usable = sample.luminance >= brightThreshold ||
             sample.luminance >= usableDarkThreshold && sample.contrast >= usableContrastThreshold
+        val gap = previousTimestamp?.let { sample.timestampMs - it }
+        if (interrupted || gap != null && gap > FaceLightingAssessment.FRESHNESS_MS) {
+            val canResume = latest.quality == LightingQuality.USABLE && usable && gap != null && gap <= resumeWindowMs
+            if (!canResume) reset()
+            usableSinceMs = null
+        }
+        interrupted = false
         var quality = latest.quality
         when {
             poor -> {
@@ -70,6 +82,7 @@ class FaceLightingTracker(
     fun reset() {
         latest = FaceLightingAssessment()
         usableSinceMs = null
+        interrupted = false
     }
 }
 

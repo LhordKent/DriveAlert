@@ -34,6 +34,7 @@ import com.lhordkent.drivealert.BuildConfig
 import com.lhordkent.drivealert.detection.model.FaceAttributeResult
 import com.lhordkent.drivealert.detection.model.MonitoringDetectionResult
 import com.lhordkent.drivealert.monitoring.ActiveMonitoringState
+import com.lhordkent.drivealert.monitoring.DriverMovementStatus
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.monitoring.DriverAccessoryMode
 import com.lhordkent.drivealert.monitoring.CameraVisibilityPresentation
@@ -158,6 +159,44 @@ fun MonitoringPreviewScreen(
                 KeyValueRow("Face luminance", lighting?.luminance.metricText())
                 KeyValueRow("Face contrast", lighting?.contrast.metricText())
                 KeyValueRow("Lighting quality", lighting?.quality?.name ?: "Unknown")
+            }
+        }
+        if (monitoring.isActive && vision != null) {
+            Spacer(Modifier.height(16.dp))
+            GroupSurface {
+                val movement = vision.movement
+                Text("Driver movement", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    when (movement.status) {
+                        DriverMovementStatus.UNAVAILABLE -> "Movement check unavailable"
+                        DriverMovementStatus.OBSERVING -> "Checking movement"
+                        DriverMovementStatus.RECENT_MOVEMENT -> "Movement detected"
+                        DriverMovementStatus.NO_MOVEMENT -> "No movement detected"
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = TextPrimary,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    when (movement.status) {
+                        DriverMovementStatus.UNAVAILABLE -> "Waiting for a clear camera view of the driver."
+                        DriverMovementStatus.NO_MOVEMENT -> "No qualifying face movement detected for 10 seconds. Drowsiness monitoring continues."
+                        else -> "Checking face movement. Drowsiness monitoring continues."
+                    },
+                    style = MaterialTheme.typography.bodyMedium, color = TextSecondary,
+                )
+                if (movement.speechDelivery != WarningDeliveryStatus.NOT_REQUESTED) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        when (movement.speechDelivery) {
+                            WarningDeliveryStatus.DELIVERED -> "Movement advisory queued on the onboard speaker."
+                            WarningDeliveryStatus.FAILED -> "Movement advisory could not be sent to the onboard speaker."
+                            else -> "Sending movement advisory to the onboard speaker."
+                        },
+                        style = MaterialTheme.typography.bodyMedium, color = TextSecondary,
+                    )
+                }
             }
         }
         if (activeWarningStage != null) {

@@ -242,7 +242,7 @@ fun DriveAlertApp() {
         onDriverRegionChange = visionViewModel::updateDriverRegion,
         onStartCalibration = visionViewModel::startCalibration,
         onBeginCalibrationPhase = visionViewModel::beginCalibrationPhase,
-        onRepeatCalibrationPhase = visionViewModel::repeatCalibrationPhase,
+        onPreviousCalibrationPhase = visionViewModel::previousCalibrationPhase,
         onCancelCalibration = visionViewModel::cancelCalibration,
         onStartMonitoring = { sound, volume, notificationsEnabled, accessoryMode ->
             visionViewModel.startMonitoring(sound, volume, notificationsEnabled, accessoryMode)
@@ -348,8 +348,8 @@ fun DriveAlertApp(
     onConfirmAlignment: () -> Unit = {},
     onDriverRegionChange: (com.lhordkent.drivealert.detection.face.DriverRegion) -> Unit = {},
     onStartCalibration: () -> Unit = {},
-    onBeginCalibrationPhase: () -> Unit = {},
-    onRepeatCalibrationPhase: () -> Unit = {},
+    onBeginCalibrationPhase: (com.lhordkent.drivealert.detection.model.CalibrationProgress) -> Unit = {},
+    onPreviousCalibrationPhase: () -> Unit = {},
     onCancelCalibration: () -> Unit = {},
     onStartMonitoring: (com.lhordkent.drivealert.postauth.WarningSound, com.lhordkent.drivealert.postauth.PreferredVolume, Boolean, DriverAccessoryMode) -> Unit = { _, _, _, _ -> },
     onContinueDegradedMonitoring: () -> Unit = {},
@@ -487,7 +487,7 @@ fun DriveAlertApp(
                     onStartVision = onStartVision,
                     onStartCalibration = onStartCalibration,
                     onBeginPhase = onBeginCalibrationPhase,
-                    onRepeatPhase = onRepeatCalibrationPhase,
+                    onPreviousPhase = onPreviousCalibrationPhase,
                     onCancel = onCancelCalibration,
                     onBack = navController::popBackStack,
                 )

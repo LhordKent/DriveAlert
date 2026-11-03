@@ -1,7 +1,6 @@
 package com.lhordkent.drivealert.device
 
 import com.lhordkent.drivealert.data.repository.ProvisionedDevice
-import com.lhordkent.drivealert.monitoring.VisibilityIssue
 import com.lhordkent.drivealert.monitoring.VisibilityOutputCommand
 import com.lhordkent.drivealert.monitoring.VisibilityOutputGateway
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
@@ -71,14 +70,7 @@ class HttpVisibilityOutputGateway internal constructor(
 
 internal fun VisibilityOutputCommand.toVisibilityWirePayload(): String = buildString {
     append("issue=")
-    append(
-        when (issue) {
-            VisibilityIssue.EYE_REGION_OBSTRUCTED -> "EYES"
-            VisibilityIssue.LOWER_FACE_OBSTRUCTED -> "MOUTH"
-            VisibilityIssue.BOTH_REGIONS_OBSTRUCTED, VisibilityIssue.FACE_UNAVAILABLE -> "FACE"
-            VisibilityIssue.INSUFFICIENT_LIGHTING -> "LIGHT"
-        },
-    )
+    append(intent.name)
     append("&volume=")
     append(volume.name)
 }

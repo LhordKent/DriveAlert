@@ -24,6 +24,7 @@ enum class VisibilityIssue : uint8_t {
   MOUTH,
   FACE,
   LIGHT,
+  MOVEMENT,
 };
 
 enum class State : uint8_t {
@@ -63,6 +64,9 @@ constexpr uint16_t EYES_BLOCKED_TRACK = 11;
 constexpr uint16_t MOUTH_BLOCKED_TRACK = 12;
 constexpr uint16_t FACE_NOT_VISIBLE_TRACK = 13;
 constexpr uint16_t INSUFFICIENT_LIGHTING_TRACK = 14;
+constexpr uint16_t NO_MOVEMENT_TRACK = 15;
+// Packaged MP3 duration rounded up, plus 500 ms. See deployment/README.md.
+constexpr unsigned long MOVEMENT_PLAYBACK_GUARD_MS = 5934;
 
 constexpr uint8_t MINIMUM_VOLUME = 26;
 constexpr uint8_t MEDIUM_VOLUME = 28;
@@ -95,6 +99,7 @@ constexpr uint16_t trackForVisibilityIssue(VisibilityIssue issue) {
        : issue == VisibilityIssue::MOUTH ? MOUTH_BLOCKED_TRACK
        : issue == VisibilityIssue::FACE ? FACE_NOT_VISIBLE_TRACK
        : issue == VisibilityIssue::LIGHT ? INSUFFICIENT_LIGHTING_TRACK
+       : issue == VisibilityIssue::MOVEMENT ? NO_MOVEMENT_TRACK
        : 0;
 }
 

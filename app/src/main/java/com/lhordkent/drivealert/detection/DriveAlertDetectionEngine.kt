@@ -37,10 +37,15 @@ class DriveAlertDetectionEngine(
     fun beginCalibrationPhase() = calibration.beginPhase()
 
     @Synchronized
-    fun repeatCalibrationPhase() = calibration.repeatPhase()
+    fun previousCalibrationPhase() {
+        if (activeCalibration == null) calibration.previousPhase()
+    }
 
     @Synchronized
     fun calibrationResult(): CalibrationResult? = activeCalibration
+
+    @Synchronized
+    fun calibrationProgress() = calibration.progress()
 
     @Synchronized
     fun activatePersistedCalibration(result: CalibrationResult) {

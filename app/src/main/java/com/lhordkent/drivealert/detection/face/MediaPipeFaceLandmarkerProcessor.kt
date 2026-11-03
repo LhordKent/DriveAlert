@@ -38,7 +38,25 @@ class MediaPipeFaceLandmarkerProcessor(
     }
     private val busy = AtomicBoolean(false)
     private val closed = AtomicBoolean(false)
-    private val landmarker: FaceLandmarker
+    // Accessed only by the executor, including closure. Merely opening the app,
+    // configuring alignment, or closing an unused processor must not load native models.
+    private val landmarker = lazy(LazyThreadSafetyMode.NONE) {
+        val baseOptions = BaseOptions.builder()
+            .setModelAssetPath(modelAssetPath)
+            .build()
+        val options = FaceLandmarker.FaceLandmarkerOptions.builder()
+            .setBaseOptions(baseOptions)
+            .setRunningMode(RunningMode.VIDEO)
+            .setNumFaces(maxFaces)
+            .setOutputFaceBlendshapes(false)
+            .setOutputFacialTransformationMatrixes(true)
+            .build()
+        val model = FaceLandmarker.createFromOptions(context.applicationContext, options)
+        runCatching { FaceAttribNetClassifier(context.applicationContext) }
+            .onSuccess { attributeClassifier = it }
+            .onFailure { attributeFailureReason = it.message ?: "FaceAttribNet could not be initialized." }
+        model
+    }
     private data class Configuration(val region: DriverRegion?, val revision: Long)
     @Volatile private var configuration = Configuration(null, 0)
     private var appliedRevision = -1L
@@ -67,20 +85,6 @@ class MediaPipeFaceLandmarkerProcessor(
 
     init {
         require(maxFaces >= 2) { "Driver selection requires detection of competing faces." }
-        val baseOptions = BaseOptions.builder()
-            .setModelAssetPath(modelAssetPath)
-            .build()
-        val options = FaceLandmarker.FaceLandmarkerOptions.builder()
-            .setBaseOptions(baseOptions)
-            .setRunningMode(RunningMode.VIDEO)
-            .setNumFaces(maxFaces)
-            .setOutputFaceBlendshapes(false)
-            .setOutputFacialTransformationMatrixes(true)
-            .build()
-        landmarker = FaceLandmarker.createFromOptions(context.applicationContext, options)
-        runCatching { FaceAttribNetClassifier(context.applicationContext) }
-            .onSuccess { attributeClassifier = it }
-            .onFailure { attributeFailureReason = it.message ?: "FaceAttribNet could not be initialized." }
     }
 
     /**
@@ -146,7 +150,7 @@ class MediaPipeFaceLandmarkerProcessor(
         }
         val image = BitmapImageBuilder(bitmap).build()
         try {
-            val result = landmarker.detectForVideo(image, timestampMs)
+            val result = landmarker.value.detectForVideo(image, timestampMs)
             val matrices = result.facialTransformationMatrixes().orElse(emptyList())
             val candidates = result.faceLandmarks().mapIndexed { index, points ->
                 FaceObservation(timestampMs, width, height,
@@ -203,7 +207,7 @@ class MediaPipeFaceLandmarkerProcessor(
         executor.execute {
             attributeClassifier?.close()
             attributeClassifier = null
-            landmarker.close()
+            if (landmarker.isInitialized()) landmarker.value.close()
         }
         executor.shutdown()
     }

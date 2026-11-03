@@ -32,6 +32,7 @@ struct PlaybackCommand {
   Volume volume;
   bool highPriority;
   bool repeat;
+  bool movement;
   unsigned long queuedAtMs;
 };
 PlaybackCommand pendingCommand = {};
@@ -50,10 +51,11 @@ bool takePending(PlaybackCommand *command) {
     *command = pendingCommand;
     commandPending = false;
     const unsigned long now = millis();
-    available = !command->repeat || !elapsed(now, command->queuedAtMs, REMINDER_MAX_QUEUE_AGE_MS);
+    available = (!command->repeat && !command->movement) || !elapsed(now, command->queuedAtMs, REMINDER_MAX_QUEUE_AGE_MS);
     if (available) {
       playbackStartedAtMs = now;
-      playbackGuardMs = command->track >= EYES_BLOCKED_TRACK ? VISIBILITY_PLAYBACK_GUARD_MS
+      playbackGuardMs = command->track == NO_MOVEMENT_TRACK ? MOVEMENT_PLAYBACK_GUARD_MS
+          : command->track >= EYES_BLOCKED_TRACK ? VISIBILITY_PLAYBACK_GUARD_MS
           : command->track >= DIGITAL_BEEP_STAGE_3_TRACK ? MIXED_PLAYBACK_GUARD_MS
           : NORMAL_PLAYBACK_GUARD_MS;
     }
@@ -62,13 +64,15 @@ bool takePending(PlaybackCommand *command) {
   return available;
 }
 
-bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority, bool repeat = false) {
+bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority, bool repeat = false, bool movement = false) {
   if (!isAvailable() || track == 0 || valueForVolume(volume) == 0) return false;
   bool accepted = false;
   portENTER_CRITICAL(&commandMux);
-  const bool repeatAllowed = !repeat || (!commandPending && elapsed(millis(), playbackStartedAtMs, playbackGuardMs));
-  if (repeatAllowed && (!commandPending || (highPriority && !pendingCommand.highPriority))) {
-    pendingCommand = {track, volume, highPriority, repeat, millis()};
+  const bool idleRequired = repeat || movement;
+  const bool replacesMovement = !movement && commandPending && pendingCommand.movement;
+  const bool repeatAllowed = !idleRequired || ((!commandPending || replacesMovement) && elapsed(millis(), playbackStartedAtMs, playbackGuardMs));
+  if (repeatAllowed && (!commandPending || (highPriority && !pendingCommand.highPriority) || replacesMovement)) {
+    pendingCommand = {track, volume, highPriority, repeat, movement, millis()};
     commandPending = true;
     accepted = true;
   }
@@ -104,6 +108,7 @@ static_assert(trackForVisibilityIssue(VisibilityIssue::EYES) == 11, "Eye obstruc
 static_assert(trackForVisibilityIssue(VisibilityIssue::MOUTH) == 12, "Mouth obstruction track changed");
 static_assert(trackForVisibilityIssue(VisibilityIssue::FACE) == 13, "Face visibility track changed");
 static_assert(trackForVisibilityIssue(VisibilityIssue::LIGHT) == 14, "Insufficient lighting track changed");
+static_assert(trackForVisibilityIssue(VisibilityIssue::MOVEMENT) == 15, "Movement track changed");
 
 void begin() {
   // This is the physically verified one-way UART configuration. Initialization
@@ -192,6 +197,7 @@ bool parseVisibilityIssue(const char *value, VisibilityIssue *issue) {
   else if (!strcmp(value, "MOUTH")) *issue = VisibilityIssue::MOUTH;
   else if (!strcmp(value, "FACE")) *issue = VisibilityIssue::FACE;
   else if (!strcmp(value, "LIGHT")) *issue = VisibilityIssue::LIGHT;
+  else if (!strcmp(value, "MOVEMENT")) *issue = VisibilityIssue::MOVEMENT;
   else return false;
   return true;
 }
@@ -211,7 +217,8 @@ bool enqueue(const Command &command) {
 
 bool enqueue(const VisibilityCommand &command) {
   if (!isValid(command)) return false;
-  return enqueuePlayback(trackForVisibilityIssue(command.issue), command.volume, false);
+  return enqueuePlayback(trackForVisibilityIssue(command.issue), command.volume, false, false,
+                         command.issue == VisibilityIssue::MOVEMENT);
 }
 
 }  // namespace WarningOutput

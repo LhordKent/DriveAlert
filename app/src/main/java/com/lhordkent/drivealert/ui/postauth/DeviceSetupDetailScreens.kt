@@ -35,6 +35,16 @@ import com.lhordkent.drivealert.detection.face.DriverTrackingState
 import com.lhordkent.drivealert.ui.theme.Success
 import com.lhordkent.drivealert.ui.theme.Info
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -115,7 +125,7 @@ fun CameraAlignmentScreen(
     }) {
         Text("Position the camera", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
-        Text("Keep the full face visible, look forward, and keep the camera mount steady.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text("Sit in your normal driving posture and look ahead toward the road, rather than turning toward the camera. Position the camera so it can see your face, and keep its mount steady.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(20.dp))
         Spacer(Modifier.height(18.dp))
         Text("Driver area", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
@@ -166,17 +176,62 @@ fun CalibrationScreen(
     previewFrames: StateFlow<SharedBitmapFrame?>? = null,
     onStartVision: () -> Unit,
     onStartCalibration: () -> Unit,
-    onBeginPhase: () -> Unit,
-    onRepeatPhase: () -> Unit,
+    onBeginPhase: (CalibrationProgress) -> Unit,
+    onPreviousPhase: () -> Unit,
     onCancel: () -> Unit,
     onBack: () -> Unit,
 ) {
     androidx.compose.runtime.LaunchedEffect(Unit) { onStartVision() }
     val progress = vision.calibrationProgress
+    val phase = progress?.phase ?: CalibrationPhase.NEUTRAL
+    val canStart = vision.alignmentConfirmed && vision.streamState == StreamConnectionState.CONNECTED &&
+        vision.lighting.quality == LightingQuality.USABLE && vision.driverTracking.locked && !vision.monitoring.isActive
+    var acknowledged by remember(phase, progress?.revision, vision.calibrationInProgress, vision.driverTracking.generation) { mutableStateOf(false) }
+    var countdown by remember(phase, progress?.revision, vision.calibrationInProgress, vision.driverTracking.generation) { mutableStateOf(3) }
+    var confirmRedoAll by remember { mutableStateOf(false) }
+    LaunchedEffect(acknowledged, phase, progress?.revision, vision.driverTracking.generation) {
+        if (acknowledged) {
+            for (remaining in 3 downTo 1) {
+                countdown = remaining
+                delay(1_000)
+            }
+            countdown = 0
+        }
+    }
+    LaunchedEffect(acknowledged, countdown, canStart, progress, vision.detection?.timestampMs) {
+        if (acknowledged && countdown == 0 && canStart && vision.calibrationInProgress && progress?.status == CalibrationStatus.READY) {
+            onBeginPhase(progress)
+        }
+    }
+    if (vision.calibrationInProgress && progress?.status == CalibrationStatus.READY && !acknowledged && !confirmRedoAll) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Step ${phase.ordinal + 1} of 4: ${phase.instruction()}") },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(phase.guidance())
+                Spacer(Modifier.height(12.dp))
+                Text("Tap Okay to acknowledge these instructions. You will have a three-second countdown to get ready, then hold the requested position for five seconds of valid measurements. If visibility is interrupted, collection pauses until it returns.")
+            } },
+            confirmButton = { TextButton(onClick = { acknowledged = true }) { Text("Okay") } },
+            dismissButton = { Column {
+                if (phase != CalibrationPhase.NEUTRAL) TextButton(onClick = onPreviousPhase) { Text("Previous Step") }
+                TextButton(onClick = onCancel) { Text("Cancel Calibration") }
+            } },
+        )
+    }
+    if (confirmRedoAll && vision.calibrationInProgress) {
+        AlertDialog(
+            onDismissRequest = { confirmRedoAll = false },
+            title = { Text("Redo all calibration steps?") },
+            text = { Text("This clears your current calibration progress and returns to the normal driving posture step. You will acknowledge the instructions again before collecting new measurements. Your previously saved calibration stays stored until a new calibration is completed.") },
+            confirmButton = { TextButton(onClick = { confirmRedoAll = false; onStartCalibration() }) { Text("Okay") } },
+            dismissButton = { TextButton(onClick = { confirmRedoAll = false }) { Text("Keep Current Progress") } },
+        )
+    }
     ScrollableScreen(title = "Driver Calibration", onBack = onBack) {
         Text("Personalized calibration", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
-        Text("Follow each step while the camera measures your natural eye, mouth, and head positions.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text("Calibrate while parked. Sit in your normal driving posture and look ahead toward the road, rather than turning toward the camera. Read each step and tap Okay before it starts.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(22.dp))
         LiveCameraPreview(vision.streamState, previewFrames, vision.driverRegion, vision.driverTracking)
         Spacer(Modifier.height(18.dp))
@@ -187,6 +242,8 @@ fun CalibrationScreen(
             "Calibration status",
             when {
                 !vision.calibrationInProgress && vision.activeCalibration != null -> "Calibrated"
+                vision.calibrationInProgress && acknowledged && countdown > 0 -> "Preparing"
+                vision.calibrationInProgress && (!vision.driverTracking.locked || vision.lighting.quality != LightingQuality.USABLE || vision.detection == null) -> "Paused"
                 vision.calibrationInProgress -> "In progress"
                 else -> "Not calibrated"
             },
@@ -201,7 +258,13 @@ fun CalibrationScreen(
                     color = TextSecondary,
                 )
             } else if (vision.calibrationInProgress && progress != null && progress.phase != CalibrationPhase.COMPLETE) {
+                SetupDetailRow("Step", "${phase.ordinal + 1} of 4", StatusTone.INFO)
                 SetupDetailRow("Current step", progress.phase.instruction(), StatusTone.INFO)
+                Text(phase.guidance(), style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                if (acknowledged && countdown > 0) {
+                    Spacer(Modifier.height(12.dp))
+                    Text("Get ready: $countdown", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                }
                 SetupDetailRow("Measurement", if (vision.measurementAvailable(progress.phase)) "Ready" else "Hold the requested position", if (vision.measurementAvailable(progress.phase)) StatusTone.SUCCESS else StatusTone.WARNING)
                 SetupDetailRow(
                     "Valid time",
@@ -214,18 +277,26 @@ fun CalibrationScreen(
             } else Text("Calibration is stored locally for this Driver and remains available offline.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         }
         Spacer(Modifier.height(22.dp))
-        val canStart = vision.alignmentConfirmed && vision.streamState == StreamConnectionState.CONNECTED &&
-            vision.lighting.quality == LightingQuality.USABLE && vision.driverTracking.locked && !vision.monitoring.isActive
         when {
             !vision.calibrationInProgress ->
                 PrimaryButton(if (vision.activeCalibration == null) "Start Calibration" else "Recalibrate", onStartCalibration, enabled = canStart)
             progress?.status == CalibrationStatus.READY ->
-                PrimaryButton("Start ${progress.phase.instruction()}", onBeginPhase, enabled = canStart)
-            else -> PrimaryButton(if (vision.driverTracking.locked) "Collecting valid measurements" else "Waiting for driver tracking", {}, enabled = false)
+                PrimaryButton(if (acknowledged && countdown > 0) "Get ready: $countdown" else "Waiting for clear driver visibility", {}, enabled = false)
+            else -> PrimaryButton(when {
+                !vision.driverTracking.locked -> "Waiting for driver tracking"
+                vision.lighting.quality != LightingQuality.USABLE -> "Waiting for usable lighting"
+                else -> "Collecting valid measurements"
+            }, {}, enabled = false)
         }
         if (vision.calibrationInProgress && progress != null && progress.status != CalibrationStatus.COMPLETE) {
             Spacer(Modifier.height(10.dp))
-            SecondaryButton("Repeat This Step", onRepeatPhase, enabled = canStart)
+            SecondaryButton("Go Back to Previous Step", onPreviousPhase,
+                enabled = !vision.monitoring.isActive && phase != CalibrationPhase.NEUTRAL)
+            Spacer(Modifier.height(6.dp))
+            Text("Going back clears measurements for the previous step and all later steps.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            Spacer(Modifier.height(10.dp))
+            SecondaryButton("Redo All Steps", { confirmRedoAll = true },
+                enabled = vision.alignmentConfirmed && vision.streamState == StreamConnectionState.CONNECTED && !vision.monitoring.isActive)
             Spacer(Modifier.height(10.dp))
             SecondaryButton("Cancel Calibration", onCancel)
         }
@@ -239,16 +310,19 @@ private fun LightingGuidance(vision: DriverVisionUiState) {
     SetupDetailRow(
         "Facial lighting",
         when {
-            vision.lighting.recovering -> "Checking visibility"
+            !vision.driverTracking.locked -> "Waiting for driver"
+            vision.lighting.recovering -> "Checking lighting"
             quality == LightingQuality.INSUFFICIENT -> "Insufficient lighting"
             quality == LightingQuality.USABLE -> "Usable"
-            else -> "Checking visibility"
+            else -> "Waiting for lighting sample"
         },
         if (quality == LightingQuality.USABLE) StatusTone.SUCCESS else StatusTone.WARNING,
     )
     if (quality != LightingQuality.USABLE) {
         Text(
-            if (quality == LightingQuality.INSUFFICIENT && !vision.lighting.recovering)
+            if (!vision.driverTracking.locked)
+                "Keep one face inside the driver area. Measurements pause until driver tracking returns."
+            else if (quality == LightingQuality.INSUFFICIENT && !vision.lighting.recovering)
                 "Restore camera visibility when safe. Calibration and drowsiness assessment pause until facial lighting recovers."
             else "Keep your face visible. Checking lighting before collecting measurements.",
             style = MaterialTheme.typography.bodySmall, color = TextSecondary,
@@ -314,11 +388,19 @@ private fun StreamConnectionState.readableLabel() = when (this) {
 }
 
 private fun CalibrationPhase.instruction() = when (this) {
-    CalibrationPhase.NEUTRAL -> "Neutral position"
+    CalibrationPhase.NEUTRAL -> "Normal driving posture"
     CalibrationPhase.EYES_CLOSED -> "Eyes closed"
     CalibrationPhase.MOUTH_OPEN -> "Mouth open"
     CalibrationPhase.HEAD_DOWN -> "Head down"
     CalibrationPhase.COMPLETE -> "Complete"
+}
+
+private fun CalibrationPhase.guidance() = when (this) {
+    CalibrationPhase.NEUTRAL -> "Stay parked. Sit in your normal driving posture and look ahead as if watching the road. Keep your eyes naturally open and your mouth relaxed. Keep your head and the camera mount steady; do not turn to face the camera."
+    CalibrationPhase.EYES_CLOSED -> "Keep your head in its normal driving position. After tapping Okay, use the countdown to gently close both eyes without squeezing them shut. Hold this position while measurements are collected."
+    CalibrationPhase.MOUTH_OPEN -> "Keep your head in its normal driving position, facing ahead toward the road. After tapping Okay, use the countdown to open your mouth comfortably as if yawning, then hold it open."
+    CalibrationPhase.HEAD_DOWN -> "Start in your normal driving posture. After tapping Okay, use the countdown to lower your head forward as if nodding down. Keep your face inside the driver area and hold the lowered position. Keep the camera mount steady."
+    CalibrationPhase.COMPLETE -> "Calibration is complete."
 }
 
 private fun DriverVisionUiState.measurementAvailable(phase: CalibrationPhase): Boolean {

@@ -90,6 +90,53 @@ class DriverFaceSelectorTest {
         for (i in 1..8) assertTrue(select(s, 1_000 + i * 100L, face(1_000 + i * 100L, 0.3 + i * 0.005, 0.4 + i * 0.015)).tracking.locked)
     }
 
+    @Test fun `larger overlapping movements retain lock and generation at variable frame cadence`() {
+        val s = DriverFaceSelector()
+        val original = lock(s)
+        for ((i, time) in listOf(1_200L, 1_800L, 2_000L, 2_650L, 2_850L).withIndex()) {
+            // 55% of the face width per frame exceeded the former 45% limit.
+            val next = face(time, if (i % 2 == 0) 0.41 else 0.30)
+            val result = select(s, time, face(time, 0.82), next)
+            assertSame(next, result.observation)
+            assertEquals(original.tracking.generation, result.tracking.generation)
+        }
+    }
+
+    @Test fun `diagonal head movement retains tracking`() {
+        val s = DriverFaceSelector()
+        val original = lock(s)
+        val result = select(s, 1_300, face(1_300, 0.365, 0.465))
+        assertTrue(result.tracking.locked)
+        assertEquals(original.tracking.generation, result.tracking.generation)
+    }
+
+    @Test fun `head box size changes within limits retain tracking`() {
+        val s = DriverFaceSelector()
+        val original = lock(s)
+        for ((i, size) in listOf(0.31, 0.2, 0.13, 0.2).withIndex()) {
+            val result = select(s, 1_100L + i * 200, face(1_100L + i * 200, size = size))
+            assertTrue(result.tracking.locked)
+            assertEquals(original.tracking.generation, result.tracking.generation)
+        }
+    }
+
+    @Test fun `nonoverlapping jump inside blue box still breaks evidence`() {
+        val other = DriverFaceSelector()
+        for (time in 0L..1_000L step 100) other.select(time, listOf(face(time)), DriverRegion.DEFAULT, 640, 480)
+        val jump = other.select(1_200, listOf(face(1_200, 0.65)), DriverRegion.DEFAULT, 640, 480)
+        assertEquals(DriverTrackingStatus.LOST, jump.tracking.status)
+        assertNull(jump.observation)
+    }
+
+    @Test fun `extreme size change and face leaving driver area still break lock`() {
+        val s = DriverFaceSelector()
+        lock(s)
+        assertEquals(DriverTrackingStatus.LOST, select(s, 1_100, face(1_100, size = 0.10)).tracking.status)
+        val other = DriverFaceSelector()
+        lock(other)
+        assertEquals(DriverTrackingStatus.LOST, select(other, 1_100, face(1_100, 0.59)).tracking.status)
+    }
+
     @Test fun `capacity saturation malformed detections and missing configuration fail closed`() {
         val s = DriverFaceSelector()
         assertEquals(DriverTrackingStatus.AMBIGUOUS, select(s, 0, face(0), face(0, 0.7), face(0, 0.8), face(0, 0.9)).tracking.status)

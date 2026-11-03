@@ -40,6 +40,8 @@ data class CalibrationProgress(
     val validDurationMs: Long,
     val requiredDurationMs: Long,
     val validSampleCount: Int,
+    /** Changes when restarting or navigating back; instruction acknowledgment must be renewed. */
+    val revision: Long = 0,
 )
 
 data class CalibrationResult(

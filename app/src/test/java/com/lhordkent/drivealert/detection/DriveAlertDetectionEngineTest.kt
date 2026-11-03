@@ -10,6 +10,61 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DriveAlertDetectionEngineTest {
+    @Test fun `closed eye alert keeps its schedule through larger tracked head movements`() {
+        val selector = com.lhordkent.drivealert.detection.face.DriverFaceSelector()
+        val engine = calibratedEngine()
+        fun selected(time: Long, ear: Double, shift: Double): com.lhordkent.drivealert.detection.face.DriverSelection {
+            val observation = face(time, ear, 0.1, 4.0).let { original ->
+                original.copy(landmarks = original.landmarks.map {
+                    it.copy(x = 0.25 + it.x * 0.25 + shift, y = 0.30 + it.y * 0.25)
+                })
+            }
+            return selector.select(time, listOf(observation), com.lhordkent.drivealert.detection.face.DriverRegion.DEFAULT, 100, 100)
+        }
+        for (time in 0L..1_000L step 200) selected(time, 0.25, 0.0)
+        val events = mutableListOf<com.lhordkent.drivealert.detection.model.ConfirmedSignEvent>()
+        for ((i, time) in (1_200L..3_200L step 200).withIndex()) {
+            val selection = selected(time, 0.10, if (i % 2 == 0) 0.10 else 0.0)
+            assertTrue(selection.tracking.locked)
+            events += engine.process(checkNotNull(selection.observation)).events
+        }
+        assertEquals(SignType.PROLONGED_EYE_CLOSURE, events.single().type)
+        assertEquals(3_200L, events.single().timestampMs)
+    }
+
+    @Test fun `temporary evidence pause preserves completed phase and excludes the paused interval`() {
+        val engine = DriveAlertDetectionEngine(calibrationDurationMs = 1_000)
+        engine.startCalibration()
+        engine.beginCalibrationPhase()
+        engine.process(face(0, 0.4, 0.1, 4.0))
+        engine.process(face(1_000, 0.4, 0.1, 4.0))
+        engine.beginCalibrationPhase()
+        engine.process(face(1_200, 0.1, 0.1, 4.0))
+        engine.process(face(1_600, 0.1, 0.1, 4.0))
+        engine.invalidateTracking()
+        assertEquals(com.lhordkent.drivealert.detection.model.CalibrationPhase.EYES_CLOSED, engine.calibrationProgress().phase)
+        assertEquals(400L, engine.calibrationProgress().validDurationMs)
+        engine.process(face(5_000, 0.1, 0.1, 4.0))
+        assertEquals(400L, engine.calibrationProgress().validDurationMs)
+        engine.process(face(5_600, 0.1, 0.1, 4.0))
+        assertEquals(com.lhordkent.drivealert.detection.model.CalibrationPhase.MOUTH_OPEN, engine.calibrationProgress().phase)
+        engine.invalidateDriverTarget()
+        assertEquals(com.lhordkent.drivealert.detection.model.CalibrationPhase.NEUTRAL, engine.calibrationProgress().phase)
+    }
+    @Test fun `stationary closed eyes still alert while movement advisory becomes inactive`() {
+        val engine = calibratedEngine()
+        val movement = com.lhordkent.drivealert.monitoring.DriverMovementTracker()
+        val events = mutableListOf<com.lhordkent.drivealert.detection.model.ConfirmedSignEvent>()
+        for (t in 0L..25_000L step 200) {
+            val observation = face(t, 0.10, 0.1, 4.0)
+            movement.update(observation)
+            events += engine.process(observation).events
+        }
+        assertEquals(SignType.PROLONGED_EYE_CLOSURE, events.single().type)
+        assertEquals(2_000L, events.single().timestampMs)
+        assertEquals(com.lhordkent.drivealert.monitoring.DriverMovementStatus.NO_MOVEMENT, movement.assessment.status)
+        assertEquals("stored", engine.calibrationResult()?.calibrationId)
+    }
     @Test fun `driver target loss discards all unfinished calibration phases`() {
         val engine = DriveAlertDetectionEngine(calibrationDurationMs = 100)
         engine.startCalibration()

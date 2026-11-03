@@ -13,6 +13,27 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class HttpVisibilityOutputGatewayTest {
+    @Test fun `movement intent uses existing endpoint and preserves all volume mappings`() = runBlocking {
+        for (volume in PreferredVolume.values()) {
+            val request = AtomicReference<String>()
+            withServer(request) { port ->
+                assertEquals(WarningDeliveryStatus.DELIVERED, gateway(port).activate(
+                    VisibilityOutputCommand(com.lhordkent.drivealert.monitoring.VisibilitySpeechIntent.MOVEMENT, volume)))
+                assertEquals("issue=MOVEMENT&volume=${volume.name}", request.get())
+            }
+        }
+    }
+
+    @Test fun `rejected busy and malformed movement responses fail without fallback or retries`() = runBlocking {
+        for (status in listOf("400 Bad Request", "503 Service Unavailable", "200 OK")) {
+            val request = AtomicReference<String>()
+            withServer(request, status, responseBody = "{\"status\":\"not_accepted\"}") { port ->
+                assertEquals(WarningDeliveryStatus.FAILED, gateway(port).activate(
+                    VisibilityOutputCommand(com.lhordkent.drivealert.monitoring.VisibilitySpeechIntent.MOVEMENT, PreferredVolume.MEDIUM)))
+                assertEquals("issue=MOVEMENT&volume=MEDIUM", request.get())
+            }
+        }
+    }
     @Test
     fun `regional issues map to the three dedicated speech intents`() {
         assertEquals("issue=EYES&volume=MEDIUM", command(VisibilityIssue.EYE_REGION_OBSTRUCTED).toVisibilityWirePayload())
@@ -100,7 +121,8 @@ class HttpVisibilityOutputGatewayTest {
         }
     }
 
-    private suspend fun withServer(request: AtomicReference<String>, responseStatus: String = "200 OK", block: suspend (Int) -> Unit) {
+    private suspend fun withServer(request: AtomicReference<String>, responseStatus: String = "200 OK",
+        responseBody: String = HttpVisibilityOutputGateway.ACCEPTED_RESPONSE, block: suspend (Int) -> Unit) {
         val server = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
         val thread = Thread {
             runCatching {
@@ -121,7 +143,7 @@ class HttpVisibilityOutputGatewayTest {
                         offset += count
                     }
                     request.set(String(body, 0, offset))
-                    val response = HttpVisibilityOutputGateway.ACCEPTED_RESPONSE.toByteArray()
+                    val response = responseBody.toByteArray()
                     val headers = "HTTP/1.1 $responseStatus\r\nContent-Type: application/json\r\nContent-Length: ${response.size}\r\nConnection: close\r\n\r\n"
                     socket.getOutputStream().use {
                         it.write(headers.toByteArray())

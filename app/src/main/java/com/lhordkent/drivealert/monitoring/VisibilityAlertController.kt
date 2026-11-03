@@ -35,10 +35,21 @@ sealed interface VisibilityAlertEffect {
     data object Clear : VisibilityAlertEffect
 }
 
+enum class VisibilitySpeechIntent { EYES, MOUTH, FACE, LIGHT, MOVEMENT }
+
 data class VisibilityOutputCommand(
-    val issue: VisibilityIssue,
+    val intent: VisibilitySpeechIntent,
     val volume: PreferredVolume,
-)
+) {
+    constructor(issue: VisibilityIssue, volume: PreferredVolume) : this(
+        when (issue) {
+            VisibilityIssue.EYE_REGION_OBSTRUCTED -> VisibilitySpeechIntent.EYES
+            VisibilityIssue.LOWER_FACE_OBSTRUCTED -> VisibilitySpeechIntent.MOUTH
+            VisibilityIssue.BOTH_REGIONS_OBSTRUCTED, VisibilityIssue.FACE_UNAVAILABLE -> VisibilitySpeechIntent.FACE
+            VisibilityIssue.INSUFFICIENT_LIGHTING -> VisibilitySpeechIntent.LIGHT
+        }, volume,
+    )
+}
 
 fun interface VisibilityOutputGateway {
     suspend fun activate(command: VisibilityOutputCommand): WarningDeliveryStatus
