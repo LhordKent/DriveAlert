@@ -1,0 +1,32 @@
+{
+  "updated": "C:\\Users\\Admin\\Downloads\\GantChartTest.docx",
+  "task_count": 72,
+  "changed_parts": [
+    "word/document.xml"
+  ],
+  "rows": [
+    38,
+    32,
+    29,
+    29,
+    13,
+    3
+  ],
+  "sprints": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "first_two_sprints_preserved": true,
+  "section_geometry_preserved": true,
+  "column_grids_preserved": true,
+  "submission": "2026-11-04",
+  "end": "2026-11-11",
+  "sha256": "8e43e5e4eb470fa21b8093b068990e33bd0cc073ce635cd8e2cc73d744afacc3",
+  "visual_pages_verified": 5
+}

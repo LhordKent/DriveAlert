@@ -1,0 +1,68 @@
+--- before/app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt
++++ after/app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt
+@@ -133,6 +133,7 @@
+     private val elapsedClock: () -> Long = SystemClock::elapsedRealtime,
+     private val wallClock: () -> Long = System::currentTimeMillis,
+     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
++    private val monitoringLogWriter: com.lhordkent.drivealert.data.monitoringlog.MonitoringLogWriter? = null,
+ ) : Closeable {
+     private val mutableState = MutableStateFlow(DriverVisionUiState())
+     val state: StateFlow<DriverVisionUiState> = mutableState.asStateFlow()
+@@ -491,6 +492,7 @@
+                     )
+                 }
+                 publishMonitoringState()
++                monitoringLogWriter?.begin(driverId, sessionId, startedAtEpoch, existingSessionId != null)
+                 onStarted(sessionId, startedAtEpoch)
+                 monitoringJob?.cancel()
+                 monitoringJob = scope.launch {
+@@ -733,6 +735,9 @@
+         }
+         val sessionId = monitoringController.state.sessionId
+         if (sessionId != null) {
++            result.events.forEach { sign ->
++                monitoringLogWriter?.sign(userId, sessionId, toEpochMillis(sign.timestampMs), sign)
++            }
+             val effects = monitoringController.accept(result.events, result.currentlyConfirmedSigns())
+             handleMonitoringEffects(effects, userId, sessionId)
+             persistHighestStage(userId, sessionId)
+@@ -801,7 +806,7 @@
+         for (effect in effects) when (effect) {
+             is MonitoringEffect.ActivateWarning -> {
+                 repeatWarningJob?.cancel()
+-                val delivery = warningOutputGateway.activateSafely(
++                val delivery = activateLoggedWarning(driverId, sessionId,
+                     effect.stage.warningOutputCommand(monitoringSound, monitoringVolume),
+                 )
+                 monitoringController.setWarningDelivery(delivery)
+@@ -823,7 +828,7 @@
+                         elapsedClock() - detection.timestampMs > DriverFaceSelector.MAX_FRAME_GAP_MS ||
+                         effect.signs.none { it in detection.currentlyConfirmedSigns() }
+                     ) return@launch
+-                    warningOutputGateway.activateSafely(
++                    activateLoggedWarning(driverId, sessionId,
+                         effect.stage.warningOutputCommand(monitoringSound, monitoringVolume).copy(repeat = true),
+                     )
+                 }
+@@ -875,6 +880,21 @@
+         }
+     }
+ 
++    private suspend fun activateLoggedWarning(
++        driverId: String, sessionId: String,
++        command: com.lhordkent.drivealert.monitoring.WarningOutputCommand,
++    ): WarningDeliveryStatus {
++        val requestId = monitoringLogWriter?.request(driverId, sessionId, wallClock(), command.stage.ordinal + 1, command.repeat)
++        try {
++            val result = warningOutputGateway.activateSafely(command)
++            requestId?.let { monitoringLogWriter?.result(driverId, sessionId, it, wallClock(), result) }
++            return result
++        } catch (cancelled: kotlinx.coroutines.CancellationException) {
++            requestId?.let { monitoringLogWriter?.result(driverId, sessionId, it, wallClock(), null) }
++            throw cancelled
++        }
++    }
++
+     private suspend fun persistHighestStage(driverId: String, sessionId: String) {
+         val stage = monitoringController.state.currentStage ?: return
+         if ((highestPersistedStage?.ordinal ?: -1) >= stage.ordinal) return

@@ -6,7 +6,7 @@ import { authRepository } from '../../repositories/authRepository'
 const rows = [
   { to: '/settings/history', title: 'History & Storage', detail: 'Retention and personal history removals in this browser', icon: History },
   { to: '/account', title: 'Account', detail: 'Profile, email, role, and connection code', icon: CircleUserRound },
-  { to: '/about', title: 'About DriveAlert', detail: 'Purpose, Stage 3 sharing, privacy, and limitations', icon: Info },
+  { to: '/about', title: 'About DriveAlert', detail: 'Purpose, alert sharing, privacy, and limitations', icon: Info },
 ]
 
 export function SettingsPage() {

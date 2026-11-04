@@ -70,3 +70,14 @@ application_default_credentials.json
 
 # app/google-services.json is intentionally versioned so the school Firebase
 # Authentication configuration works immediately after cloning.
+
+# Machine-specific settings, temporary renders, and downloaded build tools.
+**/local.properties
+/app/.idea/
+/.tmp-ui-doc/
+**/__pycache__/
+/output/movement-tools/
+/output/connection-firmware-build/
+/output/*.exe
+/output/*.pdb
+/output/*.o

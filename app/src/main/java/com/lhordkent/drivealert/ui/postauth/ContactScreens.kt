@@ -443,7 +443,8 @@ private fun Stage3SyncRecordRow(record: Stage3SyncRecord, onClick: () -> Unit) {
             }
         }
         Spacer(Modifier.height(7.dp))
-        Text("${record.eventCount} event${if (record.eventCount == 1) "" else "s"} · ${record.signs.joinToString { it.label }}", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text("${record.eventCount} event${if (record.eventCount == 1) "" else "s"} counted in this period", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text(record.signs.joinToString { it.label }, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
     }
 }
 

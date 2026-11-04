@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.DriveAlertMvp" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/road_ink</item>
+        <item name="android:navigationBarColor">@color/road_ink</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">@color/signal_red</item>
+    </style>
+</resources>

@@ -8,6 +8,8 @@ const {
   getDoc,
   getDocs,
   getFirestore,
+  query,
+  where,
   runTransaction,
   serverTimestamp,
   setDoc,
@@ -326,6 +328,13 @@ describe("DriveAlert Firestore connection codes", () => {
     );
     const shared = await getDoc(doc(trusted.firestore, "users", driver.uid, "stageSyncRecords", "eligible"));
     assert.equal(shared.data().stageSyncRecordId, "eligible");
+    // Match the Android listener, including its implicit ascending time order.
+    const timeline = await getDocs(query(
+      collection(trusted.firestore, "users", driver.uid, "stageSyncRecords"),
+      where("driverUserId", "==", driver.uid),
+      where("periodStartedAt", ">=", new Date(approvedAt)),
+    ));
+    assert.deepEqual(timeline.docs.map(record => record.id), ["eligible"]);
   });
 
   it("denies a Trusted Contact access to a pre-approval Stage 3 record", async () => {
@@ -387,12 +396,14 @@ describe("DriveAlert Firestore connection codes", () => {
     apps.push(trusted.app, other.app);
     const driverId = "driver-1";
     const ownerRef = doc(trusted.firestore, "users", trusted.uid, "trustedDriverStates", driverId);
+    assert.equal((await getDoc(ownerRef)).exists(), false);
     await setDoc(ownerRef, {
       driverUserId: driverId,
       lastViewedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
     assert.equal((await getDoc(ownerRef)).data().driverUserId, driverId);
+    await updateDoc(ownerRef, { lastViewedAt: serverTimestamp(), updatedAt: serverTimestamp() });
     await assert.rejects(getDoc(doc(other.firestore, "users", trusted.uid, "trustedDriverStates", driverId)));
     await assert.rejects(setDoc(doc(other.firestore, "users", trusted.uid, "trustedDriverStates", driverId), {
       driverUserId: driverId,

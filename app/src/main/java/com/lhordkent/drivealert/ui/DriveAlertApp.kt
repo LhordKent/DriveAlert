@@ -460,7 +460,6 @@ fun DriveAlertApp(
                 )
             }
             composable(PostAuthRoutes.DRIVER_DEVICE_CONNECTION) {
-                LaunchedEffect(Unit) { if (!visionState.bleSetupRequested) onStartVision() }
                 DeviceConnectionScreen(
                     onBack = navController::popBackStack,
                     provisioningViewModel = provisioningViewModel,

@@ -12,8 +12,7 @@ import com.lhordkent.drivealert.detection.frame.StreamConnectionState
 import com.lhordkent.drivealert.ui.theme.*
 
 internal fun showsSavedCameraConnection(vision: DriverVisionUiState?): Boolean =
-    vision?.streamState == StreamConnectionState.CONNECTED ||
-        vision?.let { it.deviceConfigured && !it.bleSetupRequested } == true
+    vision?.streamState == StreamConnectionState.CONNECTED
 
 @Composable
 fun SavedCameraConnectionPanel(vision: DriverVisionUiState, onDisconnect: () -> Unit,

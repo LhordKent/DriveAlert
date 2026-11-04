@@ -31,7 +31,7 @@ export function signLabel(sign: string): string {
 }
 
 export function recordTypeLabel(type: 'STAGE_3_TRANSITION' | 'STAGE_3_PERSISTENCE'): string {
-  return type === 'STAGE_3_TRANSITION' ? 'Entered Stage 3' : 'Continued Stage 3 period'
+  return type === 'STAGE_3_TRANSITION' ? 'Alert started' : 'Alert continued'
 }
 
 export function isDelayedRecord(record: StageSyncRecord): boolean {

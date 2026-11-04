@@ -1,0 +1,19 @@
+{
+  "app/DRIVEALERT_DETECTION.md": "preserved",
+  "app/src/main/java/com/lhordkent/drivealert/DriveAlertApplication.kt": "preserved",
+  "app/src/main/java/com/lhordkent/drivealert/data/history/HistoryCleanupWorker.kt": "preserved",
+  "app/src/main/java/com/lhordkent/drivealert/data/local/DriveAlertDatabase.kt": "preserved",
+  "app/src/main/java/com/lhordkent/drivealert/data/repository/MonitoringSessionRepository.kt": "preserved",
+  "app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt": "connection fix",
+  "app/src/main/java/com/lhordkent/drivealert/detection/temporal/TemporalDetectors.kt": "preserved",
+  "app/src/main/java/com/lhordkent/drivealert/device/HttpWarningOutputGateway.kt": "preserved",
+  "app/src/main/java/com/lhordkent/drivealert/monitoring/WarningStageController.kt": "preserved",
+  "app/src/main/java/com/lhordkent/drivealert/ui/DriveAlertApp.kt": "connection fix",
+  "app/src/main/java/com/lhordkent/drivealert/ui/postauth/SettingsScreens.kt": "preserved",
+  "app/src/main/java/com/lhordkent/drivealert/ui/postauth/WifiProvisioningPanel.kt": "connection fix",
+  "app/src/test/java/com/lhordkent/drivealert/device/HttpWarningOutputGatewayTest.kt": "preserved",
+  "drivealert-iot/DriveAlert_Camera_Test/app_httpd.cpp": "connection fix",
+  "drivealert-iot/DriveAlert_Camera_Test/warning_output.cpp": "preserved",
+  "drivealert-iot/DriveAlert_Camera_Test/warning_output.h": "preserved",
+  "drivealert-iot/WARNING_OUTPUT_PROTOCOL.md": "preserved"
+}

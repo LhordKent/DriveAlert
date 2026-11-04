@@ -7,7 +7,13 @@ import { portalValue } from '../testData'
 
 function renderRoute(path: string, value = portalValue()) { return render(<MemoryRouter initialEntries={[path]}><PortalContext.Provider value={value}><Routes><Route path="/drivers/:driverId/records/:recordId" element={<RecordDetailPage />} /></Routes></PortalContext.Provider></MemoryRouter>) }
 describe('record detail', () => {
-  it('supports direct URLs with all available record fields', () => { renderRoute('/drivers/driver-1/records/record-1'); expect(screen.getByText('Entered Stage 3', { selector: 'h1' })).toBeInTheDocument(); expect(screen.getByText('3')).toBeInTheDocument(); expect(screen.getByText('session-1')).toBeInTheDocument(); expect(screen.getByText('Yawning, Head Nodding')).toBeInTheDocument() })
+  it('explains the event count without warning-stage terminology', () => {
+    const { container } = renderRoute('/drivers/driver-1/records/record-1')
+    expect(container).not.toHaveTextContent(/stage\s*3/i)
+    expect(screen.getByText('Events counted in this period')).toBeInTheDocument()
+    expect(screen.getByText(/it is not the number of shares or all alerts in the session/)).toBeInTheDocument()
+  })
+  it('supports direct URLs with all available record fields', () => { renderRoute('/drivers/driver-1/records/record-1'); expect(screen.getByText('Alert started', { selector: 'h1' })).toBeInTheDocument(); expect(screen.getByText('3')).toBeInTheDocument(); expect(screen.getByText('session-1')).toBeInTheDocument(); expect(screen.getByText('Yawning, Head Nodding')).toBeInTheDocument() })
   it('shows record-not-found rather than a blank screen', () => { renderRoute('/drivers/driver-1/records/missing'); expect(screen.getByText('Record not found')).toBeInTheDocument() })
   it('shows revoked access rather than a blank screen', () => { renderRoute('/drivers/driver-1/records/record-1', portalValue({ approvedDrivers: [], connections: [], recordsByDriver: {} })); expect(screen.getByText('Record unavailable')).toBeInTheDocument() })
 })

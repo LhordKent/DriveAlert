@@ -1,0 +1,11 @@
+{
+  "app/DRIVEALERT_DETECTION.md": "pre-existing edits preserved",
+  "app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt": "changed for monitoring logs",
+  "app/src/main/java/com/lhordkent/drivealert/device/HttpWarningOutputGateway.kt": "pre-existing edits preserved",
+  "app/src/main/java/com/lhordkent/drivealert/monitoring/WarningStageController.kt": "pre-existing edits preserved",
+  "app/src/test/java/com/lhordkent/drivealert/device/HttpWarningOutputGatewayTest.kt": "pre-existing edits preserved",
+  "drivealert-iot/DriveAlert_Camera_Test/app_httpd.cpp": "pre-existing edits preserved",
+  "drivealert-iot/DriveAlert_Camera_Test/warning_output.cpp": "pre-existing edits preserved",
+  "drivealert-iot/DriveAlert_Camera_Test/warning_output.h": "pre-existing edits preserved",
+  "drivealert-iot/WARNING_OUTPUT_PROTOCOL.md": "pre-existing edits preserved"
+}

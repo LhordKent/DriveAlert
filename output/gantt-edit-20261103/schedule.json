@@ -1,0 +1,912 @@
+[
+  {
+    "id": "5.1",
+    "sprint": 3,
+    "task": "Create the Git repository and configure Android, web, and Firebase projects",
+    "lead": "Basubas, Isagunde, and Borces",
+    "start": "2026-07-23",
+    "end": "2026-07-28",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      12
+    ]
+  },
+  {
+    "id": "5.2",
+    "sprint": 3,
+    "task": "Refine the local and cloud database schema and account structures",
+    "lead": "Borces",
+    "start": "2026-07-23",
+    "end": "2026-07-29",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      12
+    ]
+  },
+  {
+    "id": "5.3",
+    "sprint": 3,
+    "task": "Identify suppliers and source the required IoT components",
+    "lead": "Basubas and All",
+    "start": "2026-07-23",
+    "end": "2026-08-03",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      12,
+      13
+    ]
+  },
+  {
+    "id": "5.4",
+    "sprint": 3,
+    "task": "Review component specifications, compatibility, and proposed wiring",
+    "lead": "Basubas and Borces",
+    "start": "2026-07-25",
+    "end": "2026-08-04",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      12,
+      13
+    ]
+  },
+  {
+    "id": "5.5",
+    "sprint": 3,
+    "task": "Establish local storage and initial database operations",
+    "lead": "Borces",
+    "start": "2026-07-27",
+    "end": "2026-08-04",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      12,
+      13
+    ]
+  },
+  {
+    "id": "5.6",
+    "sprint": 3,
+    "task": "Prepare project structure and initial account-screen layouts",
+    "lead": "Isagunde and Catarig",
+    "start": "2026-07-27",
+    "end": "2026-08-04",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      12,
+      13
+    ]
+  },
+  {
+    "id": "5.7",
+    "sprint": 3,
+    "task": "Revise the manuscript and diagrams based on review feedback",
+    "lead": "All",
+    "start": "2026-07-23",
+    "end": "2026-08-04",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      12,
+      13
+    ]
+  },
+  {
+    "id": "5.8",
+    "sprint": 3,
+    "task": "Prepare compliance documents and route the approval sheet",
+    "lead": "All",
+    "start": "2026-07-27",
+    "end": "2026-08-05",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      12,
+      13
+    ]
+  },
+  {
+    "id": "5.9",
+    "sprint": 3,
+    "task": "Check builds and documents, commit and push changes, and review readiness",
+    "lead": "All",
+    "start": "2026-08-03",
+    "end": "2026-08-05",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      13
+    ]
+  },
+  {
+    "id": "6.1",
+    "sprint": 4,
+    "task": "Assemble the camera, speaker, power connections, and mounting",
+    "lead": "Basubas and All",
+    "start": "2026-08-06",
+    "end": "2026-08-09",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      13,
+      14
+    ]
+  },
+  {
+    "id": "6.2",
+    "sprint": 4,
+    "task": "Configure camera firmware, capture settings, and device services",
+    "lead": "Basubas",
+    "start": "2026-08-08",
+    "end": "2026-08-11",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      14
+    ]
+  },
+  {
+    "id": "6.3",
+    "sprint": 4,
+    "task": "Implement Bluetooth provisioning and local Wi-Fi connection",
+    "lead": "Basubas",
+    "start": "2026-08-09",
+    "end": "2026-08-14",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      14
+    ]
+  },
+  {
+    "id": "6.4",
+    "sprint": 4,
+    "task": "Implement the IoT HTTP stream and Android video receiving",
+    "lead": "Basubas and Borces",
+    "start": "2026-08-10",
+    "end": "2026-08-16",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      14,
+      15
+    ]
+  },
+  {
+    "id": "6.5",
+    "sprint": 4,
+    "task": "Verify onboard speaker playback and initial warning commands",
+    "lead": "Basubas and Catarig",
+    "start": "2026-08-11",
+    "end": "2026-08-16",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      14,
+      15
+    ]
+  },
+  {
+    "id": "6.6",
+    "sprint": 4,
+    "task": "Develop Android account functions, setup screens, and navigation",
+    "lead": "Basubas and Isagunde",
+    "start": "2026-08-06",
+    "end": "2026-08-16",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      13,
+      14,
+      15
+    ]
+  },
+  {
+    "id": "6.7",
+    "sprint": 4,
+    "task": "Develop web authentication, routing, and initial account views",
+    "lead": "Isagunde and Catarig",
+    "start": "2026-08-06",
+    "end": "2026-08-16",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      13,
+      14,
+      15
+    ]
+  },
+  {
+    "id": "6.8",
+    "sprint": 4,
+    "task": "Test power, streaming, reconnection, and account functions",
+    "lead": "All",
+    "start": "2026-08-14",
+    "end": "2026-08-19",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      14,
+      15
+    ]
+  },
+  {
+    "id": "6.9",
+    "sprint": 4,
+    "task": "Upload tested firmware, push changes to GitHub, and review connection readiness",
+    "lead": "Basubas and Borces",
+    "start": "2026-08-18",
+    "end": "2026-08-19",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      15
+    ]
+  },
+  {
+    "id": "7.1",
+    "sprint": 5,
+    "task": "Integrate MediaPipe Face Landmarker into Android processing",
+    "lead": "Basubas",
+    "start": "2026-08-20",
+    "end": "2026-08-25",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      15,
+      16
+    ]
+  },
+  {
+    "id": "7.2",
+    "sprint": 5,
+    "task": "Build live frame processing from the IoT camera stream",
+    "lead": "Basubas and Borces",
+    "start": "2026-08-22",
+    "end": "2026-08-28",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      16
+    ]
+  },
+  {
+    "id": "7.3",
+    "sprint": 5,
+    "task": "Identify eye and mouth landmarks and calculate EAR and MAR",
+    "lead": "Basubas and Borces",
+    "start": "2026-08-23",
+    "end": "2026-08-30",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      16
+    ]
+  },
+  {
+    "id": "7.4",
+    "sprint": 5,
+    "task": "Calculate head-pitch measurements from facial transformations",
+    "lead": "Basubas",
+    "start": "2026-08-24",
+    "end": "2026-08-30",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      16
+    ]
+  },
+  {
+    "id": "7.5",
+    "sprint": 5,
+    "task": "Implement Driver-area selection and tracking continuity",
+    "lead": "Basubas",
+    "start": "2026-08-25",
+    "end": "2026-09-01",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      16,
+      17
+    ]
+  },
+  {
+    "id": "7.6",
+    "sprint": 5,
+    "task": "Implement facial-lighting and visibility checks",
+    "lead": "Basubas and Borces",
+    "start": "2026-08-26",
+    "end": "2026-09-01",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      16,
+      17
+    ]
+  },
+  {
+    "id": "7.7",
+    "sprint": 5,
+    "task": "Develop camera-alignment and facial-visibility feedback",
+    "lead": "Isagunde",
+    "start": "2026-08-27",
+    "end": "2026-09-02",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      16,
+      17
+    ]
+  },
+  {
+    "id": "7.8",
+    "sprint": 5,
+    "task": "Test landmark stability, lighting, delay, and Android compatibility",
+    "lead": "All",
+    "start": "2026-08-29",
+    "end": "2026-09-02",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      16,
+      17
+    ]
+  },
+  {
+    "id": "7.9",
+    "sprint": 5,
+    "task": "Commit and push processing changes and review calibration readiness",
+    "lead": "Basubas and Borces",
+    "start": "2026-09-01",
+    "end": "2026-09-02",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      17
+    ]
+  },
+  {
+    "id": "8.1",
+    "sprint": 6,
+    "task": "Implement guided Driver calibration and stored calibration values",
+    "lead": "Basubas",
+    "start": "2026-09-03",
+    "end": "2026-09-08",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      17,
+      18
+    ]
+  },
+  {
+    "id": "8.2",
+    "sprint": 6,
+    "task": "Implement prolonged-eye-closure detection using calibrated EAR",
+    "lead": "Basubas",
+    "start": "2026-09-04",
+    "end": "2026-09-10",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      17,
+      18
+    ]
+  },
+  {
+    "id": "8.3",
+    "sprint": 6,
+    "task": "Implement yawning detection using calibrated MAR",
+    "lead": "Catarig and Basubas",
+    "start": "2026-09-04",
+    "end": "2026-09-10",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      17,
+      18
+    ]
+  },
+  {
+    "id": "8.4",
+    "sprint": 6,
+    "task": "Implement relative head-pitch and temporal head-down detection",
+    "lead": "Basubas",
+    "start": "2026-09-05",
+    "end": "2026-09-11",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      17,
+      18
+    ]
+  },
+  {
+    "id": "8.5",
+    "sprint": 6,
+    "task": "Implement confirmation, episode grouping, and warning-stage rules",
+    "lead": "Basubas",
+    "start": "2026-09-08",
+    "end": "2026-09-13",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      18
+    ]
+  },
+  {
+    "id": "8.6",
+    "sprint": 6,
+    "task": "Connect staged warnings to the onboard speaker command",
+    "lead": "Basubas and Isagunde",
+    "start": "2026-09-09",
+    "end": "2026-09-14",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      18
+    ]
+  },
+  {
+    "id": "8.7",
+    "sprint": 6,
+    "task": "Implement local monitoring-session and alert-history records",
+    "lead": "Borces",
+    "start": "2026-09-09",
+    "end": "2026-09-15",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      18,
+      19
+    ]
+  },
+  {
+    "id": "8.8",
+    "sprint": 6,
+    "task": "Test calibration, false alerts, stage progression, and offline records",
+    "lead": "All",
+    "start": "2026-09-12",
+    "end": "2026-09-16",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      18,
+      19
+    ]
+  },
+  {
+    "id": "8.9",
+    "sprint": 6,
+    "task": "Commit and push tested changes and review detection reliability",
+    "lead": "All",
+    "start": "2026-09-15",
+    "end": "2026-09-16",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      19
+    ]
+  },
+  {
+    "id": "9.1",
+    "sprint": 7,
+    "task": "Implement connection requests, approval, and Driver relationships",
+    "lead": "Borces and Catarig",
+    "start": "2026-09-17",
+    "end": "2026-09-22",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      19,
+      20
+    ]
+  },
+  {
+    "id": "9.2",
+    "sprint": 7,
+    "task": "Implement approved access, revocation, and security rules",
+    "lead": "Borces",
+    "start": "2026-09-18",
+    "end": "2026-09-24",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      19,
+      20
+    ]
+  },
+  {
+    "id": "9.3",
+    "sprint": 7,
+    "task": "Create eligible Stage 3 transition and persistence records",
+    "lead": "Basubas and Borces",
+    "start": "2026-09-19",
+    "end": "2026-09-25",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      19,
+      20
+    ]
+  },
+  {
+    "id": "9.4",
+    "sprint": 7,
+    "task": "Implement synchronization queues, retries, and status updates",
+    "lead": "Basubas and Borces",
+    "start": "2026-09-21",
+    "end": "2026-09-28",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      19,
+      20
+    ]
+  },
+  {
+    "id": "9.5",
+    "sprint": 7,
+    "task": "Develop mobile shared-record views and Driver alert summaries",
+    "lead": "Isagunde and Catarig",
+    "start": "2026-09-20",
+    "end": "2026-09-27",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      19,
+      20
+    ]
+  },
+  {
+    "id": "9.6",
+    "sprint": 7,
+    "task": "Connect the web portal to approved Driver records and requests",
+    "lead": "Isagunde and Catarig",
+    "start": "2026-09-20",
+    "end": "2026-09-27",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      19,
+      20
+    ]
+  },
+  {
+    "id": "9.7",
+    "sprint": 7,
+    "task": "Integrate mobile, web, IoT warnings, records, and synchronization",
+    "lead": "All",
+    "start": "2026-09-23",
+    "end": "2026-09-29",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      20
+    ]
+  },
+  {
+    "id": "9.8",
+    "sprint": 7,
+    "task": "Test sharing eligibility, revocation, offline queues, and full workflow",
+    "lead": "All",
+    "start": "2026-09-26",
+    "end": "2026-09-30",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      20
+    ]
+  },
+  {
+    "id": "9.9",
+    "sprint": 7,
+    "task": "Push tested changes, deploy the web test build, and review integration",
+    "lead": "Isagunde and Borces",
+    "start": "2026-09-29",
+    "end": "2026-09-30",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      20
+    ]
+  },
+  {
+    "id": "10.1",
+    "sprint": 8,
+    "task": "Test mobile and web accounts, setup, validation, and navigation",
+    "lead": "Borces and Catarig",
+    "start": "2026-10-01",
+    "end": "2026-10-04",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      21
+    ]
+  },
+  {
+    "id": "10.2",
+    "sprint": 8,
+    "task": "Test camera tracking, lighting pauses, and connection recovery",
+    "lead": "Basubas and Isagunde",
+    "start": "2026-10-02",
+    "end": "2026-10-07",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      21
+    ]
+  },
+  {
+    "id": "10.3",
+    "sprint": 8,
+    "task": "Test calibration, sign confirmation, warning stages, and speaker response",
+    "lead": "Basubas and Catarig",
+    "start": "2026-10-03",
+    "end": "2026-10-08",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      21,
+      22
+    ]
+  },
+  {
+    "id": "10.4",
+    "sprint": 8,
+    "task": "Test local records, alert summaries, settings, and retention",
+    "lead": "Isagunde and Borces",
+    "start": "2026-10-03",
+    "end": "2026-10-09",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      21,
+      22
+    ]
+  },
+  {
+    "id": "10.5",
+    "sprint": 8,
+    "task": "Test approved sharing, revocation, synchronization, and retries",
+    "lead": "Borces and Catarig",
+    "start": "2026-10-05",
+    "end": "2026-10-10",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      21,
+      22
+    ]
+  },
+  {
+    "id": "10.6",
+    "sprint": 8,
+    "task": "Test web responsiveness, usability, and device compatibility",
+    "lead": "Isagunde and Catarig",
+    "start": "2026-10-05",
+    "end": "2026-10-11",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      21,
+      22
+    ]
+  },
+  {
+    "id": "10.7",
+    "sprint": 8,
+    "task": "Correct integrated defects and perform focused regression tests",
+    "lead": "All",
+    "start": "2026-10-08",
+    "end": "2026-10-14",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      22
+    ]
+  },
+  {
+    "id": "10.8",
+    "sprint": 8,
+    "task": "Update manuscript descriptions and diagrams to match the system",
+    "lead": "All",
+    "start": "2026-10-08",
+    "end": "2026-10-14",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      22
+    ]
+  },
+  {
+    "id": "10.9",
+    "sprint": 8,
+    "task": "Push fixes, generate a test APK, and update the web test deployment",
+    "lead": "Basubas and Isagunde",
+    "start": "2026-10-12",
+    "end": "2026-10-14",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      22
+    ]
+  },
+  {
+    "id": "11.1",
+    "sprint": 9,
+    "task": "Finalize controlled-evaluation procedures, forms, and device setup",
+    "lead": "All",
+    "start": "2026-10-15",
+    "end": "2026-10-17",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      23
+    ]
+  },
+  {
+    "id": "11.2",
+    "sprint": 9,
+    "task": "Conduct controlled eye-closure, yawning, and head-down trials",
+    "lead": "All",
+    "start": "2026-10-17",
+    "end": "2026-10-22",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      23,
+      24
+    ]
+  },
+  {
+    "id": "11.3",
+    "sprint": 9,
+    "task": "Evaluate audible warnings, offline monitoring, and approved sharing",
+    "lead": "All",
+    "start": "2026-10-18",
+    "end": "2026-10-23",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      23,
+      24
+    ]
+  },
+  {
+    "id": "11.4",
+    "sprint": 9,
+    "task": "Record false alerts, missed detections, delays, and test results",
+    "lead": "Basubas and Borces",
+    "start": "2026-10-18",
+    "end": "2026-10-24",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      23,
+      24
+    ]
+  },
+  {
+    "id": "11.5",
+    "sprint": 9,
+    "task": "Resolve remaining mobile, web, IoT, and synchronization defects",
+    "lead": "All",
+    "start": "2026-10-21",
+    "end": "2026-10-26",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      23,
+      24
+    ]
+  },
+  {
+    "id": "11.6",
+    "sprint": 9,
+    "task": "Analyze evaluation findings against the study objectives",
+    "lead": "Basubas and Catarig",
+    "start": "2026-10-23",
+    "end": "2026-10-27",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      24
+    ]
+  },
+  {
+    "id": "11.7",
+    "sprint": 9,
+    "task": "Complete manuscript findings, diagrams, and supporting evidence",
+    "lead": "Isagunde and Borces",
+    "start": "2026-10-24",
+    "end": "2026-10-28",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      24
+    ]
+  },
+  {
+    "id": "11.8",
+    "sprint": 9,
+    "task": "Run complete regression tests and verify release readiness",
+    "lead": "All",
+    "start": "2026-10-25",
+    "end": "2026-10-28",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      24
+    ]
+  },
+  {
+    "id": "11.9",
+    "sprint": 9,
+    "task": "Push verified changes, generate the release-candidate APK, and update the web",
+    "lead": "Basubas and Isagunde",
+    "start": "2026-10-27",
+    "end": "2026-10-28",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      24
+    ]
+  },
+  {
+    "id": "12.1",
+    "sprint": 10,
+    "task": "Finalize manuscript formatting, references, and required corrections",
+    "lead": "All",
+    "start": "2026-10-29",
+    "end": "2026-11-01",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      24,
+      25
+    ]
+  },
+  {
+    "id": "12.2",
+    "sprint": 10,
+    "task": "Complete approval requirements, compliance documents, and appendices",
+    "lead": "All",
+    "start": "2026-10-29",
+    "end": "2026-11-03",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      24,
+      25
+    ]
+  },
+  {
+    "id": "12.3",
+    "sprint": 10,
+    "task": "Verify manuscript completeness and prepare the submission package",
+    "lead": "All",
+    "start": "2026-11-01",
+    "end": "2026-11-03",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      25
+    ]
+  },
+  {
+    "id": "12.4",
+    "sprint": 10,
+    "task": "Submit the final manuscript",
+    "lead": "All",
+    "start": "2026-11-04",
+    "end": "2026-11-04",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      25
+    ]
+  },
+  {
+    "id": "12.5",
+    "sprint": 10,
+    "task": "Resolve final system issues and verify corrected functions",
+    "lead": "All",
+    "start": "2026-10-29",
+    "end": "2026-11-07",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      24,
+      25
+    ]
+  },
+  {
+    "id": "12.6",
+    "sprint": 10,
+    "task": "Generate and install the final APK and upload verified IoT firmware",
+    "lead": "Basubas and Borces",
+    "start": "2026-11-05",
+    "end": "2026-11-09",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      25,
+      26
+    ]
+  },
+  {
+    "id": "12.7",
+    "sprint": 10,
+    "task": "Deploy and verify the Trusted Contact web portal and access rules",
+    "lead": "Isagunde and Borces",
+    "start": "2026-11-05",
+    "end": "2026-11-09",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      25,
+      26
+    ]
+  },
+  {
+    "id": "12.8",
+    "sprint": 10,
+    "task": "Prepare presentation materials and rehearse the demonstration",
+    "lead": "All",
+    "start": "2026-10-29",
+    "end": "2026-11-10",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      24,
+      25,
+      26
+    ]
+  },
+  {
+    "id": "12.9",
+    "sprint": 10,
+    "task": "Push final changes and verify deployment, presentation, and project completion",
+    "lead": "All",
+    "start": "2026-11-09",
+    "end": "2026-11-11",
+    "status": "INCOMPLETE",
+    "week_columns": [
+      26
+    ]
+  }
+]

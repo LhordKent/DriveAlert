@@ -19,6 +19,8 @@ import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.ui.DriveAlertApp
 import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.ui.postauth.AlertDetailScreen
+import com.lhordkent.drivealert.ui.postauth.AlertHistoryScreen
+import com.lhordkent.drivealert.ui.postauth.ScrollableScreen
 import com.lhordkent.drivealert.ui.postauth.MonitoringPreviewScreen
 import com.lhordkent.drivealert.ui.postauth.DriverHomeScreen
 import com.lhordkent.drivealert.detection.DriverVisionUiState
@@ -180,13 +182,39 @@ class PostAuthFlowTest {
     }
 
     @Test
+    fun twoAlertsInOneSessionShowOneSharingTotal() {
+        val now = java.time.LocalDateTime.now()
+        val events = listOf(
+            AlertEvent("eye", now, setOf(VisibleSign.PROLONGED_EYE_CLOSURE), WarningStage.STAGE_3, sessionId = "session"),
+            AlertEvent("yawn", now.minusSeconds(10), setOf(VisibleSign.YAWNING), WarningStage.STAGE_3, sessionId = "session"),
+        )
+        val record = Stage3SyncRecord("shared", now, SyncRecordKind.STAGE_3_TRANSITION,
+            setOf(VisibleSign.PROLONGED_EYE_CLOSURE, VisibleSign.YAWNING), SharingState.SHARED, sessionId = "session", eventCount = 2)
+        composeRule.setContent {
+            DriveAlertTheme {
+                ScrollableScreen("Alert History", onBack = {}) {
+                    AlertHistoryScreen(events, listOf(record), WarningStage.STAGE_3, {}, onEventSelected = {})
+                }
+            }
+        }
+        composeRule.onAllNodesWithText("1 shared, 0 waiting").assertCountEquals(1)
+        composeRule.onAllNodesWithText("Stage 3 sync:", substring = true).assertCountEquals(0)
+        captureNavigationScreen("sharing-history-summary")
+        composeRule.onNodeWithText("Prolonged Eye Closure").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Yawning").performScrollTo().assertIsDisplayed()
+        captureNavigationScreen("sharing-history-alerts")
+    }
+
+    @Test
     fun stage3DetailSupportsEverySharingState() {
         val original = com.lhordkent.drivealert.postauth.Stage3SyncRecord(
             "sync", java.time.LocalDateTime.now(), com.lhordkent.drivealert.postauth.SyncRecordKind.STAGE_3_TRANSITION,
-            setOf(com.lhordkent.drivealert.postauth.VisibleSign.YAWNING), SharingState.PENDING,
+            setOf(com.lhordkent.drivealert.postauth.VisibleSign.YAWNING), SharingState.PENDING, eventCount = 2,
         )
-        val selected = mutableStateOf(original.copy(sharingState = SharingState.NO_CONTACT))
+        val selected = mutableStateOf(original.copy(sharingState = SharingState.SHARED))
         composeRule.setContent { DriveAlertTheme { Stage3SyncRecordDetailScreen(selected.value, {}) } }
+        composeRule.onNodeWithText("This is one Stage 3 record.", substring = true).performScrollTo().assertIsDisplayed()
+        captureNavigationScreen("sharing-record-detail")
 
         listOf(
             SharingState.NO_CONTACT to "No approved contact",

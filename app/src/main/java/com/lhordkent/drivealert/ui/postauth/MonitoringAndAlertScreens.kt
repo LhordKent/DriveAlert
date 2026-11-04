@@ -360,7 +360,8 @@ fun AlertHistoryScreen(
             Spacer(Modifier.height(8.dp))
             KeyValueRow("Most frequent sign", insights.mostFrequentSign?.label ?: "No alerts")
             KeyValueRow("Alert frequency", insights.trend.label)
-            KeyValueRow("Stage 3 synchronization", syncSummary(syncRecords))
+            KeyValueRow("Stage 3 shared records", syncSummary(syncRecords))
+            Text("Sharing totals count Stage 3 records, not individual alerts.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
         Spacer(Modifier.height(20.dp))
         Row(
@@ -388,7 +389,6 @@ fun AlertHistoryScreen(
                     AlertEventRow(
                         event,
                         session = sessions.firstOrNull { it.id == event.sessionId },
-                        syncRecords = syncRecords.filter { it.sessionId != null && it.sessionId == event.sessionId },
                         onClick = { onEventSelected(event.id) },
                     )
                 }
@@ -432,7 +432,6 @@ private fun AlertFilterChip(label: String, selected: Boolean, onClick: () -> Uni
 fun AlertEventRow(
     event: AlertEvent,
     session: MonitoringSessionSummary? = null,
-    syncRecords: List<Stage3SyncRecord> = emptyList(),
     onClick: () -> Unit,
 ) {
     Column(
@@ -452,10 +451,6 @@ fun AlertEventRow(
         session?.let {
             Spacer(Modifier.height(4.dp))
             Text("Session ${it.id.take(8)}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        }
-        if (syncRecords.isNotEmpty()) {
-            Spacer(Modifier.height(4.dp))
-            Text("Stage 3 sync: ${syncSummary(syncRecords)}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
     }
 }
@@ -512,16 +507,15 @@ fun AlertDetailScreen(
         StatusPill("Driver history", StatusTone.NEUTRAL)
         Spacer(Modifier.height(10.dp))
         KeyValueRow(
-            "Trusted Contact synchronization",
+            "Stage 3 records in this session",
             when {
-                event.stage != WarningStage.STAGE_3 -> "Not eligible"
-                syncRecords.isEmpty() -> "No session boundary record available"
+                syncRecords.isEmpty() -> "No shared records created"
                 else -> syncSummary(syncRecords)
             },
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            if (event.stage == WarningStage.STAGE_3) "This confirmed event remains in Driver Alert History. A separate Stage 3 transition or persistence record may be eligible for Trusted Contact synchronization."
+            if (event.stage == WarningStage.STAGE_3) "Sharing totals above cover the whole monitoring session, not this individual alert. Separate records report when Stage 3 starts or continues."
             else "Stage 1 and Stage 2 events remain in Driver Alert History and are not eligible for Trusted Contact synchronization.",
             style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
@@ -544,7 +538,8 @@ fun Stage3SyncRecordDetailScreen(record: Stage3SyncRecord, onBack: () -> Unit, o
         SectionTitle("Stage 3 synchronization")
         Spacer(Modifier.height(8.dp))
         KeyValueRow("Record type", record.kind.label)
-        KeyValueRow("Events in period", record.eventCount.toString())
+        KeyValueRow("Events counted in this period", record.eventCount.toString())
+        Text("This is one Stage 3 record. The event count covers its warning period; it is not the number of shares or all alerts in the session.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         KeyValueRow("Detected visible sign(s)", record.signs.joinToString { it.label })
         Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Warning Stage", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)

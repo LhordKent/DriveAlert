@@ -27,36 +27,37 @@ class CameraConnectionRecoveryScreenTest {
         compose.onNodeWithText("Tap to reconnect").assertDoesNotExist()
         capture("connected")
     }
-    @Test fun videoFailureStillOffersControlRecoveryAndRequiresConfirmationAtLargeFont() {
+    @Test fun connectedCameraDisconnectRequiresConfirmationAtLargeFont() {
         var calls = 0
         compose.setContent { DriveAlertTheme {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 1.3f)) {
-                DeviceConnectionScreen({}, vision = DriverVisionUiState(streamState = StreamConnectionState.UNAVAILABLE,
-                    deviceConfigured = true, deviceAddress = "192.168.43.12", errorMessage = "Camera stream unavailable."),
-                    onReturnToBleSetup = { calls++ })
+                DeviceConnectionScreen({}, vision = DriverVisionUiState(streamState = StreamConnectionState.CONNECTED,
+                    deviceConfigured = true, deviceAddress = "192.168.43.12"),
+                    onDisconnect = { calls++ })
             }
         } }
-        compose.onNodeWithText("Go back to Bluetooth (BLE) setup").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Disconnect").performScrollTo().assertIsDisplayed()
         capture("recovery-large")
-        compose.onNodeWithText("Go back to Bluetooth (BLE) setup").performClick()
+        compose.onNodeWithText("Disconnect").performClick()
         assertEquals(0, calls)
         compose.onNodeWithText("Return to Bluetooth").performClick()
         assertEquals(1, calls)
     }
-    @Test fun confirmedReturnExposesBleSetupAndFailureDoesNotPretendSuccess() {
+    @Test fun savedCameraShowsBleSetupForEveryDisconnectedState() {
         val vision = mutableStateOf(DriverVisionUiState(deviceConfigured = true,
             streamState = StreamConnectionState.UNAVAILABLE, errorMessage = "Could not reach the camera. Retry on the same network."))
-        compose.setContent { DriveAlertTheme { DeviceConnectionScreen({}, vision = vision.value,
-            onOpenBleSetup = { vision.value = vision.value.copy(bleSetupRequested = true, errorMessage = null) }) } }
-        compose.onNodeWithText("Could not reach the camera.", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Scan for DriveAlert").assertDoesNotExist()
-        compose.onNodeWithText("Open Bluetooth setup").performScrollTo().performClick()
-        compose.onNodeWithText("Open Bluetooth setup?").assertIsDisplayed()
-        compose.onAllNodesWithText("Open Bluetooth setup").onLast().performClick()
-        compose.onNodeWithText("Scan for DriveAlert").assertIsDisplayed()
-        compose.onNodeWithText("Camera connection").assertDoesNotExist()
+        compose.setContent { DriveAlertTheme { DeviceConnectionScreen({}, vision = vision.value) } }
+        StreamConnectionState.entries.filter { it != StreamConnectionState.CONNECTED }.forEach { state ->
+            compose.runOnIdle { vision.value = vision.value.copy(streamState = state) }
+            compose.onNodeWithText("Scan for DriveAlert").assertIsDisplayed()
+            compose.onNodeWithText("Camera connection").assertDoesNotExist()
+        }
         capture("ble-ready")
+        compose.runOnIdle { vision.value = vision.value.copy(streamState = StreamConnectionState.CONNECTED) }
+        compose.onNodeWithText("Disconnect").assertIsDisplayed()
+        compose.runOnIdle { vision.value = vision.value.copy(streamState = StreamConnectionState.UNAVAILABLE) }
+        compose.onNodeWithText("Scan for DriveAlert").assertIsDisplayed()
     }
     private fun capture(name: String) {
         compose.waitForIdle()

@@ -1,0 +1,805 @@
+diff --git a/app/DRIVEALERT_DETECTION.md b/app/DRIVEALERT_DETECTION.md
+index 9bac699..603cc65 100644
+--- a/app/DRIVEALERT_DETECTION.md
++++ b/app/DRIVEALERT_DETECTION.md
+@@ -70,6 +70,16 @@ Model provenance and tensor metadata are recorded in
+ - A valid head observation is downward only when relative pitch is strictly greater than `15.0°`. Head nodding confirms when at least 80% of valid observations in the rolling 3,000 ms window are downward.
+ - Timing uses monotonic frame timestamps, never frame counts or wall-clock time.
+ - A continuous qualifying episode emits one event. A valid recovery observation re-arms its detector.
++- While a confirmed sign remains observable, Android requests a current-stage
++  warning reminder every 2,000 ms for eye closure and every 3,000 ms for yawning
++  or head down, measured from confirmation. Reminders do not create detection
++  events, history entries, phone notifications, or independently advance stages.
++  Existing 60-second persistence escalation remains active. Simultaneous due
++  reminders share one request; stage-change warnings supersede reminders.
++- Recovery or channel unavailability clears that sign's reminder schedule.
++  Missing/stale tracking, lighting pauses, and session termination stop reminders;
++  delayed observations never produce a backlog. Delivery runs separately from
++  frame processing, with at most one reminder request in flight.
+ - Missing measurements never become positive detections. Eye/yawn candidates reset on invalid input; invalid head observations are excluded. Face loss clears all temporal evidence.
+ 
+ ## Calibration and event boundary
+@@ -107,5 +117,12 @@ The JVM tests use deterministic numeric landmarks, matrices, and measurement seq
+ 2. Open Camera Alignment, verify live frames and face visibility, then confirm alignment manually.
+ 3. Complete each guided calibration phase and restart the app to verify offline restoration.
+ 4. Exercise eye closure, yawn, head-down, face loss, stream restart, and DHCP-address-change recovery.
++5. With updated firmware, sustain each sign: eye closure should request warnings
++   at roughly 2/4/6 seconds; yawning and qualifying head-down at roughly 3/6/9
++   seconds. Confirm a single history incident, no repeat-driven escalation,
++   recovery stopping reminders, and the existing 60-second stage transition.
++   Check all sound tracks, especially long mixed Stage 3 recordings: firmware
++   suppresses reminders during estimated playback reservations, so actual audible
++   repetitions can be slower than requests. See the warning-output protocol.
+ 
+ Live ESP32-to-Android operation remains physically unvalidated until these device tests complete.
+diff --git a/app/src/main/java/com/lhordkent/drivealert/DriveAlertApplication.kt b/app/src/main/java/com/lhordkent/drivealert/DriveAlertApplication.kt
+index 208ca08..863602e 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/DriveAlertApplication.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/DriveAlertApplication.kt
+@@ -70,6 +70,8 @@ class AppContainer(private val application: Application) {
+         }
+     }
+     val historyRepository = com.lhordkent.drivealert.data.history.HistoryRepository(database)
++    val monitoringLogRepository = com.lhordkent.drivealert.data.monitoringlog.MonitoringLogRepository(database)
++    val monitoringLogWriter = com.lhordkent.drivealert.data.monitoringlog.MonitoringLogWriter(monitoringLogRepository, applicationScope)
+     val alertRepository: AlertRepository = RoomAlertRepository(database.alertDao())
+     val driverWarningNotificationCoordinator = DriverWarningNotificationCoordinator(
+         AndroidDriverWarningNotificationGateway(application),
+@@ -79,7 +81,8 @@ class AppContainer(private val application: Application) {
+     )
+     val trustedContactDeviceRegistrar = TrustedContactDeviceRegistrar(application)
+     val monitoringSessionRepository: MonitoringSessionRepository =
+-        RoomMonitoringSessionRepository(database.monitoringSessionDao(), onSessionFinished = historyRepository::cleanup)
++        RoomMonitoringSessionRepository(database.monitoringSessionDao(), onSessionFinished = historyRepository::cleanup,
++            onSessionClosed = monitoringLogWriter::end)
+     val driverPreferenceRepository: DriverPreferenceRepository =
+         RoomDriverPreferenceRepository(database.driverPreferenceDao())
+     val calibrationRepository: CalibrationRepository = RoomCalibrationRepository(database.calibrationDao())
+@@ -121,6 +124,7 @@ class AppContainer(private val application: Application) {
+             stageSyncRepository = stageSyncRepository,
+             notificationCoordinator = driverWarningNotificationCoordinator,
+             visibilityNotificationCoordinator = driverVisibilityNotificationCoordinator,
++            monitoringLogWriter = monitoringLogWriter,
+         )
+     }
+ 
+diff --git a/app/src/main/java/com/lhordkent/drivealert/data/history/HistoryCleanupWorker.kt b/app/src/main/java/com/lhordkent/drivealert/data/history/HistoryCleanupWorker.kt
+index 7b85516..82f1880 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/data/history/HistoryCleanupWorker.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/data/history/HistoryCleanupWorker.kt
+@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
+ class HistoryCleanupWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
+     override suspend fun doWork(): Result = try {
+         (applicationContext as DriveAlertApplication).container.historyRepository.cleanupAll()
++        (applicationContext as DriveAlertApplication).container.monitoringLogRepository.cleanupAll()
+         Result.success()
+     } catch (cancelled: CancellationException) { throw cancelled
+     } catch (_: Exception) { Result.retry() }
+diff --git a/app/src/main/java/com/lhordkent/drivealert/data/local/DriveAlertDatabase.kt b/app/src/main/java/com/lhordkent/drivealert/data/local/DriveAlertDatabase.kt
+index bc6805a..6d6869f 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/data/local/DriveAlertDatabase.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/data/local/DriveAlertDatabase.kt
+@@ -1,6 +1,7 @@
+ package com.lhordkent.drivealert.data.local
+ 
+ import com.lhordkent.drivealert.data.history.*
++import com.lhordkent.drivealert.data.monitoringlog.*
+ import android.content.Context
+ import androidx.room.Database
+ import androidx.room.Room
+@@ -31,6 +32,9 @@ import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
+ @Database(
+     entities = [
+         SharedHistoryExpiry::class,
++        MonitoringLog::class,
++        MonitoringLogEvent::class,
++        MonitoringLogPreference::class,
+         SharedHistoryDismissal::class,
+         CalibrationEntity::class,
+         MonitoringSessionEntity::class,
+@@ -44,12 +48,13 @@ import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
+         StageNotificationGroupEntity::class,
+         StageNotificationGroupRecordEntity::class,
+     ],
+-    version = 5,
++    version = 6,
+     exportSchema = true,
+ )
+ @TypeConverters(DriveAlertTypeConverters::class)
+ abstract class DriveAlertDatabase : RoomDatabase() {
+     abstract fun historyDao(): HistoryDao
++    abstract fun monitoringLogDao(): MonitoringLogDao
+     abstract fun monitoringSessionDao(): MonitoringSessionDao
+     abstract fun alertDao(): AlertDao
+     abstract fun calibrationDao(): CalibrationDao
+@@ -69,7 +74,26 @@ abstract class DriveAlertDatabase : RoomDatabase() {
+                 context.applicationContext,
+                 DriveAlertDatabase::class.java,
+                 DATABASE_NAME,
+-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
++            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { instance = it }
++        }
++
++        val MIGRATION_5_6 = object : Migration(5, 6) {
++            override fun migrate(db: SupportSQLiteDatabase) {
++                db.execSQL("CREATE TABLE IF NOT EXISTS monitoring_logs (sessionId TEXT NOT NULL PRIMARY KEY, driverUserId TEXT NOT NULL, startedAt INTEGER NOT NULL, endedAt INTEGER, status TEXT NOT NULL, recordingGap INTEGER NOT NULL)")
++                db.execSQL("CREATE INDEX IF NOT EXISTS index_monitoring_logs_driverUserId ON monitoring_logs(driverUserId)")
++                db.execSQL("""CREATE TABLE IF NOT EXISTS monitoring_log_events (
++                    sequence INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, eventId TEXT NOT NULL,
++                    sessionId TEXT NOT NULL, driverUserId TEXT NOT NULL, occurredAt INTEGER NOT NULL,
++                    kind TEXT NOT NULL, sign TEXT, measuredValue REAL, threshold REAL, durationMs INTEGER,
++                    requiredDurationMs INTEGER, downwardRatio REAL, ratioThreshold REAL,
++                    calibrationId TEXT, calibrationVersion INTEGER, stage INTEGER, repeated INTEGER NOT NULL,
++                    result TEXT, responseAt INTEGER, processId TEXT,
++                    FOREIGN KEY(sessionId) REFERENCES monitoring_logs(sessionId) ON UPDATE NO ACTION ON DELETE CASCADE
++                )""".trimIndent())
++                db.execSQL("CREATE INDEX IF NOT EXISTS index_monitoring_log_events_sessionId ON monitoring_log_events(sessionId)")
++                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_monitoring_log_events_eventId ON monitoring_log_events(eventId)")
++                db.execSQL("CREATE TABLE IF NOT EXISTS monitoring_log_preferences (driverUserId TEXT NOT NULL PRIMARY KEY, retentionDays INTEGER)")
++            }
+         }
+ 
+         val MIGRATION_4_5 = object : Migration(4, 5) {
+diff --git a/app/src/main/java/com/lhordkent/drivealert/data/repository/MonitoringSessionRepository.kt b/app/src/main/java/com/lhordkent/drivealert/data/repository/MonitoringSessionRepository.kt
+index bf7f6f5..dec2f0c 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/data/repository/MonitoringSessionRepository.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/data/repository/MonitoringSessionRepository.kt
+@@ -38,6 +38,7 @@ class RoomMonitoringSessionRepository(
+     private val idFactory: () -> String = { UUID.randomUUID().toString() },
+     private val zoneId: ZoneId = ZoneId.systemDefault(),
+     private val onSessionFinished: suspend (String) -> Unit = {},
++    private val onSessionClosed: (String, String, Long, String) -> Unit = { _, _, _, _ -> },
+ ) : MonitoringSessionRepository {
+     override fun observeSessions(driverUserId: String): Flow<List<MonitoringSessionSummary>> =
+         dao.observeForDriver(driverUserId).map { sessions ->
+@@ -106,6 +107,7 @@ class RoomMonitoringSessionRepository(
+                 updatedAtEpochMillis = clock(),
+             ),
+         )
++        onSessionClosed(driverUserId, sessionId, endedAtEpochMillis, status.name)
+         try { onSessionFinished(driverUserId) }
+         catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+         catch (_: Exception) { /* Periodic cleanup retries without failing session completion. */ }
+diff --git a/app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt b/app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt
+index ba82ab4..abe7723 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt
+@@ -59,6 +59,7 @@ import com.lhordkent.drivealert.monitoring.MonitoringRecoveryStore
+ import com.lhordkent.drivealert.monitoring.activateSafely
+ import com.lhordkent.drivealert.monitoring.warningOutputCommand
+ import com.lhordkent.drivealert.monitoring.toVisibleSign
++import com.lhordkent.drivealert.postauth.VisibleSign
+ import com.lhordkent.drivealert.notification.DriverWarningNotificationCoordinator
+ import com.lhordkent.drivealert.notification.DriverVisibilityNotificationCoordinator
+ import com.lhordkent.drivealert.postauth.PreferredVolume
+@@ -132,6 +133,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
+     private val elapsedClock: () -> Long = SystemClock::elapsedRealtime,
+     private val wallClock: () -> Long = System::currentTimeMillis,
+     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
++    private val monitoringLogWriter: com.lhordkent.drivealert.data.monitoringlog.MonitoringLogWriter? = null,
+ ) : Closeable {
+     private val mutableState = MutableStateFlow(DriverVisionUiState())
+     val state: StateFlow<DriverVisionUiState> = mutableState.asStateFlow()
+@@ -209,6 +211,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
+     private var deviceJob: Job? = null
+     private var reconnectJob: Job? = null
+     private var monitoringJob: Job? = null
++    private var repeatWarningJob: Job? = null
++    private var repeatWarningSigns = emptySet<VisibleSign>()
+     private var monitoringStartJob: Job? = null
+     private var brightnessSampleJob: Job? = null
+     private var visionHealthJob: Job? = null
+@@ -488,6 +492,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
+                     )
+                 }
+                 publishMonitoringState()
++                monitoringLogWriter?.begin(driverId, sessionId, startedAtEpoch, existingSessionId != null)
+                 onStarted(sessionId, startedAtEpoch)
+                 monitoringJob?.cancel()
+                 monitoringJob = scope.launch {
+@@ -517,6 +522,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
+         monitoringStarting = false
+         monitoringJob?.cancel()
+         monitoringJob = null
++        repeatWarningJob?.cancel()
++        repeatWarningJob = null
+         val sessionId = monitoringController.state.sessionId
+         val driverId = boundDriverId
+         monitoringController.stop()
+@@ -716,8 +723,10 @@ class DriverVisionRuntime @JvmOverloads constructor(
+             )
+         }
+         if (!mutableState.value.driverTracking.locked || !mutableState.value.alignmentConfirmed || !lighting.allowsAssessment(elapsedClock())) {
++            repeatWarningJob?.cancel()
+             monitoringController.accept(emptyList(), emptySet())
+         }
++        if (repeatWarningSigns.none { it in result.currentlyConfirmedSigns() }) repeatWarningJob?.cancel()
+         val calibration = result.activeCalibration ?: return
+         val userId = boundDriverId ?: return
+         if (calibrationCompleted && calibration.calibrationId != persistedCalibrationId) {
+@@ -726,6 +735,9 @@ class DriverVisionRuntime @JvmOverloads constructor(
+         }
+         val sessionId = monitoringController.state.sessionId
+         if (sessionId != null) {
++            result.events.forEach { sign ->
++                monitoringLogWriter?.sign(userId, sessionId, toEpochMillis(sign.timestampMs), sign)
++            }
+             val effects = monitoringController.accept(result.events, result.currentlyConfirmedSigns())
+             handleMonitoringEffects(effects, userId, sessionId)
+             persistHighestStage(userId, sessionId)
+@@ -793,11 +805,34 @@ class DriverVisionRuntime @JvmOverloads constructor(
+     ) {
+         for (effect in effects) when (effect) {
+             is MonitoringEffect.ActivateWarning -> {
+-                val delivery = warningOutputGateway.activateSafely(
++                repeatWarningJob?.cancel()
++                val delivery = activateLoggedWarning(driverId, sessionId,
+                     effect.stage.warningOutputCommand(monitoringSound, monitoringVolume),
+                 )
+                 monitoringController.setWarningDelivery(delivery)
+             }
++            is MonitoringEffect.RepeatWarning -> {
++                // Do not block frame processing or queue reminders behind a slow HTTP request.
++                if (repeatWarningJob?.isActive == true) continue
++                val generation = streamGeneration
++                repeatWarningSigns = effect.signs
++                repeatWarningJob = scope.launch {
++                    val current = mutableState.value
++                    val detection = current.detection ?: return@launch
++                    if (sessionId != monitoringController.state.sessionId || generation != streamGeneration ||
++                        monitoringController.state.currentStage != effect.stage ||
++                        current.streamState != StreamConnectionState.CONNECTED ||
++                        !current.driverTracking.locked || !current.alignmentConfirmed ||
++                        !current.lighting.allowsAssessment(elapsedClock()) ||
++                        detection.timestampMs < observationCutoffMs ||
++                        elapsedClock() - detection.timestampMs > DriverFaceSelector.MAX_FRAME_GAP_MS ||
++                        effect.signs.none { it in detection.currentlyConfirmedSigns() }
++                    ) return@launch
++                    activateLoggedWarning(driverId, sessionId,
++                        effect.stage.warningOutputCommand(monitoringSound, monitoringVolume).copy(repeat = true),
++                    )
++                }
++            }
+             is MonitoringEffect.RecordAlert -> {
+                 val delivered = monitoringController.state.warningDelivery == WarningDeliveryStatus.DELIVERED
+                 activeAlertId = alertRepository.recordConfirmedAlert(
+@@ -845,6 +880,21 @@ class DriverVisionRuntime @JvmOverloads constructor(
+         }
+     }
+ 
++    private suspend fun activateLoggedWarning(
++        driverId: String, sessionId: String,
++        command: com.lhordkent.drivealert.monitoring.WarningOutputCommand,
++    ): WarningDeliveryStatus {
++        val requestId = monitoringLogWriter?.request(driverId, sessionId, wallClock(), command.stage.ordinal + 1, command.repeat)
++        try {
++            val result = warningOutputGateway.activateSafely(command)
++            requestId?.let { monitoringLogWriter?.result(driverId, sessionId, it, wallClock(), result) }
++            return result
++        } catch (cancelled: kotlinx.coroutines.CancellationException) {
++            requestId?.let { monitoringLogWriter?.result(driverId, sessionId, it, wallClock(), null) }
++            throw cancelled
++        }
++    }
++
+     private suspend fun persistHighestStage(driverId: String, sessionId: String) {
+         val stage = monitoringController.state.currentStage ?: return
+         if ((highestPersistedStage?.ordinal ?: -1) >= stage.ordinal) return
+@@ -867,6 +917,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
+     }
+ 
+     private fun resetLighting() {
++        repeatWarningJob?.cancel()
+         // Prevent queued results from the previous session from reusing cached quality.
+         observationCutoffMs = elapsedClock()
+         targetConfigurationRevision = processor.configure(if (regionKey != null) mutableState.value.driverRegion else null)
+diff --git a/app/src/main/java/com/lhordkent/drivealert/detection/temporal/TemporalDetectors.kt b/app/src/main/java/com/lhordkent/drivealert/detection/temporal/TemporalDetectors.kt
+index 8efdb99..cde8ef2 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/detection/temporal/TemporalDetectors.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/detection/temporal/TemporalDetectors.kt
+@@ -48,6 +48,7 @@ class EyeClosureDetector(
+             threshold,
+             calibrationId,
+             calibrationVersion,
++            temporalContext = mapOf("requiredDurationMs" to confirmationMs.toDouble()),
+         )
+     }
+ 
+@@ -113,6 +114,7 @@ class YawnDetector(
+             threshold,
+             calibrationId,
+             calibrationVersion,
++            temporalContext = mapOf("requiredDurationMs" to confirmationMs.toDouble()),
+         )
+     }
+ 
+@@ -193,6 +195,7 @@ class HeadDownDetector(
+                 "downwardRatio" to ratio,
+                 "validObservationCount" to observations.size.toDouble(),
+                 "windowMs" to windowMs.toDouble(),
++                "downwardRatioThreshold" to downwardRatioThreshold,
+             ),
+         )
+     }
+diff --git a/app/src/main/java/com/lhordkent/drivealert/device/HttpWarningOutputGateway.kt b/app/src/main/java/com/lhordkent/drivealert/device/HttpWarningOutputGateway.kt
+index 9eae67f..e67396e 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/device/HttpWarningOutputGateway.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/device/HttpWarningOutputGateway.kt
+@@ -9,6 +9,9 @@ import java.net.URL
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+ import kotlinx.coroutines.withTimeoutOrNull
++import kotlinx.coroutines.CancellationException
++import kotlinx.coroutines.ensureActive
++import kotlin.coroutines.coroutineContext
+ 
+ class HttpWarningOutputGateway internal constructor(
+     private val deviceProvider: () -> ProvisionedDevice?,
+@@ -25,12 +28,16 @@ class HttpWarningOutputGateway internal constructor(
+                 val resolved = endpointResolver.resolve(device) ?: error("DriveAlert device is unavailable.")
+                 if (resolved != device) onDeviceResolved(resolved)
+                 send(resolved.lastKnownIp, command)
+-            }.getOrElse { WarningDeliveryStatus.FAILED }
++            }.getOrElse {
++                if (it is CancellationException) throw it
++                WarningDeliveryStatus.FAILED
++            }
+         } ?: WarningDeliveryStatus.FAILED
+     }
+ 
+     private suspend fun send(host: String, command: WarningOutputCommand): WarningDeliveryStatus =
+         withContext(Dispatchers.IO) {
++            coroutineContext.ensureActive()
+             val payload = command.toWarningWirePayload().toByteArray(Charsets.UTF_8)
+             val connection = URL(warningUrl(host, controlPort)).openConnection() as HttpURLConnection
+             try {
+@@ -79,4 +86,5 @@ internal fun WarningOutputCommand.toWarningWirePayload(): String = buildString {
+     append(sound.name)
+     append("&volume=")
+     append(volume.name)
++    if (repeat) append("&repeat=1")
+ }
+diff --git a/app/src/main/java/com/lhordkent/drivealert/monitoring/WarningStageController.kt b/app/src/main/java/com/lhordkent/drivealert/monitoring/WarningStageController.kt
+index d5f3416..e9ab79f 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/monitoring/WarningStageController.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/monitoring/WarningStageController.kt
+@@ -7,6 +7,7 @@ import com.lhordkent.drivealert.postauth.PreferredVolume
+ import com.lhordkent.drivealert.postauth.VisibleSign
+ import com.lhordkent.drivealert.postauth.WarningSound
+ import com.lhordkent.drivealert.postauth.WarningStage
++import kotlinx.coroutines.CancellationException
+ 
+ data class ActiveMonitoringState(
+     val isActive: Boolean = false,
+@@ -32,6 +33,7 @@ data class WarningOutputCommand(
+     val sound: WarningSound,
+     val volume: PreferredVolume,
+     val spokenAdvisory: String?,
++    val repeat: Boolean = false,
+ )
+ 
+ fun interface WarningOutputGateway {
+@@ -39,7 +41,13 @@ fun interface WarningOutputGateway {
+ }
+ 
+ suspend fun WarningOutputGateway.activateSafely(command: WarningOutputCommand): WarningDeliveryStatus =
+-    runCatching { activate(command) }.getOrElse { WarningDeliveryStatus.FAILED }
++    try {
++        activate(command)
++    } catch (cancelled: CancellationException) {
++        throw cancelled
++    } catch (_: Exception) {
++        WarningDeliveryStatus.FAILED
++    }
+ 
+ /** Legacy fallback for previews/tests that intentionally do not perform physical delivery. */
+ class PendingHardwareWarningOutputGateway : WarningOutputGateway {
+@@ -55,6 +63,8 @@ sealed interface MonitoringEffect {
+ 
+     data class ActivateWarning(val stage: WarningStage) : MonitoringEffect
+ 
++    data class RepeatWarning(val stage: WarningStage, val signs: Set<VisibleSign>) : MonitoringEffect
++
+     data class MergeLatestAlertSigns(val signs: Set<VisibleSign>) : MonitoringEffect
+ 
+     data class RecordStage3Boundary(
+@@ -204,6 +214,7 @@ class MonitoringSessionController(
+ ) {
+     private val seenEvents = mutableSetOf<Pair<SignType, Long>>()
+     private var activeEpisodeSigns = emptySet<VisibleSign>()
++    private val warningRepeater = PersistentWarningRepeater()
+     var state: ActiveMonitoringState = ActiveMonitoringState()
+         private set
+ 
+@@ -211,6 +222,7 @@ class MonitoringSessionController(
+         require(sessionId.isNotBlank())
+         require(initialDurationMs >= 0L)
+         warningStages.reset()
++        warningRepeater.reset()
+         seenEvents.clear()
+         activeEpisodeSigns = emptySet()
+         val now = clock()
+@@ -224,6 +236,7 @@ class MonitoringSessionController(
+ 
+     fun stop() {
+         warningStages.reset()
++        warningRepeater.reset()
+         seenEvents.clear()
+         activeEpisodeSigns = emptySet()
+         state = ActiveMonitoringState()
+@@ -232,6 +245,26 @@ class MonitoringSessionController(
+     fun accept(
+         events: List<ConfirmedSignEvent>,
+         currentlyConfirmedSigns: Set<VisibleSign> = events.mapTo(linkedSetOf()) { it.type.toVisibleSign() },
++    ): List<MonitoringEffect> {
++        if (!state.isActive) return emptyList()
++        val effects = acceptEvents(events, currentlyConfirmedSigns).toMutableList()
++        val now = clock()
++        // Empty-sign calls also clear evidence on camera loss; their callers may
++        // intentionally ignore effects. Leave quiet-period transitions to tick().
++        if (currentlyConfirmedSigns.isNotEmpty()) effects += warningStages.advance(now, activeEpisodeSigns)
++        state = state.copy(durationMs = duration(now), currentStage = warningStages.stage)
++        val due = warningRepeater.update(now, currentlyConfirmedSigns)
++        if (effects.any { it is MonitoringEffect.ActivateWarning }) {
++            warningRepeater.warningActivated(now)
++        } else if (due.isNotEmpty()) {
++            state.currentStage?.let { effects += MonitoringEffect.RepeatWarning(it, due) }
++        }
++        return effects
++    }
++
++    private fun acceptEvents(
++        events: List<ConfirmedSignEvent>,
++        currentlyConfirmedSigns: Set<VisibleSign>,
+     ): List<MonitoringEffect> {
+         if (!state.isActive) return emptyList()
+         val episodeContinues = activeEpisodeSigns.any { it in currentlyConfirmedSigns }
+@@ -272,6 +305,7 @@ class MonitoringSessionController(
+         if (!state.isActive) return emptyList()
+         val now = clock()
+         val effects = warningStages.advance(now, activeEpisodeSigns)
++        if (effects.any { it is MonitoringEffect.ActivateWarning }) warningRepeater.warningActivated(now)
+         state = state.copy(durationMs = duration(now), currentStage = warningStages.stage)
+         return effects
+     }
+diff --git a/app/src/main/java/com/lhordkent/drivealert/ui/DriveAlertApp.kt b/app/src/main/java/com/lhordkent/drivealert/ui/DriveAlertApp.kt
+index 8704bc1..1704074 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/ui/DriveAlertApp.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/ui/DriveAlertApp.kt
+@@ -126,6 +126,7 @@ object PostAuthRoutes {
+     const val TRUSTED_SETTINGS = "trusted/settings"
+     const val ACCOUNT = "post-auth/account"
+     const val HISTORY_STORAGE = "post-auth/history-storage"
++    const val MONITORING_LOGS = "driver/monitoring-logs"
+     const val NOTIFICATIONS = "post-auth/notifications"
+     const val WARNING_SOUND = "post-auth/warning-sound"
+     const val ABOUT = "post-auth/about"
+@@ -228,6 +229,8 @@ fun DriveAlertApp() {
+     }
+     DriveAlertApp(
+         callbacks = authViewModel.callbacks,
++        monitoringLogRepository = application.container.monitoringLogRepository,
++        monitoringLogWriter = application.container.monitoringLogWriter,
+         operationState = authViewModel.state,
+         sessionState = authViewModel.sessionState,
+         postAuthState = postAuthViewModel.state,
+@@ -389,6 +392,8 @@ fun DriveAlertApp(
+     onDeleteSharedHistory: (String, String?) -> Unit = { _, _ -> },
+     onRefreshHistory: () -> Unit = {},
+     onClearPostAuth: () -> Unit = {},
++    monitoringLogRepository: com.lhordkent.drivealert.data.monitoringlog.MonitoringLogRepository? = null,
++    monitoringLogWriter: com.lhordkent.drivealert.data.monitoringlog.MonitoringLogWriter? = null,
+ ) {
+     if (sessionState.isResolving) {
+         SessionLoadingScreen()
+@@ -617,6 +622,7 @@ fun DriveAlertApp(
+                         onSetupDevice = { navController.navigate(PostAuthRoutes.DRIVER_SETUP) },
+                         onNotifications = { navController.navigate(PostAuthRoutes.NOTIFICATIONS) },
+                         onHistory = { navController.navigate(PostAuthRoutes.HISTORY_STORAGE) },
++                        onMonitoringLogs = { navController.navigate(PostAuthRoutes.MONITORING_LOGS) },
+                         onWarningSound = { navController.navigate(PostAuthRoutes.WARNING_SOUND) },
+                         onAbout = { navController.navigate(PostAuthRoutes.ABOUT) },
+                         onLogout = {
+@@ -745,6 +751,14 @@ fun DriveAlertApp(
+                 LaunchedEffect(Unit) { onRefreshHistory() }
+                 HistorySettingsScreen(postAuthState, onPreviewRetention, onConfirmRetention, onDismissRetention, navController::popBackStack)
+             }
++            composable(PostAuthRoutes.MONITORING_LOGS) {
++                if (user != null && postAuthState.activeView == UserView.DRIVER &&
++                    postAuthState.userRole in setOf(UserRole.DRIVER, UserRole.BOTH) &&
++                    monitoringLogRepository != null && monitoringLogWriter != null) {
++                    com.lhordkent.drivealert.ui.postauth.MonitoringLogsScreen(user.uid,
++                        monitoringLogRepository, monitoringLogWriter, navController::popBackStack)
++                } else LaunchedEffect(Unit) { navController.popBackStack() }
++            }
+             composable(PostAuthRoutes.NOTIFICATIONS) {
+                 NotificationSettingsScreen(
+                     postAuthState.activeView,
+diff --git a/app/src/main/java/com/lhordkent/drivealert/ui/postauth/SettingsScreens.kt b/app/src/main/java/com/lhordkent/drivealert/ui/postauth/SettingsScreens.kt
+index 22a498b..76feec3 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/ui/postauth/SettingsScreens.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/ui/postauth/SettingsScreens.kt
+@@ -65,6 +65,7 @@ fun SettingsScreen(
+     onAbout: () -> Unit,
+     onLogout: () -> Unit,
+     onHistory: () -> Unit = {},
++    onMonitoringLogs: () -> Unit = {},
+ ) {
+     var confirmLogout by rememberSaveable { mutableStateOf(false) }
+     val isDriver = view == UserView.DRIVER
+@@ -81,6 +82,7 @@ fun SettingsScreen(
+     SettingsRow("Account", onAccount, supportingText = "Name and signed-in email")
+     if (isDriver) SettingsRow("Setup & Device", onSetupDevice, supportingText = "Connection, camera alignment, and notification readiness")
+     SettingsRow("History & Storage", onHistory, supportingText = "Automatic deletion and history retention on this phone")
++    if (isDriver) SettingsRow("Monitoring Logs", onMonitoringLogs, supportingText = "Session timeline, sign values, alarm results and log deletion")
+     SettingsRow("Notifications", onNotifications, supportingText = "Choose which interface updates are enabled")
+     if (isDriver) SettingsRow("Warning Sound", onWarningSound, supportingText = "Sound and preferred device volume")
+     SettingsRow("About DriveAlert", onAbout, supportingText = "Purpose, Warning Stages, privacy, and limitations")
+diff --git a/app/src/main/java/com/lhordkent/drivealert/ui/postauth/WifiProvisioningPanel.kt b/app/src/main/java/com/lhordkent/drivealert/ui/postauth/WifiProvisioningPanel.kt
+index b822276..953189d 100644
+--- a/app/src/main/java/com/lhordkent/drivealert/ui/postauth/WifiProvisioningPanel.kt
++++ b/app/src/main/java/com/lhordkent/drivealert/ui/postauth/WifiProvisioningPanel.kt
+@@ -291,7 +291,7 @@ fun WifiProvisioningPanel(
+                     }
+                     if (shouldOfferBleRecovery(streamState)) {
+                         Spacer(Modifier.height(12.dp))
+-                        SecondaryButton("Switch to Bluetooth setup", onReturnToBleSetup)
++                        SecondaryButton("Go back to Bluetooth (BLE) setup", onReturnToBleSetup)
+                     }
+                 } else {
+                     Text("Connection verified through the live stream.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+diff --git a/app/src/test/java/com/lhordkent/drivealert/device/HttpWarningOutputGatewayTest.kt b/app/src/test/java/com/lhordkent/drivealert/device/HttpWarningOutputGatewayTest.kt
+index 5243a72..8b287f4 100644
+--- a/app/src/test/java/com/lhordkent/drivealert/device/HttpWarningOutputGatewayTest.kt
++++ b/app/src/test/java/com/lhordkent/drivealert/device/HttpWarningOutputGatewayTest.kt
+@@ -2,6 +2,7 @@ package com.lhordkent.drivealert.device
+ 
+ import com.lhordkent.drivealert.data.repository.ProvisionedDevice
+ import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
++import com.lhordkent.drivealert.monitoring.activateSafely
+ import com.lhordkent.drivealert.monitoring.warningOutputCommand
+ import com.lhordkent.drivealert.postauth.PreferredVolume
+ import com.lhordkent.drivealert.postauth.WarningSound
+@@ -10,11 +11,46 @@ import java.net.InetAddress
+ import java.net.ServerSocket
+ import java.util.concurrent.atomic.AtomicReference
+ import kotlinx.coroutines.runBlocking
++import kotlinx.coroutines.CancellationException
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertTrue
+ import org.junit.Test
+ 
+ class HttpWarningOutputGatewayTest {
++    @Test
++    fun `cancelled reminder resolution does not become a delivery failure or send a request`() = runBlocking {
++        val device = ProvisionedDevice(
++            deviceId = "camera",
++            driverUserId = "driver",
++            hostname = "drivealert.local",
++            lastKnownIp = "127.0.0.1",
++            lastConnectedAtEpochMillis = 1L,
++        )
++        val gateway = HttpWarningOutputGateway(
++            deviceProvider = { device },
++            endpointResolver = object : DriveAlertEndpointResolver {
++                override suspend fun resolve(device: ProvisionedDevice): ProvisionedDevice? {
++                    throw CancellationException("Sign recovered")
++                }
++            },
++        )
++        try {
++            gateway.activateSafely(WarningStage.STAGE_1.command().copy(repeat = true))
++            throw AssertionError("Cancellation must propagate")
++        } catch (expected: CancellationException) {
++            assertEquals("Sign recovered", expected.message)
++        }
++    }
++
++    @Test
++    fun `repeat intent is sent explicitly without changing initial warning payload`() = runBlocking {
++        val request = AtomicReference<String>()
++        withServer(200, HttpWarningOutputGateway.ACCEPTED_RESPONSE, request = request) { port ->
++            assertEquals(WarningDeliveryStatus.DELIVERED, gateway(port).activate(WarningStage.STAGE_2.command().copy(repeat = true)))
++            assertEquals("stage=2&sound=DIGITAL_BEEP&volume=MEDIUM&repeat=1", request.get())
++        }
++    }
++
+     @Test
+     fun `all sound identifiers serialize without physical track numbers`() {
+         WarningSound.values().forEach { sound ->
+diff --git a/drivealert-iot/DriveAlert_Camera_Test/app_httpd.cpp b/drivealert-iot/DriveAlert_Camera_Test/app_httpd.cpp
+index 5bb4cca..32a4610 100644
+--- a/drivealert-iot/DriveAlert_Camera_Test/app_httpd.cpp
++++ b/drivealert-iot/DriveAlert_Camera_Test/app_httpd.cpp
+@@ -697,6 +697,8 @@ static bool parse_warning_body(char *body, WarningOutput::Command *command) {
+   bool stageSeen = false;
+   bool soundSeen = false;
+   bool volumeSeen = false;
++  bool repeatSeen = false;
++  command->repeat = false;
+   unsigned fieldCount = 0;
+   char *save = NULL;
+   for (char *field = strtok_r(body, "&", &save); field != NULL; field = strtok_r(NULL, "&", &save)) {
+@@ -718,11 +720,15 @@ static bool parse_warning_body(char *body, WarningOutput::Command *command) {
+     } else if (!strcmp(key, "volume") && !volumeSeen) {
+       if (!WarningOutput::parseVolume(value, &command->volume)) return false;
+       volumeSeen = true;
++    } else if (!strcmp(key, "repeat") && !repeatSeen) {
++      if (strcmp(value, "1")) return false;
++      command->repeat = true;
++      repeatSeen = true;
+     } else {
+       return false;
+     }
+   }
+-  return fieldCount == 3 && stageSeen && soundSeen && volumeSeen &&
++  return fieldCount == (repeatSeen ? 4u : 3u) && stageSeen && soundSeen && volumeSeen &&
+          WarningOutput::isValid(*command);
+ }
+ 
+diff --git a/drivealert-iot/DriveAlert_Camera_Test/warning_output.cpp b/drivealert-iot/DriveAlert_Camera_Test/warning_output.cpp
+index ce1f42f..ae774cb 100644
+--- a/drivealert-iot/DriveAlert_Camera_Test/warning_output.cpp
++++ b/drivealert-iot/DriveAlert_Camera_Test/warning_output.cpp
+@@ -6,6 +6,12 @@ namespace WarningOutput {
+ namespace {
+ constexpr unsigned long PLAYER_POWER_UP_MS = 5000;
+ constexpr unsigned long PLAYER_COMMAND_SETTLE_MS = 1000;
++// One-way UART has no playback-complete signal. These minimum reservations must
++// be checked against the actual SD-card recordings; they are not measured busy state.
++constexpr unsigned long NORMAL_PLAYBACK_GUARD_MS = 2000;
++constexpr unsigned long MIXED_PLAYBACK_GUARD_MS = 10000;
++constexpr unsigned long VISIBILITY_PLAYBACK_GUARD_MS = 4000;
++constexpr unsigned long REMINDER_MAX_QUEUE_AGE_MS = 500;
+ 
+ enum class StartupStep : uint8_t {
+   WAIT_FOR_PLAYER,
+@@ -25,9 +31,13 @@ struct PlaybackCommand {
+   uint16_t track;
+   Volume volume;
+   bool highPriority;
++  bool repeat;
++  unsigned long queuedAtMs;
+ };
+ PlaybackCommand pendingCommand = {};
+ volatile bool commandPending = false;
++unsigned long playbackStartedAtMs = 0;
++unsigned long playbackGuardMs = 0;
+ 
+ bool elapsed(unsigned long now, unsigned long startedAt, unsigned long duration) {
+   return now - startedAt >= duration;
+@@ -39,18 +49,26 @@ bool takePending(PlaybackCommand *command) {
+   if (commandPending) {
+     *command = pendingCommand;
+     commandPending = false;
+-    available = true;
++    const unsigned long now = millis();
++    available = !command->repeat || !elapsed(now, command->queuedAtMs, REMINDER_MAX_QUEUE_AGE_MS);
++    if (available) {
++      playbackStartedAtMs = now;
++      playbackGuardMs = command->track >= EYES_BLOCKED_TRACK ? VISIBILITY_PLAYBACK_GUARD_MS
++          : command->track >= DIGITAL_BEEP_STAGE_3_TRACK ? MIXED_PLAYBACK_GUARD_MS
++          : NORMAL_PLAYBACK_GUARD_MS;
++    }
+   }
+   portEXIT_CRITICAL(&commandMux);
+   return available;
+ }
+ 
+-bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority) {
++bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority, bool repeat = false) {
+   if (!isAvailable() || track == 0 || valueForVolume(volume) == 0) return false;
+   bool accepted = false;
+   portENTER_CRITICAL(&commandMux);
+-  if (!commandPending || (highPriority && !pendingCommand.highPriority)) {
+-    pendingCommand = {track, volume, highPriority};
++  const bool repeatAllowed = !repeat || (!commandPending && elapsed(millis(), playbackStartedAtMs, playbackGuardMs));
++  if (repeatAllowed && (!commandPending || (highPriority && !pendingCommand.highPriority))) {
++    pendingCommand = {track, volume, highPriority, repeat, millis()};
+     commandPending = true;
+     accepted = true;
+   }
+@@ -188,7 +206,7 @@ bool isValid(const VisibilityCommand &command) {
+ 
+ bool enqueue(const Command &command) {
+   if (!isValid(command)) return false;
+-  return enqueuePlayback(trackForStage(command.stage, command.sound), command.volume, true);
++  return enqueuePlayback(trackForStage(command.stage, command.sound), command.volume, !command.repeat, command.repeat);
+ }
+ 
+ bool enqueue(const VisibilityCommand &command) {
+diff --git a/drivealert-iot/DriveAlert_Camera_Test/warning_output.h b/drivealert-iot/DriveAlert_Camera_Test/warning_output.h
+index be80a48..f1ae40c 100644
+--- a/drivealert-iot/DriveAlert_Camera_Test/warning_output.h
++++ b/drivealert-iot/DriveAlert_Camera_Test/warning_output.h
+@@ -36,6 +36,7 @@ struct Command {
+   uint8_t stage;
+   Sound sound;
+   Volume volume;
++  bool repeat = false;
+ };
+ 
+ struct VisibilityCommand {
+diff --git a/drivealert-iot/WARNING_OUTPUT_PROTOCOL.md b/drivealert-iot/WARNING_OUTPUT_PROTOCOL.md
+index 61ee195..55aa4f6 100644
+--- a/drivealert-iot/WARNING_OUTPUT_PROTOCOL.md
++++ b/drivealert-iot/WARNING_OUTPUT_PROTOCOL.md
+@@ -1,7 +1,8 @@
+-# DriveAlert warning-output protocol v1
++# DriveAlert warning-output protocol v2
+ 
+ Android sends one warning command to the ESP32-CAM control server for each
+-`MonitoringEffect.ActivateWarning` produced by the existing warning-stage controller.
++`MonitoringEffect.ActivateWarning` produced by the existing warning-stage controller,
++and repeat-only commands for `MonitoringEffect.RepeatWarning` while signs persist.
+ 
+ ## Request
+ 
+@@ -13,12 +14,14 @@ Accept: application/json
+ stage=2&sound=DIGITAL_BEEP&volume=MEDIUM
+ ```
+ 
+-The body contains exactly three fields. Unknown, missing, duplicate, or invalid
+-fields are rejected.
++Initial/stage-change requests contain exactly three fields. Repeat-only requests
++add the optional fourth field `repeat=1`. Unknown, missing, duplicate, or invalid
++fields are rejected. Omitting `repeat` preserves the original request behavior.
+ 
+ - `stage`: `1`, `2`, or `3`
+ - `sound`: `DIGITAL_BEEP`, `ROOSTER_CALL`, `ALARM_CLOCK`, `DIGITAL_BEEP_2`, or `BELL_CHIME`
+ - `volume`: `MINIMUM`, `MEDIUM`, or `HIGH`
++- `repeat`: optional, only `1` is accepted; identifies a disposable reminder
+ 
+ Android never transmits advisory text or physical track numbers. Firmware uses
+ the stage and sound to choose the physical file.
+@@ -28,12 +31,40 @@ the stage and sound to choose the physical file.
+ - `200 OK` with `{"status":"accepted"}`: the command was queued for playback.
+ - `400 Bad Request` with `{"error":"invalid_request"}`: the command was invalid.
+ - `503 Service Unavailable` with `{"error":"warning_output_unavailable"}`: DFPlayer initialization is incomplete or failed.
+-- `503 Service Unavailable` with `{"error":"warning_output_busy"}`: a prior command is waiting to be consumed.
++- `503 Service Unavailable` with `{"error":"warning_output_busy"}`: a prior command is waiting to be consumed, or a repeat was suppressed during a playback reservation.
+ 
+ Android treats only the exact `200 OK` accepted response as `DELIVERED`. Network
+ errors, timeouts, other status codes, and malformed response bodies are `FAILED`.
+ There are no automatic retries, preventing unintentional duplicate playback.
+ 
++## Persistent-sign reminders
++
++Android requests reminders every two seconds for confirmed eye closure, or every
++three seconds for confirmed yawning/head down. Each uninterrupted occurrence
++remains one detection incident. Reminders neither restart the warning-stage period
++nor increase its event count; the existing 60-second persistence transitions still
++apply. Recovery or unavailable observations discard reminders. A delayed update
++emits at most one request, and Android never queues reminders behind an in-flight
++reminder request. Repeats do not create new history rows or phone notifications.
++
++Firmware drops repeat-only requests if any command is pending or an estimated
++playback reservation is active. Initial/stage-change warnings may replace pending
++reminders and may interrupt playback. Reminders waiting in the firmware queue
++for 500 ms are discarded rather than played late.
++
++**Playback limitation:** the physically verified UART is transmit-only, without a
++DFPlayer BUSY connection or completion feedback. Firmware therefore uses minimum
++reservations of 2 seconds for normal tracks, 10 seconds for mixed Stage 3 tracks,
++and 4 seconds for visibility tracks. These are engineering estimates, not measured
++track lengths or proof that playback has finished. Validate and adjust the
++`*_PLAYBACK_GUARD_MS` constants in `warning_output.cpp` against every actual SD-card
++recording before hardware acceptance. Longer recordings could still be interrupted
++after their reservation expires; accurate completion requires feedback or verified
++per-track durations. Audible reminders can be less frequent than Android requests.
++
++Flash the updated firmware before using reminders in the updated app. Older
++firmware rejects `repeat=1`; initial and stage-change requests remain compatible.
++
+ ## Visibility speech request
+ 
+ Visibility guidance uses a separate endpoint and never changes warning-stage
+@@ -82,7 +113,7 @@ The final files use `/mp3/NNNN.mp3` and `player.playMp3Folder(trackNumber)`.
+ Stage 3 tracks 6-10 already contain the warning and spoken rest advisory mixed
+ together, so firmware plays exactly one file.
+ 
+-Warning commands have queue priority over visibility speech. A pending
++Initial and stage-change warning commands have queue priority over visibility speech. A pending
+ visibility command may be replaced by a drowsiness warning; visibility speech
+ never replaces a pending warning. The four speech MP3 files must be created and
+ copied to the DFPlayer microSD card before hardware testing.

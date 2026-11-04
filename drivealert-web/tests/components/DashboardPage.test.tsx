@@ -14,7 +14,7 @@ describe('dashboard states', () => {
     renderPage()
     expect(screen.getAllByText('1', { selector: 'span' })).toHaveLength(2)
     expect(screen.getByText('Connected Drivers')).toBeInTheDocument()
-    expect(screen.getByText('Entered Stage 3')).toBeInTheDocument()
+    expect(screen.getByText('Alert started')).toBeInTheDocument()
     expect(screen.getByText(/historical activity, not live monitoring/i)).toBeInTheDocument()
   })
 

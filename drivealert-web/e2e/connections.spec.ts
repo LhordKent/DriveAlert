@@ -38,7 +38,7 @@ test('invites a Driver, shows the outgoing request, and cancels it', async ({ pa
   await expect(page.getByText('No outgoing requests')).toBeVisible()
 })
 
-test('accepts a Driver, opens and reloads Stage 3 detail, then disconnects', async ({ page }) => {
+test('accepts a Driver, opens and reloads shared alert detail, then disconnects', async ({ page }) => {
   const trusted = await createEmulatorUser('Trusted', 'TRUSTED_CONTACT', TRUSTED_CODE)
   const driver = await createEmulatorUser('Driver', 'DRIVER', DRIVER_CODE)
   await requestFromDriver(driver, trusted)
@@ -52,12 +52,12 @@ test('accepts a Driver, opens and reloads Stage 3 detail, then disconnects', asy
   await page.goto('/drivers')
   await expect(page.getByText(driver.name)).toBeVisible()
   await page.getByRole('link', { name: 'View records' }).click()
-  await expect(page.getByText('Entered Stage 3')).toBeVisible()
-  await page.getByRole('link', { name: /Entered Stage 3/ }).click()
-  await expect(page.getByRole('heading', { name: 'Entered Stage 3' })).toBeVisible()
+  await expect(page.getByText('Alert started')).toBeVisible()
+  await page.getByRole('link', { name: /Alert started/ }).click()
+  await expect(page.getByRole('heading', { name: 'Alert started' })).toBeVisible()
   await expect(page.getByText('session-e2e')).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'Entered Stage 3' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Alert started' })).toBeVisible()
   await page.goto('/drivers')
   await page.getByRole('button', { name: /Disconnect/ }).click()
   await expect(page.getByRole('alertdialog')).toBeVisible()
@@ -91,4 +91,38 @@ test('shows an approved Driver after the Driver accepts a Trusted Contact reques
   await page.goto('/drivers')
   await expect(page.getByText(driver.name)).toBeVisible()
   expect(relationshipId(driver, trusted)).toContain('__')
+})
+
+test('uses shared-alert language everywhere except About DriveAlert on desktop and mobile', async ({ page }, testInfo) => {
+  const trusted = await createEmulatorUser('Trusted', 'TRUSTED_CONTACT', TRUSTED_CODE)
+  const driver = await createEmulatorUser('Driver', 'DRIVER', DRIVER_CODE)
+  await requestFromDriver(driver, trusted)
+  const { approvedAt } = await approveTrustedRequest(driver, trusted)
+  await addStageRecord(driver, approvedAt)
+  await signIn(page, trusted.email, trusted.password)
+
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport)
+    for (const [path, title] of [
+      ['/dashboard', 'Dashboard'], ['/drivers', 'Connected Drivers'],
+      [`/drivers/${driver.uid}`, driver.name],
+      [`/drivers/${driver.uid}/records/stage-record-1`, 'Alert started'],
+      ['/requests', 'Requests'], ['/requests/invite', 'Invite a Driver'],
+      ['/account', 'Account'], ['/settings', 'Settings'], ['/settings/history', 'History & Storage'],
+    ]) {
+      await page.goto(path)
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
+      if (path === '/dashboard' || path === `/drivers/${driver.uid}`) await expect(page.getByText('Alert started')).toBeVisible()
+      await expect(page.locator('body')).not.toContainText(/stage[\s_-]*3/i)
+      expect(await page.locator('meta[name="description"]').getAttribute('content')).not.toMatch(/stage[\s_-]*3/i)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      if (title === 'Dashboard' || title === 'Alert started') {
+        await page.screenshot({ path: testInfo.outputPath(`${title === 'Dashboard' ? 'dashboard' : 'record'}-${viewport.width}.png`), fullPage: true })
+      }
+    }
+    await page.goto('/settings')
+    await page.getByRole('link', { name: /About DriveAlert/ }).click()
+    await expect(page.getByRole('heading', { name: 'About DriveAlert', exact: true })).toBeVisible()
+    await expect(page.locator('body')).toContainText('Stage 3')
+  }
 })

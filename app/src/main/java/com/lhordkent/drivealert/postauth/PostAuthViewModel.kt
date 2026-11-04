@@ -262,9 +262,9 @@ class PostAuthViewModel(
                     }.onStart { history.cleanup(trustedUserId) }
                 } ?: recordsFlow
                 retainedFlow
-                    .catch {
+                    .catch { error ->
                         state = state.copy(connectedDrivers = state.connectedDrivers.map { driver ->
-                            if (driver.id == driverId) driver.copy(sharedRecordsLoading = false, sharedRecordsErrorMessage = CLOUD_CONNECTION_ERROR) else driver
+                            if (driver.id == driverId) driver.copy(sharedRecordsLoading = false, sharedRecordsErrorMessage = sharedRecordsErrorMessage(error)) else driver
                         })
                     }
                     .collect { records ->

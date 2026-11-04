@@ -1,0 +1,29 @@
+{
+  "rules": {
+    "devices": {
+      "esp32_01": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "command": {
+          ".read": true,
+          ".validate": "newData.isString() && (newData.val() === 'ON' || newData.val() === 'OFF')"
+        },
+        "actualLedState": {
+          ".write": true,
+          ".validate": "newData.isBoolean()"
+        },
+        "status": {
+          ".write": true,
+          ".validate": "newData.isString() && (newData.val() === 'online' || newData.val() === 'offline')"
+        },
+        "lastUpdate": {
+          ".write": true,
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

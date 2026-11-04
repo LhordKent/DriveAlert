@@ -1,0 +1,259 @@
+--- before/app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt
++++ after/app/src/main/java/com/lhordkent/drivealert/detection/DriverVisionViewModel.kt
+@@ -88,6 +88,9 @@
+ data class DriverVisionUiState(
+     val streamState: StreamConnectionState = StreamConnectionState.SETUP_REQUIRED,
+     val deviceConfigured: Boolean = false,
++    val deviceAddress: String? = null,
++    val deviceName: String? = null,
++    val bleSetupRequested: Boolean = false,
+     val faceDetected: Boolean? = null,
+     val alignmentConfirmed: Boolean = false,
+     val driverRegion: DriverRegion = DriverRegion.DEFAULT,
+@@ -226,6 +229,7 @@
+     private var lastDetectionTimestampMs: Long? = null
+     private var lastBrightnessTimestampMs: Long? = null
+     private var reconnectAttempt = 0
++    private var heartbeatJob: Job? = null
+     private val inferenceGate = MonotonicFrameGate(INFERENCE_INTERVAL_MS)
+     private val brightnessGate = MonotonicFrameGate(BRIGHTNESS_SAMPLE_INTERVAL_MS)
+     private val brightnessTracker = SceneBrightnessTracker()
+@@ -278,6 +282,8 @@
+                     it.copy(
+                         streamState = if (device == null) StreamConnectionState.SETUP_REQUIRED else it.streamState,
+                         deviceConfigured = device != null,
++                        deviceAddress = device?.lastKnownIp,
++                        deviceName = device?.hostname ?: device?.deviceId,
+                         alignmentConfirmed = if (endpointChanged) savedRegion != null else it.alignmentConfirmed,
+                     ).let { updated ->
+                         if (device != null && updated.streamState == StreamConnectionState.SETUP_REQUIRED) {
+@@ -297,7 +303,15 @@
+     }
+ 
+     fun startVision() {
++        if (mutableState.value.disconnectInProgress) return
+         streamWanted = true
++        mutableState.update { it.copy(bleSetupRequested = false) }
++        if (heartbeatJob?.isActive != true) heartbeatJob = scope.launch {
++            while (streamWanted) {
++                activeDevice?.let { sessionController.heartbeat(it) }
++                delay(10_000)
++            }
++        }
+         if (visionHealthJob?.isActive != true) {
+             visionHealthJob = scope.launch {
+                 while (streamWanted) {
+@@ -314,16 +328,18 @@
+         }
+     }
+ 
+-    fun returnToBleProvisioning() {
++    fun returnToBleProvisioning(onReady: () -> Unit = {}) {
++        if (activeDevice == null) {
++            mutableState.update { it.copy(bleSetupRequested = true) }
++            onReady()
++        } else disconnectCurrentSession(onReady)
++    }
++
++    fun openBleSetup(onReady: () -> Unit = {}) {
+         stopMonitoring(interrupted = true)
+         stopStream(resetAlignment = true)
+-        reconnectAttempt = 0
+-        mutableState.update {
+-            it.copy(
+-                streamState = if (activeDevice == null) StreamConnectionState.SETUP_REQUIRED else StreamConnectionState.READY,
+-                errorMessage = null,
+-            )
+-        }
++        mutableState.update { it.copy(bleSetupRequested = true, streamState = StreamConnectionState.READY, errorMessage = null) }
++        onReady()
+     }
+ 
+     fun beginAppAlignmentSession() {
+@@ -355,15 +371,18 @@
+ 
+     fun disconnectCurrentSession(onDisconnected: () -> Unit = {}) {
+         val device = activeDevice
+-        if (device == null || mutableState.value.streamState != StreamConnectionState.CONNECTED) {
+-            mutableState.update { it.copy(errorMessage = "The DriveAlert camera is not currently connected.") }
++        if (device == null) {
++            mutableState.update { it.copy(errorMessage = "No saved DriveAlert camera is available.") }
+             return
+         }
+         if (mutableState.value.disconnectInProgress) return
++        val driverAtRequest = boundDriverId
+         stopMonitoring(interrupted = true)
+         mutableState.update { it.copy(disconnectInProgress = true, errorMessage = null) }
+         scope.launch {
+-            sessionController.disconnect(device).fold(
++            val result = sessionController.disconnect(device)
++            if (boundDriverId != driverAtRequest) return@launch
++            result.fold(
+                 onSuccess = {
+                     stopStream(resetAlignment = true)
+                     reconnectAttempt = 0
+@@ -371,6 +390,7 @@
+                         it.copy(
+                             streamState = StreamConnectionState.READY,
+                             disconnectInProgress = false,
++                            bleSetupRequested = true,
+                             errorMessage = null,
+                         )
+                     }
+@@ -995,6 +1015,8 @@
+ 
+     private fun stopStream(resetAlignment: Boolean) {
+         streamWanted = false
++        heartbeatJob?.cancel()
++        heartbeatJob = null
+         streamGeneration++
+         visionHealthJob?.cancel()
+         visionHealthJob = null
+@@ -1051,8 +1073,13 @@
+ 
+     fun startVision() = runtime.startVision()
+ 
+-    fun returnToBleProvisioning() {
+-        runtime.returnToBleProvisioning()
++    fun returnToBleProvisioning(onReady: () -> Unit = {}) {
++        runtime.returnToBleProvisioning(onReady)
++        DriveAlertMonitoringService.dismissAfterRuntimeStop(getApplication())
++    }
++
++    fun openBleSetup(onReady: () -> Unit = {}) {
++        runtime.openBleSetup(onReady)
+         DriveAlertMonitoringService.dismissAfterRuntimeStop(getApplication())
+     }
+ 
+--- before/app/src/main/java/com/lhordkent/drivealert/ui/DriveAlertApp.kt
++++ after/app/src/main/java/com/lhordkent/drivealert/ui/DriveAlertApp.kt
+@@ -255,9 +255,9 @@
+             visionViewModel.disconnectCurrentSession(provisioningViewModel::resetAfterManualDisconnect)
+         },
+         onReturnToBleSetup = {
+-            visionViewModel.returnToBleProvisioning()
+-            provisioningViewModel.retry()
++            visionViewModel.returnToBleProvisioning(provisioningViewModel::resetAfterManualDisconnect)
+         },
++        onOpenBleSetup = { visionViewModel.openBleSetup(provisioningViewModel::resetAfterManualDisconnect) },
+         onPrepareSignOut = { onComplete ->
+             visionViewModel.prepareForAccountChange {
+                 provisioningViewModel.resetAfterManualDisconnect()
+@@ -358,6 +358,7 @@
+     onStopMonitoring: () -> Unit = {},
+     onDisconnectDevice: () -> Unit = {},
+     onReturnToBleSetup: () -> Unit = {},
++    onOpenBleSetup: () -> Unit = {},
+     onPrepareSignOut: (() -> Unit) -> Unit = { onComplete -> onComplete() },
+     onNavigate: () -> Unit = {},
+     onSetAccountEmail: (String) -> Unit = {},
+@@ -458,6 +459,7 @@
+                 )
+             }
+             composable(PostAuthRoutes.DRIVER_DEVICE_CONNECTION) {
++                LaunchedEffect(Unit) { if (!visionState.bleSetupRequested) onStartVision() }
+                 DeviceConnectionScreen(
+                     onBack = navController::popBackStack,
+                     provisioningViewModel = provisioningViewModel,
+@@ -465,6 +467,7 @@
+                     onDisconnect = onDisconnectDevice,
+                     onRetryConnection = onStartVision,
+                     onReturnToBleSetup = onReturnToBleSetup,
++                    onOpenBleSetup = onOpenBleSetup,
+                 )
+             }
+             composable(PostAuthRoutes.DRIVER_ALIGNMENT) {
+--- before/app/src/main/java/com/lhordkent/drivealert/ui/postauth/WifiProvisioningPanel.kt
++++ after/app/src/main/java/com/lhordkent/drivealert/ui/postauth/WifiProvisioningPanel.kt
+@@ -55,6 +55,7 @@
+     onDisconnect: () -> Unit = {},
+     onRetryConnection: () -> Unit = {},
+     onReturnToBleSetup: () -> Unit = {},
++    onOpenBleSetup: () -> Unit = {},
+ ) {
+     val context = LocalContext.current
+     val bluetoothAdapter = remember {
+@@ -69,6 +70,10 @@
+     val permissions = remember { BlePermissionPolicy.runtimePermissions() }
+     val streamState = vision?.streamState
+     val connectionVerified = streamState == StreamConnectionState.CONNECTED
++    if (showsSavedCameraConnection(vision)) {
++        SavedCameraConnectionPanel(checkNotNull(vision), onDisconnect, onRetryConnection, onReturnToBleSetup, onOpenBleSetup)
++        return
++    }
+     fun locationServicesRequiredAndOff(): Boolean =
+         BlePermissionPolicy.requiresLocationServices() &&
+             !LocationManagerCompat.isLocationEnabled(locationManager)
+@@ -188,10 +193,10 @@
+                         horizontalArrangement = Arrangement.SpaceBetween,
+                     ) {
+                         Text(device.name, color = TextPrimary)
+-                        Text(if (device.previouslyKnown) "Tap to reconnect" else "${device.rssi} dBm", color = TextMuted)
++                        Text(if (device.previouslyKnown) "Saved device" else "${device.rssi} dBm", color = TextMuted)
+                     }
+                 }
+-                Text("Previously paired devices can be selected even when a new scan cannot find them.",
++                Text("Saved devices may be offline or outside Bluetooth setup mode. Scan again to check availability.",
+                     style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                 Spacer(Modifier.height(12.dp))
+                 SecondaryButton("Scan again", ::scanWithPermission)
+--- before/drivealert-iot/DriveAlert_Camera_Test/app_httpd.cpp
++++ after/drivealert-iot/DriveAlert_Camera_Test/app_httpd.cpp
+@@ -25,6 +25,7 @@
+ #include "warning_output.h"
+ 
+ void requestManualDisconnect();
++void noteDriveAlertClientActivity();
+ 
+ #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_ARDUHAL_ESP_LOG)
+ #include "esp32-hal-log.h"
+@@ -268,6 +269,7 @@
+     }
+     if (res == ESP_OK) {
+       res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
++      if (res == ESP_OK) noteDriveAlertClientActivity();
+     }
+     if (fb) {
+       esp_camera_fb_return(fb);
+@@ -685,6 +687,13 @@
+   return response;
+ }
+ 
++static esp_err_t drivealert_heartbeat_handler(httpd_req_t *req) {
++  noteDriveAlertClientActivity();
++  httpd_resp_set_type(req, "application/json");
++  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
++  return httpd_resp_sendstr(req, "{\"status\":\"active\"}");
++}
++
+ static esp_err_t send_output_json(httpd_req_t *req, const char *status, const char *body) {
+   httpd_resp_set_status(req, status);
+   httpd_resp_set_type(req, "application/json");
+@@ -819,6 +828,7 @@
+ bool startCameraServer() {
+   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+   config.max_uri_handlers = 16;
++  config.send_wait_timeout = 5;
+ 
+   httpd_uri_t index_uri = {
+     .uri = "/",
+@@ -897,6 +907,11 @@
+     .supported_subprotocol = NULL
+ #endif
+   };
++
++  httpd_uri_t drivealert_heartbeat_uri = {};
++  drivealert_heartbeat_uri.uri = "/drivealert/heartbeat";
++  drivealert_heartbeat_uri.method = HTTP_POST;
++  drivealert_heartbeat_uri.handler = drivealert_heartbeat_handler;
+ 
+   httpd_uri_t drivealert_warning_uri = {
+     .uri = "/drivealert/warning",
+@@ -1019,6 +1034,7 @@
+     httpd_register_uri_handler(camera_httpd, &pll_uri);
+     httpd_register_uri_handler(camera_httpd, &win_uri);
+     httpd_register_uri_handler(camera_httpd, &drivealert_disconnect_uri);
++    httpd_register_uri_handler(camera_httpd, &drivealert_heartbeat_uri);
+     httpd_register_uri_handler(camera_httpd, &drivealert_warning_uri);
+     httpd_register_uri_handler(camera_httpd, &drivealert_visibility_uri);
+   }

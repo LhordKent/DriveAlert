@@ -13,7 +13,7 @@ describe('domain rules', () => {
   it('projects both request directions', () => { expect(requestDirection({ ...connection, requestedByUserId: 'trusted-1' }, 'trusted-1')).toBe('OUTGOING'); expect(requestDirection({ ...connection, requestedByUserId: 'driver-1' }, 'trusted-1')).toBe('INCOMING') })
   it('authorizes only Trusted Contact and BOTH roles', () => { expect(trustedRoleAllowed('TRUSTED_CONTACT')).toBe(true); expect(trustedRoleAllowed('BOTH')).toBe(true); expect(trustedRoleAllowed('DRIVER')).toBe(false); expect(trustedRoleAllowed(null)).toBe(false) })
   it('maps visible sign labels and safe unknown labels', () => { expect(signLabel('PROLONGED_EYE_CLOSURE')).toBe('Prolonged Eye Closure'); expect(signLabel('NEW_SIGN')).toBe('New Sign') })
-  it('uses clear boundary labels', () => { expect(recordTypeLabel('STAGE_3_TRANSITION')).toBe('Entered Stage 3'); expect(recordTypeLabel('STAGE_3_PERSISTENCE')).toBe('Continued Stage 3 period') })
+  it('uses clear boundary labels', () => { expect(recordTypeLabel('STAGE_3_TRANSITION')).toBe('Alert started'); expect(recordTypeLabel('STAGE_3_PERSISTENCE')).toBe('Alert continued') })
 })
 
 describe('Firestore boundary parsing', () => {
