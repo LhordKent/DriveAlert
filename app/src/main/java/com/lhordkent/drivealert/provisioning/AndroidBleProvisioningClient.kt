@@ -30,6 +30,10 @@ class AndroidBleProvisioningClient(
     private val context: Context,
     private val onEvent: (ProvisioningEvent) -> Unit,
     private val connectionTimeoutMs: Long = CONNECTION_TIMEOUT_MS,
+    private val allowCommand: () -> Boolean = { true },
+    private val credentialProvider: () -> com.lhordkent.drivealert.device.DeviceCredential? = { null },
+    private val onSessionAuthorized: (String, String) -> Unit = { _, _ -> },
+    private val revocationProvider: () -> List<Pair<String, Long>> = { emptyList() },
 ) : Closeable {
     private val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
     private val adapter get() = bluetoothManager?.adapter
@@ -46,6 +50,8 @@ class AndroidBleProvisioningClient(
     private var inFlightWrite: PendingWrite? = null
     private var receiverRegistered = false
     private var intentionalDisconnect = false
+    private var authenticationNonce: String? = null
+    private val revocations = ArrayDeque<Pair<String, Long>>()
     private val connectionTimeout = Runnable {
         if (gatt != null) {
             closeGatt()
@@ -141,6 +147,10 @@ class AndroidBleProvisioningClient(
         }
 
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) = withActiveGatt(gatt) {
+            if (status != BluetoothGatt.GATT_SUCCESS || mtu < 128) {
+                emit(ProvisioningEvent.Failed("Bluetooth could not negotiate the packet size required for device authorization. Retry pairing."))
+                return@withActiveGatt
+            }
             if (!gatt.discoverServices()) emit(ProvisioningEvent.Failed("Could not start service discovery."))
         }
 
@@ -177,8 +187,7 @@ class AndroidBleProvisioningClient(
 
         override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) = withActiveGatt(gatt) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                emit(ProvisioningEvent.BleReady)
-                queryStoredCredentials(gatt)
+                enqueueCommands(listOf("AUTH_HELLO"))
             } else emit(ProvisioningEvent.Failed("Secure status subscription failed."))
         }
 
@@ -346,12 +355,17 @@ class AndroidBleProvisioningClient(
 
     private fun prepareGatt(gatt: BluetoothGatt?) {
         if (gatt == null) return
-        if (!gatt.requestMtu(128) && !gatt.discoverServices()) {
+        if (!gatt.requestMtu(128)) {
             emit(ProvisioningEvent.Failed("Could not prepare the Bluetooth connection."))
         }
     }
 
     private fun writeNext(gatt: BluetoothGatt) {
+        if (!allowCommand()) {
+            clearQueuedSecrets()
+            emit(ProvisioningEvent.Failed("The authorized account changed. Verify access and reconnect."))
+            return
+        }
         if (writeQueue.isEmpty()) return
         val pending = writeQueue.removeFirst()
         inFlightWrite = pending
@@ -366,6 +380,40 @@ class AndroidBleProvisioningClient(
     private fun handleStatus(bytes: ByteArray) {
         val status = bytes.toString(Charsets.UTF_8)
         when {
+            status.startsWith("AUTH_CHALLENGE|") -> {
+                val parts = status.split('|')
+                val credential = credentialProvider()
+                if (parts.size != 4 || credential == null || parts[1] != credential.deviceId ||
+                    parts[1] != selectedDevice?.address?.let(com.lhordkent.drivealert.data.device.DeviceIdentity::canonical) ||
+                    !parts[2].matches(Regex("[0-9A-F]{32}"))) {
+                    emit(ProvisioningEvent.Failed("The device identity or offline authorization could not be verified. Refresh access online and retry."))
+                    return
+                }
+                authenticationNonce = parts[2]
+                if (parts[3] == "NEW") {
+                    if (!credential.owner) { emit(ProvisioningEvent.Failed("The primary driver must register this device first.")); return }
+                    enqueueCommands(listOf("CLAIM|${credential.accountId}|${credential.secret}"))
+                } else if (parts[3] == "CLAIMED") {
+                    if (credential.owner) enqueueProof(credential)
+                    else enqueueCommands(listOf("CERT1|${credential.accountId}|${credential.serial}|${credential.secret}", "CERT2|${credential.certificate}"))
+                } else emit(ProvisioningEvent.Failed("Unsupported device authorization response. Update both the app and firmware."))
+            }
+            status == "AUTH_CERT_READY" -> credentialProvider()?.let(::enqueueProof)
+            status == "AUTH_CERT_PART" -> Unit
+            status.startsWith("AUTH_OK|") -> {
+                val credential = credentialProvider() ?: return
+                val token = status.removePrefix("AUTH_OK|")
+                if (!token.matches(Regex("[0-9A-F]{64}"))) { emit(ProvisioningEvent.Failed("Invalid device session response.")); return }
+                try { onSessionAuthorized(credential.deviceId, token) }
+                catch (_: Exception) { emit(ProvisioningEvent.Failed("Could not save the authorized device session. Retry setup.")); return }
+                revocations.clear()
+                if (credential.owner) revocations.addAll(revocationProvider())
+                completeRevocationSync()
+            }
+            status == "AUTH_REVOKED" -> completeRevocationSync()
+            status.startsWith("AUTH_ERROR|") || status == "AUTH_REQUIRED" -> {
+                emit(ProvisioningEvent.Failed("Device authorization was rejected. Refresh access online and retry. The owner may need to register or synchronize this device."))
+            }
             status == "CONNECTING" -> emit(ProvisioningEvent.WifiConnecting)
             status == "CREDENTIALS|NONE" -> {
                 mainHandler.removeCallbacks(connectionTimeout)
@@ -414,7 +462,34 @@ class AndroidBleProvisioningClient(
         writeNext(gatt)
     }
 
+    private fun enqueueProof(credential: com.lhordkent.drivealert.device.DeviceCredential) {
+        val nonce = authenticationNonce ?: return
+        enqueueCommands(listOf("AUTH|${credential.accountId}|${com.lhordkent.drivealert.device.DeviceCredentialCrypto.proof(credential, nonce)}"))
+        authenticationNonce = null
+    }
+
+    private fun enqueueCommands(commands: List<String>) {
+        val characteristic = applyCharacteristic ?: return
+        commands.forEach { writeQueue.add(PendingWrite(characteristic, it.toByteArray(Charsets.UTF_8))) }
+        if (inFlightWrite == null) gatt?.let(::writeNext)
+    }
+
+    private fun completeRevocationSync() {
+        if (revocations.isNotEmpty()) {
+            val (account, serial) = revocations.removeFirst()
+            enqueueCommands(listOf("REVOKE|$account|$serial"))
+        } else {
+            emit(ProvisioningEvent.BleReady)
+            // A status notification can precede Android's characteristic-write callback.
+            val apply = applyCharacteristic ?: return
+            writeQueue.add(PendingWrite(apply, ProvisioningProtocol.queryCredentialsCommand.toByteArray(Charsets.UTF_8)))
+            if (inFlightWrite == null) gatt?.let(::writeNext)
+        }
+    }
+
     private fun closeGatt() {
+        authenticationNonce = null
+        revocations.clear()
         mainHandler.removeCallbacks(connectionTimeout)
         clearQueuedSecrets()
         intentionalDisconnect = true
@@ -480,7 +555,7 @@ class AndroidBleProvisioningClient(
 
     companion object {
         private const val SCAN_TIMEOUT_MS = 15_000L
-        private const val CONNECTION_TIMEOUT_MS = 30_000L
+        private const val CONNECTION_TIMEOUT_MS = 60_000L
         private const val DEFAULT_DEVICE_NAME = "DriveAlert device"
 
         data class ConnectedEndpoint(val ip: String, val hostname: String?)

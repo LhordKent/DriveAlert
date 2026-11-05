@@ -63,10 +63,12 @@ fun WifiProvisioningPanel(
     }
     val locationManager = remember { context.getSystemService(LocationManager::class.java) }
     val state by provisioningViewModel.state.collectAsState()
+    val authorization by provisioningViewModel.authorization.collectAsState()
     var ssid by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var showHotspotPrompt by rememberSaveable { mutableStateOf(false) }
     var showLocationPrompt by rememberSaveable { mutableStateOf(false) }
+    var showRestartRecovery by rememberSaveable { mutableStateOf(false) }
     val permissions = remember { BlePermissionPolicy.runtimePermissions() }
     val streamState = vision?.streamState
     val connectionVerified = streamState == StreamConnectionState.CONNECTED
@@ -188,7 +190,7 @@ fun WifiProvisioningPanel(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(role = Role.Button) { provisioningViewModel.selectDevice(device.id) }
+                            .clickable(enabled = !authorization.checking, role = Role.Button) { provisioningViewModel.selectDevice(device.id) }
                             .padding(vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
@@ -196,6 +198,8 @@ fun WifiProvisioningPanel(
                         Text(if (device.previouslyKnown) "Saved device" else "${device.rssi} dBm", color = TextMuted)
                     }
                 }
+                if (authorization.checking) Text("Verifying device access…", color = TextSecondary)
+                authorization.message?.let { Text(it, color = DriveRed, modifier = Modifier.padding(top = 12.dp)) }
                 Text("Saved devices may be offline or outside Bluetooth setup mode. Scan again to check availability.",
                     style = MaterialTheme.typography.bodySmall, color = TextMuted)
                 Spacer(Modifier.height(12.dp))
@@ -279,6 +283,10 @@ fun WifiProvisioningPanel(
                     color = if (connectionVerified) Success else TextSecondary,
                 )
                 state.hostname?.let { Text("Device name: $it.local", color = TextSecondary) }
+                vision?.errorMessage?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = DriveRed, style = MaterialTheme.typography.bodyMedium)
+                }
                 Spacer(Modifier.height(6.dp))
                 if (!connectionVerified) {
                     Text(
@@ -292,11 +300,14 @@ fun WifiProvisioningPanel(
                     )
                     if (streamState == StreamConnectionState.UNAVAILABLE) {
                         Spacer(Modifier.height(12.dp))
-                        SecondaryButton("Try again", onRetryConnection)
+                        SecondaryButton("Try again", onRetryConnection, enabled = vision?.disconnectInProgress != true)
                     }
                     if (shouldOfferBleRecovery(streamState)) {
                         Spacer(Modifier.height(12.dp))
-                        SecondaryButton("Go back to Bluetooth (BLE) setup", onReturnToBleSetup)
+                        SecondaryButton(if (vision?.disconnectInProgress == true) "Returning to Bluetooth…" else "Go back to Bluetooth (BLE) setup", onReturnToBleSetup, enabled = vision?.disconnectInProgress != true)
+                        Spacer(Modifier.height(12.dp))
+                        SecondaryButton("Open Bluetooth setup after restart", { showRestartRecovery = true }, enabled = vision?.disconnectInProgress != true)
+                        Text("If the camera cannot accept the return request, power the board off and on first. Your account registration and saved Wi-Fi details are kept.", color = TextMuted, style = MaterialTheme.typography.bodySmall)
                     }
                 } else {
                     Text("Connection verified through the live stream.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
@@ -330,6 +341,30 @@ fun WifiProvisioningPanel(
                 locationSettingsLauncher.launch(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             },
             onDismiss = { showLocationPrompt = false },
+        )
+    }
+
+    if (showRestartRecovery) {
+        ConfirmDialog("Has the board been restarted?",
+            "Power the board off and on, then open Bluetooth setup. This opens discovery on the phone; it does not restart the board or erase registration, Wi-Fi details, or history.",
+            "Open Bluetooth setup", onConfirm = { showRestartRecovery = false; onOpenBleSetup() },
+            onDismiss = { showRestartRecovery = false }, actionColor = TextPrimary)
+    }
+
+    if (authorization.claimable) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { provisioningViewModel.dismissClaim() },
+            title = { Text("Register as primary driver?") },
+            text = { Column {
+                Text("Register ${authorization.name} to your account. One primary driver is included. Additional drivers need an invitation from you.")
+                Spacer(Modifier.height(12.dp))
+                Text("Registration needs internet once. Daily monitoring works offline. This cannot be transferred to another owner in this demo.")
+                authorization.message?.let { Text(it, color = DriveRed, modifier = Modifier.padding(top = 12.dp)) }
+            } },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = provisioningViewModel::claimSelectedDevice, enabled = !authorization.checking, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = TextPrimary)) {
+                Text(if (authorization.checking) "Registering…" else "Register device")
+            } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = provisioningViewModel::dismissClaim, enabled = !authorization.checking, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = TextSecondary)) { Text("Cancel") } },
         )
     }
 

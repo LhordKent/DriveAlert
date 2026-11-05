@@ -1,5 +1,7 @@
 # Movement advisory deployment
 
+For the new calibration completion cue on DFPlayer track 16, see [CALIBRATION_PING.md](CALIBRATION_PING.md). Its audio is supplied and installed on the card by the owner.
+
 The movement check is an Android advisory based on facial landmark movement.
 It is not proof of life and does not prevent moving-photo or replay-video inputs.
 

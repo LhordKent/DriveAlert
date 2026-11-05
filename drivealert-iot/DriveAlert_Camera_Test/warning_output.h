@@ -65,6 +65,10 @@ constexpr uint16_t MOUTH_BLOCKED_TRACK = 12;
 constexpr uint16_t FACE_NOT_VISIBLE_TRACK = 13;
 constexpr uint16_t INSUFFICIENT_LIGHTING_TRACK = 14;
 constexpr uint16_t NO_MOVEMENT_TRACK = 15;
+constexpr uint16_t CALIBRATION_COMPLETE_TRACK = 16;
+constexpr uint16_t CALIBRATION_COUNTDOWN_TRACK = 17;
+constexpr unsigned long CALIBRATION_COUNTDOWN_MS = 2500;
+constexpr unsigned long CALIBRATION_PLAYBACK_GUARD_MS = 2000;
 // Packaged MP3 duration rounded up, plus 500 ms. See deployment/README.md.
 constexpr unsigned long MOVEMENT_PLAYBACK_GUARD_MS = 5934;
 
@@ -128,6 +132,9 @@ bool isValid(const Command &command);
 bool isValid(const VisibilityCommand &command);
 bool enqueue(const Command &command);
 bool enqueue(const VisibilityCommand &command);
+bool enqueueCalibrationPing();
+bool enqueueCalibrationCountdown();
+bool calibrationCountdownStarted();
 
 }  // namespace WarningOutput
 

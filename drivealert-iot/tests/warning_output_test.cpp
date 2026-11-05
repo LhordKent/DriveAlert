@@ -29,6 +29,7 @@ int main() {
   const Command warning{1, Sound::DIGITAL_BEEP, Volume::HIGH_LEVEL, false};
   const Command reminder{1, Sound::DIGITAL_BEEP, Volume::HIGH_LEVEL, true};
   assert(!enqueue(movement)); // Not ready.
+  assert(!enqueueCalibrationPing());
   begin();
   for (auto t : {5000UL, 6000UL, 7000UL, 8000UL}) { testMillis = t; loop(); }
   assert(isAvailable());
@@ -63,5 +64,37 @@ int main() {
   assert(enqueue(reminder));
   loop();
   assert(testPlayedTrack == 1);
-  std::puts("Warning output: parsing, mappings, priorities, stale speech and playback guard pass.");
+  assert(!enqueueCalibrationPing()); // Never interrupts playing warning.
+  testMillis += 2000;
+  assert(enqueueCalibrationPing());
+  assert(!enqueueCalibrationPing()); // No duplicate behind pending ping.
+  loop();
+  assert(testPlayedTrack == 16 && testVolume == MEDIUM_VOLUME);
+  testMillis += CALIBRATION_PLAYBACK_GUARD_MS;
+  assert(enqueueCalibrationPing());
+  assert(enqueue(warning)); // Warning supersedes pending setup cue.
+  loop();
+  assert(testPlayedTrack == 1);
+  testMillis += 2000;
+  assert(enqueueCalibrationPing());
+  testMillis += 500;
+  loop(); // A stale queued completion cue must not sound later.
+  assert(testPlayedTrack == 1);
+  assert(enqueueCalibrationCountdown());
+  assert(!calibrationCountdownStarted());
+  loop();
+  assert(calibrationCountdownStarted());
+  assert(testPlayedTrack == 17 && testVolume == MEDIUM_VOLUME);
+  assert(!enqueueCalibrationPing());
+  assert(!enqueueCalibrationCountdown());
+  testMillis += 2499;
+  assert(!enqueueCalibrationPing());
+  testMillis++;
+  assert(enqueueCalibrationCountdown());
+  assert(!calibrationCountdownStarted());
+  assert(enqueue(warning));
+  loop();
+  assert(!calibrationCountdownStarted()); // Replaced countdown is never acknowledged.
+  assert(testPlayedTrack == 1);
+  std::puts("Warning output: priorities, calibration ping and 2500 ms countdown dispatch pass.");
 }

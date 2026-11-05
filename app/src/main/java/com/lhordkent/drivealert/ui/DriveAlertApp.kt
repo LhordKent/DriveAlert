@@ -109,6 +109,7 @@ object PostAuthRoutes {
     const val ROLE_CHOICE = "post-auth/choose-view"
     const val DRIVER_SETUP = "driver/setup"
     const val DRIVER_DEVICE_CONNECTION = "driver/setup/connection"
+    const val DRIVER_SUBSCRIPTIONS = "driver/settings/subscriptions"
     const val DRIVER_ALIGNMENT = "driver/setup/alignment"
     const val DRIVER_CAMERA_PREVIEW = "driver/camera-preview"
     const val DRIVER_CALIBRATION = "driver/setup/calibration"
@@ -197,6 +198,7 @@ fun DriveAlertApp() {
         }
     }
     val provisioningViewModel: WifiProvisioningViewModel = viewModel()
+    val deviceDriversViewModel: com.lhordkent.drivealert.device.DeviceDriversViewModel = viewModel()
     val visionViewModel: DriverVisionViewModel = viewModel()
     val visionState by visionViewModel.state.collectAsState()
     val provisioningState by provisioningViewModel.state.collectAsState()
@@ -212,6 +214,7 @@ fun DriveAlertApp() {
         authViewModel.sessionState.user?.uid?.let(postAuthViewModel::bindConnections)
         authViewModel.sessionState.user?.uid?.let(postAuthViewModel::bindStageSyncRecords)
         provisioningViewModel.bindDriver(authViewModel.sessionState.user?.uid)
+        deviceDriversViewModel.bind(authViewModel.sessionState.user?.uid)
         visionViewModel.bindDriver(authViewModel.sessionState.user?.uid)
     }
     LaunchedEffect(authViewModel.sessionState.user?.uid, postAuthViewModel.state.userRole) {
@@ -238,11 +241,14 @@ fun DriveAlertApp() {
         visionState = visionState,
         previewFrames = visionViewModel.previewFrame,
         provisioningViewModel = provisioningViewModel,
+        deviceDriversViewModel = deviceDriversViewModel,
         onStartVision = visionViewModel::startVision,
+        onRetryDeviceConnection = visionViewModel::retryVisionConnection,
         onConfirmAlignment = visionViewModel::confirmAlignment,
         onDriverRegionChange = visionViewModel::updateDriverRegion,
         onStartCalibration = visionViewModel::startCalibration,
         onBeginCalibrationPhase = visionViewModel::beginCalibrationPhase,
+        onPrepareCalibrationPhase = visionViewModel::prepareCalibrationPhase,
         onPreviousCalibrationPhase = visionViewModel::previousCalibrationPhase,
         onCancelCalibration = visionViewModel::cancelCalibration,
         onStartMonitoring = { sound, volume, notificationsEnabled, accessoryMode ->
@@ -345,11 +351,14 @@ fun DriveAlertApp(
     visionState: DriverVisionUiState = DriverVisionUiState(),
     previewFrames: kotlinx.coroutines.flow.StateFlow<com.lhordkent.drivealert.detection.frame.SharedBitmapFrame?>? = null,
     provisioningViewModel: WifiProvisioningViewModel? = null,
+    deviceDriversViewModel: com.lhordkent.drivealert.device.DeviceDriversViewModel? = null,
     onStartVision: () -> Unit = {},
+    onRetryDeviceConnection: () -> Unit = onStartVision,
     onConfirmAlignment: () -> Unit = {},
     onDriverRegionChange: (com.lhordkent.drivealert.detection.face.DriverRegion) -> Unit = {},
     onStartCalibration: () -> Unit = {},
     onBeginCalibrationPhase: (com.lhordkent.drivealert.detection.model.CalibrationProgress) -> Unit = {},
+    onPrepareCalibrationPhase: suspend (com.lhordkent.drivealert.detection.model.CalibrationProgress) -> Boolean = { false },
     onPreviousCalibrationPhase: () -> Unit = {},
     onCancelCalibration: () -> Unit = {},
     onStartMonitoring: (com.lhordkent.drivealert.postauth.WarningSound, com.lhordkent.drivealert.postauth.PreferredVolume, Boolean, DriverAccessoryMode) -> Unit = { _, _, _, _ -> },
@@ -464,8 +473,9 @@ fun DriveAlertApp(
                     onBack = navController::popBackStack,
                     provisioningViewModel = provisioningViewModel,
                     vision = visionState,
+                    onManageDeviceAccess = { navController.navigate(PostAuthRoutes.DRIVER_SUBSCRIPTIONS) { launchSingleTop = true } },
                     onDisconnect = onDisconnectDevice,
-                    onRetryConnection = onStartVision,
+                    onRetryConnection = onRetryDeviceConnection,
                     onReturnToBleSetup = onReturnToBleSetup,
                     onOpenBleSetup = onOpenBleSetup,
                 )
@@ -477,6 +487,11 @@ fun DriveAlertApp(
                     onStartVision = onStartVision,
                     onBack = navController::popBackStack,
                 )
+            }
+            composable(PostAuthRoutes.DRIVER_SUBSCRIPTIONS) {
+                com.lhordkent.drivealert.ui.postauth.ScrollableScreen("Subscriptions & Drivers", navController::popBackStack) {
+                    deviceDriversViewModel?.let { com.lhordkent.drivealert.ui.postauth.DeviceDriversPanel(it) }
+                }
             }
             composable(PostAuthRoutes.DRIVER_ALIGNMENT) {
                 CameraAlignmentScreen(
@@ -495,6 +510,7 @@ fun DriveAlertApp(
                     onStartVision = onStartVision,
                     onStartCalibration = onStartCalibration,
                     onBeginPhase = onBeginCalibrationPhase,
+                    onPreparePhase = onPrepareCalibrationPhase,
                     onPreviousPhase = onPreviousCalibrationPhase,
                     onCancel = onCancelCalibration,
                     onBack = navController::popBackStack,
@@ -632,6 +648,7 @@ fun DriveAlertApp(
                         },
                         onAccount = { navController.navigate(PostAuthRoutes.ACCOUNT) },
                         onSetupDevice = { navController.navigate(PostAuthRoutes.DRIVER_SETUP) },
+                        onSubscriptions = { navController.navigate(PostAuthRoutes.DRIVER_SUBSCRIPTIONS) },
                         onNotifications = { navController.navigate(PostAuthRoutes.NOTIFICATIONS) },
                         onHistory = { navController.navigate(PostAuthRoutes.HISTORY_STORAGE) },
                         onMonitoringLogs = { navController.navigate(PostAuthRoutes.MONITORING_LOGS) },

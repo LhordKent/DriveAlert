@@ -23,6 +23,7 @@
 #include "camera_index.h"
 #include "board_config.h"
 #include "warning_output.h"
+#include "device_authorization.h"
 
 void requestManualDisconnect();
 void noteDriveAlertClientActivity();
@@ -107,6 +108,7 @@ void enable_led(bool en) {  // Turn LED On or Off
 #endif
 
 static esp_err_t bmp_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   camera_fb_t *fb = NULL;
   esp_err_t res = ESP_OK;
 #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_INFO
@@ -159,6 +161,7 @@ static size_t jpg_encode_stream(void *arg, size_t index, const void *data, size_
 }
 
 static esp_err_t capture_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   camera_fb_t *fb = NULL;
   esp_err_t res = ESP_OK;
 #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_INFO
@@ -214,6 +217,7 @@ static esp_err_t capture_handler(httpd_req_t *req) {
 }
 
 static esp_err_t stream_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   camera_fb_t *fb = NULL;
   struct timeval _timestamp;
   esp_err_t res = ESP_OK;
@@ -328,6 +332,7 @@ static esp_err_t parse_get(httpd_req_t *req, char **obuf) {
 }
 
 static esp_err_t cmd_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   char *buf = NULL;
   char variable[32];
   char value[32];
@@ -424,6 +429,7 @@ static int print_reg(char *p, char *end, sensor_t *s, uint16_t reg, uint32_t mas
 }
 
 static esp_err_t status_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   static char json_response[1024];
 
   sensor_t *s = esp_camera_sensor_get();
@@ -500,6 +506,7 @@ static esp_err_t status_handler(httpd_req_t *req) {
 }
 
 static esp_err_t xclk_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   char *buf = NULL;
   char _xclk[32];
 
@@ -527,6 +534,7 @@ static esp_err_t xclk_handler(httpd_req_t *req) {
 }
 
 static esp_err_t reg_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   char *buf = NULL;
   char _reg[32];
   char _mask[32];
@@ -559,6 +567,7 @@ static esp_err_t reg_handler(httpd_req_t *req) {
 }
 
 static esp_err_t greg_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   char *buf = NULL;
   char _reg[32];
   char _mask[32];
@@ -597,6 +606,7 @@ static int parse_get_var(char *buf, const char *key, int def) {
 }
 
 static esp_err_t pll_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   char *buf = NULL;
 
   if (parse_get(req, &buf) != ESP_OK) {
@@ -625,6 +635,7 @@ static esp_err_t pll_handler(httpd_req_t *req) {
 }
 
 static esp_err_t win_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   char *buf = NULL;
 
   if (parse_get(req, &buf) != ESP_OK) {
@@ -660,6 +671,7 @@ static esp_err_t win_handler(httpd_req_t *req) {
 }
 
 static esp_err_t index_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   httpd_resp_set_type(req, "text/html");
   httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
   sensor_t *s = esp_camera_sensor_get();
@@ -678,6 +690,7 @@ static esp_err_t index_handler(httpd_req_t *req) {
 }
 
 static esp_err_t drivealert_disconnect_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   httpd_resp_set_type(req, "text/plain");
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
   const esp_err_t response = httpd_resp_sendstr(req, "DISCONNECTING");
@@ -688,6 +701,7 @@ static esp_err_t drivealert_disconnect_handler(httpd_req_t *req) {
 }
 
 static esp_err_t drivealert_heartbeat_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   noteDriveAlertClientActivity();
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
@@ -742,6 +756,7 @@ static bool parse_warning_body(char *body, WarningOutput::Command *command) {
 }
 
 static esp_err_t drivealert_warning_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   constexpr size_t MAX_WARNING_BODY_BYTES = 160;
   if (req->content_len == 0 || req->content_len > MAX_WARNING_BODY_BYTES) {
     return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
@@ -797,6 +812,7 @@ static bool parse_visibility_body(char *body, WarningOutput::VisibilityCommand *
 }
 
 static esp_err_t drivealert_visibility_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
   constexpr size_t MAX_VISIBILITY_BODY_BYTES = 120;
   if (req->content_len == 0 || req->content_len > MAX_VISIBILITY_BODY_BYTES) {
     return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
@@ -825,10 +841,42 @@ static esp_err_t drivealert_visibility_handler(httpd_req_t *req) {
   return send_output_json(req, "200 OK", "{\"status\":\"accepted\"}");
 }
 
+static esp_err_t drivealert_calibration_ping_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
+  if (req->content_len != 0) return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+  if (!WarningOutput::enqueueCalibrationPing()) {
+    return send_output_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_busy_or_unavailable\"}");
+  }
+  return send_output_json(req, "200 OK", "{\"status\":\"accepted\"}");
+}
+
+static esp_err_t drivealert_calibration_countdown_handler(httpd_req_t *req) {
+  if (!DeviceAuthorization::requireHttp(req)) return ESP_OK;
+  if (req->content_len != 0) return send_output_json(req, "400 Bad Request", "{\"error\":\"invalid_request\"}");
+  if (!WarningOutput::enqueueCalibrationCountdown()) {
+    return send_output_json(req, "503 Service Unavailable", "{\"error\":\"warning_output_busy_or_unavailable\"}");
+  }
+  // Acknowledge UART dispatch, not just enqueueing. Stale/replaced cues fail.
+  const unsigned long requestedAt = millis();
+  while (!WarningOutput::calibrationCountdownStarted() && millis() - requestedAt < 750) vTaskDelay(pdMS_TO_TICKS(10));
+  if (!WarningOutput::calibrationCountdownStarted()) {
+    return send_output_json(req, "503 Service Unavailable", "{\"error\":\"countdown_not_started\"}");
+  }
+  return send_output_json(req, "200 OK", "{\"status\":\"started\"}");
+}
+
 bool startCameraServer() {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.max_uri_handlers = 16;
   config.send_wait_timeout = 5;
+  httpd_uri_t calibration_ping_uri = {};
+  calibration_ping_uri.uri = "/drivealert/calibration-ping";
+  calibration_ping_uri.method = HTTP_POST;
+  calibration_ping_uri.handler = drivealert_calibration_ping_handler;
+  httpd_uri_t calibration_countdown_uri = {};
+  calibration_countdown_uri.uri = "/drivealert/calibration-countdown";
+  calibration_countdown_uri.method = HTTP_POST;
+  calibration_countdown_uri.handler = drivealert_calibration_countdown_handler;
 
   httpd_uri_t index_uri = {
     .uri = "/",
@@ -1037,6 +1085,8 @@ bool startCameraServer() {
     httpd_register_uri_handler(camera_httpd, &drivealert_heartbeat_uri);
     httpd_register_uri_handler(camera_httpd, &drivealert_warning_uri);
     httpd_register_uri_handler(camera_httpd, &drivealert_visibility_uri);
+    httpd_register_uri_handler(camera_httpd, &calibration_ping_uri);
+    httpd_register_uri_handler(camera_httpd, &calibration_countdown_uri);
   }
 
   config.server_port += 1;

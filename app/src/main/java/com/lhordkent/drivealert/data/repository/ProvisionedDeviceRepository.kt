@@ -13,8 +13,10 @@ data class ProvisionedDevice(
     val streamPort: Int = 81,
     val streamPath: String = "/stream",
     val lastConnectedAtEpochMillis: Long,
+    val sessionToken: String? = null,
 ) {
     val streamUrl: String get() = "http://$lastKnownIp:$streamPort$streamPath"
+    override fun toString(): String = "ProvisionedDevice(deviceId=$deviceId, driverUserId=$driverUserId, session=REDACTED)"
 }
 
 interface ProvisionedDeviceRepository {
@@ -23,7 +25,8 @@ interface ProvisionedDeviceRepository {
     suspend fun saveActive(device: ProvisionedDevice)
 }
 
-class RoomProvisionedDeviceRepository(private val dao: ProvisionedDeviceDao) : ProvisionedDeviceRepository {
+class RoomProvisionedDeviceRepository(private val dao: ProvisionedDeviceDao,
+    private val sessionToken: (String, String) -> String? = { _, _ -> null }) : ProvisionedDeviceRepository {
     override fun observeActive(driverUserId: String): Flow<ProvisionedDevice?> =
         dao.observeActive(driverUserId).map { it?.toDomain() }
 
@@ -34,7 +37,7 @@ class RoomProvisionedDeviceRepository(private val dao: ProvisionedDeviceDao) : P
     }
 
     private fun ProvisionedDeviceEntity.toDomain() = ProvisionedDevice(
-        deviceId, driverUserId, hostname, lastKnownIp, streamPort, streamPath, lastConnectedAtEpochMillis,
+        deviceId, driverUserId, hostname, lastKnownIp, streamPort, streamPath, lastConnectedAtEpochMillis, sessionToken(driverUserId, deviceId),
     )
 
     private fun ProvisionedDevice.toEntity() = ProvisionedDeviceEntity(

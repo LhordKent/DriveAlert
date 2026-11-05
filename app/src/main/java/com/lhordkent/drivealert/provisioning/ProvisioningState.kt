@@ -67,7 +67,7 @@ object ProvisioningReducer {
         )
         ProvisioningEvent.Pairing -> state.copy(
             stage = ProvisioningStage.PAIRING,
-            message = "Confirm Bluetooth pairing if Android asks. No PIN is required.",
+            message = "Enter the pairing PIN from your device label if Android asks. After a firmware update, you may need to forget the old Bluetooth pairing once.",
         )
         ProvisioningEvent.BleReady -> state.copy(
             stage = ProvisioningStage.CONNECTED_BLE,

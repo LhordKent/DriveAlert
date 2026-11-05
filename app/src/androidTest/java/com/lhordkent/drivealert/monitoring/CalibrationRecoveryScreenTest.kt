@@ -23,6 +23,32 @@ import org.junit.Test
 class CalibrationRecoveryScreenTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun everyStepExplainsTheDeviceCompletionPingBeforeCollection() {
+        val state = mutableStateOf(DriverVisionUiState(calibrationInProgress = true,
+            calibrationProgress = CalibrationProgress(CalibrationStatus.READY, CalibrationPhase.NEUTRAL, 0, 5_000, 0)))
+        compose.setContent { DriveAlertTheme {
+            CalibrationScreen(state.value, onStartVision = {}, onStartCalibration = {},
+                onBeginPhase = {}, onPreviousPhase = {}, onCancel = {}, onBack = {})
+        } }
+        for (phase in listOf(CalibrationPhase.NEUTRAL, CalibrationPhase.EYES_CLOSED, CalibrationPhase.MOUTH_OPEN, CalibrationPhase.HEAD_DOWN)) {
+            compose.runOnIdle { state.value = state.value.copy(calibrationProgress = state.value.calibrationProgress!!.copy(phase = phase)) }
+            compose.onNodeWithText("The DriveAlert speaker plays a ping when this step finishes.", substring = true).assertExists()
+            compose.onNodeWithText("Okay", useUnmergedTree = true).assertIsDisplayed()
+            if (phase == CalibrationPhase.EYES_CLOSED) {
+                compose.onNodeWithText("then open your eyes", substring = true).assertIsDisplayed()
+                compose.waitForIdle()
+                android.os.SystemClock.sleep(350)
+                val instrumentation = InstrumentationRegistry.getInstrumentation()
+                val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "calibration-ping-review").apply { mkdirs() }
+                val file = File(directory, "eyes-closed.png")
+                file.outputStream().use { instrumentation.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it) }
+                listOf("mkdir -p /sdcard/Download/DriveAlert-review", "cp ${file.absolutePath} /sdcard/Download/DriveAlert-review/calibration-ping.png").forEach { command ->
+                    instrumentation.uiAutomation.executeShellCommand(command).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } }
+                }
+            }
+        }
+    }
+
     @Test fun calibrationExplainsPauseAndRetainsProgressWhenFreshLightingReturns() {
         val locked = DriverTrackingState(DriverTrackingStatus.LOCKED)
         val state = mutableStateOf(DriverVisionUiState(

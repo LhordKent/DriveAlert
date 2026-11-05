@@ -55,7 +55,9 @@ Android Studio generates the ignored, machine-specific `local.properties`. The v
 
 Firebase Authentication is preconfigured for package `com.lhordkent.drivealert` and project `drivealert-lhordkent` through the versioned `app/google-services.json` file.
 
-The app starts with Firestore's disk persistence disabled. Trusted Contact cloud screens therefore require internet after an app-process restart. Android automatic backup is also disabled so local monitoring records are not copied through Android backup services.
+Android enables Firestore disk persistence. Room remains authoritative for local monitoring records and stores an explicit server-verified device-access projection. Cached/pending Firestore data does not grant new device access. Android automatic backup is disabled so records and encrypted device credentials are not copied through Android backup services.
+
+Device ownership and simulated additional-driver subscriptions are implemented on `codex/device-subscriptions`. Registration/invitations need internet once; authorized daily use stays offline. Both the updated Android APK and ESP32 firmware are required. See [device authorization and installation](drivealert-iot/DEVICE_AUTHORIZATION_PROTOCOL.md) and [subscription deployment](drivealert-iot/deployment/DEVICE_SUBSCRIPTION_RELEASE.md). No real payment is collected. New Firebase rules must be explicitly deployed before this feature can use the live project.
 
 ## Data architecture
 

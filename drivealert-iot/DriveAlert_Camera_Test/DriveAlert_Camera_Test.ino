@@ -10,6 +10,7 @@
 #include "warning_output.h"
 #include "wifi_provisioning.h"
 #include "session_watchdog.h"
+#include "device_authorization.h"
 
 bool startCameraServer();
 void setupLedFlash();
@@ -226,6 +227,7 @@ void setup() {
   const bool appAuthorizedCameraHandoff =
     esp_reset_reason() == ESP_RST_SW && cameraHandoffAuthorization == CAMERA_HANDOFF_MAGIC;
   cameraHandoffAuthorization = 0;
+  DeviceAuthorization::begin(appAuthorizedCameraHandoff);
   wifiProvisioning.begin();
 
   if (appAuthorizedCameraHandoff) {
@@ -261,6 +263,7 @@ void loop() {
     // camera/HTTP allocation. The RTC marker is accepted only for this explicit
     // app-authorized handoff and is consumed immediately on the next boot.
     cameraHandoffAuthorization = CAMERA_HANDOFF_MAGIC;
+    DeviceAuthorization::preserveHandoff();
     Serial.println("Wi-Fi validated; restarting once into app-authorized camera mode.");
     delay(100);
     ESP.restart();

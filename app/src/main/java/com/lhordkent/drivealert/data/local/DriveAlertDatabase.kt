@@ -47,12 +47,15 @@ import com.lhordkent.drivealert.data.local.entity.ProvisionedDeviceEntity
         ProvisionedDeviceEntity::class,
         StageNotificationGroupEntity::class,
         StageNotificationGroupRecordEntity::class,
+        com.lhordkent.drivealert.data.device.DeviceAccessGrant::class,
+        com.lhordkent.drivealert.data.device.DeviceIdentityMapping::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(DriveAlertTypeConverters::class)
 abstract class DriveAlertDatabase : RoomDatabase() {
+    abstract fun deviceAccessDao(): com.lhordkent.drivealert.data.device.DeviceAccessDao
     abstract fun historyDao(): HistoryDao
     abstract fun monitoringLogDao(): MonitoringLogDao
     abstract fun monitoringSessionDao(): MonitoringSessionDao
@@ -74,7 +77,14 @@ abstract class DriveAlertDatabase : RoomDatabase() {
                 context.applicationContext,
                 DriveAlertDatabase::class.java,
                 DATABASE_NAME,
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { instance = it }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS device_access (userId TEXT NOT NULL, deviceId TEXT NOT NULL, ownerUserId TEXT NOT NULL, displayName TEXT NOT NULL, status TEXT NOT NULL, revision INTEGER NOT NULL, verifiedAt INTEGER NOT NULL, PRIMARY KEY(userId, deviceId))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS device_identity_mappings (userId TEXT NOT NULL, legacyDeviceId TEXT NOT NULL, canonicalDeviceId TEXT NOT NULL, PRIMARY KEY(userId, legacyDeviceId))")
+            }
         }
 
         val MIGRATION_5_6 = object : Migration(5, 6) {

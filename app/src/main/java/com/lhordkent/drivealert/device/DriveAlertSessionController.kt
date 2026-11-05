@@ -17,7 +17,7 @@ interface DriveAlertSessionController {
 class HttpDriveAlertSessionController(private val controlPort: Int = CONTROL_PORT) : DriveAlertSessionController {
     override suspend fun heartbeat(device: ProvisionedDevice): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
-            Result.success(request("http://${device.lastKnownIp}:$controlPort/drivealert/heartbeat").let { code ->
+            Result.success(request("http://${device.lastKnownIp}:$controlPort/drivealert/heartbeat", device).let { code ->
                 // The app can be updated before the ESP32 is flashed.
                 check(code in 200..299 || code == 404) { "Camera heartbeat rejected (HTTP $code)." }
                 code in 200..299
@@ -29,6 +29,7 @@ class HttpDriveAlertSessionController(private val controlPort: Int = CONTROL_POR
     override suspend fun disconnect(device: ProvisionedDevice): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val connection = URL("http://${device.lastKnownIp}:$controlPort/drivealert/disconnect").openConnection() as HttpURLConnection
+            connection.authorizeDevice(device.sessionToken)
             try {
                 connection.requestMethod = "POST"
                 connection.doOutput = true
@@ -37,9 +38,13 @@ class HttpDriveAlertSessionController(private val controlPort: Int = CONTROL_POR
                 connection.useCaches = false
                 connection.setFixedLengthStreamingMode(0)
                 connection.connect()
+                check(connection.responseCode != HttpURLConnection.HTTP_UNAUTHORIZED) {
+                    "The camera session is no longer authorized. Power the board off and on, then open Bluetooth setup to reconnect."
+                }
                 check(connection.responseCode in 200..299) {
                     "DriveAlert camera rejected the disconnect request."
                 }
+                connection.requireDeviceResponse(device.deviceId, device.sessionToken)
             } finally {
                 connection.disconnect()
             }
@@ -58,8 +63,9 @@ class HttpDriveAlertSessionController(private val controlPort: Int = CONTROL_POR
         }
     }
 
-    private fun request(address: String): Int {
+    private fun request(address: String, device: ProvisionedDevice): Int {
         val connection = URL(address).openConnection() as HttpURLConnection
+        connection.authorizeDevice(device.sessionToken)
         return try {
             connection.requestMethod = "POST"
             connection.doOutput = true
@@ -67,7 +73,7 @@ class HttpDriveAlertSessionController(private val controlPort: Int = CONTROL_POR
             connection.readTimeout = REQUEST_TIMEOUT_MS
             connection.useCaches = false
             connection.setFixedLengthStreamingMode(0)
-            connection.responseCode
+            connection.responseCode.also { if (it in 200..299) connection.requireDeviceResponse(device.deviceId, device.sessionToken) }
         } finally { connection.disconnect() }
     }
 

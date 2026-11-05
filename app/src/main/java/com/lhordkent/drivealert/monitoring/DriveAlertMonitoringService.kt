@@ -97,6 +97,10 @@ class DriveAlertMonitoringService : Service() {
             failStart("No driver is signed in.")
             return
         }
+        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid != driverId) {
+            failStart("Sign in to the authorized driver account before monitoring.")
+            return
+        }
         startMonitoring(
             driverId = driverId,
             sound = enumExtra(intent, EXTRA_SOUND, WarningSound.DIGITAL_BEEP),
@@ -120,10 +124,28 @@ class DriveAlertMonitoringService : Service() {
         checkNotNull(recovery)
         if (!monitoringStartAllowed(runtime.state.value.monitoring.isActive, startInProgress)) return
         startInProgress = true
-        runtime.bindDriver(recovery.driverUserId)
-        runtime.startVision()
         serviceScope.launch {
             runCatching {
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val restoredUid = kotlinx.coroutines.withTimeoutOrNull(2_000) {
+                    kotlinx.coroutines.suspendCancellableCoroutine<String?> { continuation ->
+                        val listener = object : com.google.firebase.auth.FirebaseAuth.AuthStateListener {
+                            override fun onAuthStateChanged(firebaseAuth: com.google.firebase.auth.FirebaseAuth) {
+                                firebaseAuth.removeAuthStateListener(this)
+                                if (continuation.isActive) continuation.resumeWith(Result.success(firebaseAuth.currentUser?.uid))
+                            }
+                        }
+                        continuation.invokeOnCancellation { auth.removeAuthStateListener(listener) }
+                        auth.addAuthStateListener(listener)
+                    }
+                }
+                check(restoredUid == recovery.driverUserId) { "The recovery account is no longer signed in." }
+                val device = applicationContainer.provisionedDeviceRepository.active(recovery.driverUserId)
+                check(device != null && applicationContainer.deviceAccessRepository.allowed(recovery.driverUserId, device.deviceId)) {
+                    "Verify device access before resuming monitoring."
+                }
+                runtime.bindDriver(recovery.driverUserId)
+                runtime.startVision()
                 withTimeout(RECOVERY_TIMEOUT_MS) {
                     runtime.state.first {
                         it.deviceConfigured && it.activeCalibration != null &&

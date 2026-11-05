@@ -27,7 +27,8 @@ class HttpWarningOutputGateway internal constructor(
             runCatching {
                 val resolved = endpointResolver.resolve(device) ?: error("DriveAlert device is unavailable.")
                 if (resolved != device) onDeviceResolved(resolved)
-                send(resolved.lastKnownIp, command)
+                check(deviceProvider()?.let { it.driverUserId == device.driverUserId && it.deviceId == device.deviceId && it.sessionToken == device.sessionToken } == true) { "Driver account changed." }
+                send(resolved.lastKnownIp, command, resolved.sessionToken, resolved.deviceId)
             }.getOrElse {
                 if (it is CancellationException) throw it
                 WarningDeliveryStatus.FAILED
@@ -35,11 +36,12 @@ class HttpWarningOutputGateway internal constructor(
         } ?: WarningDeliveryStatus.FAILED
     }
 
-    private suspend fun send(host: String, command: WarningOutputCommand): WarningDeliveryStatus =
+    private suspend fun send(host: String, command: WarningOutputCommand, sessionToken: String?, deviceId: String): WarningDeliveryStatus =
         withContext(Dispatchers.IO) {
             coroutineContext.ensureActive()
             val payload = command.toWarningWirePayload().toByteArray(Charsets.UTF_8)
             val connection = URL(warningUrl(host, controlPort)).openConnection() as HttpURLConnection
+            connection.authorizeDevice(sessionToken)
             try {
                 connection.requestMethod = "POST"
                 connection.connectTimeout = connectTimeoutMs
@@ -54,6 +56,7 @@ class HttpWarningOutputGateway internal constructor(
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                     return@withContext WarningDeliveryStatus.FAILED
                 }
+                connection.requireDeviceResponse(deviceId, sessionToken)
                 val response = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                 if (response.trim() == ACCEPTED_RESPONSE) {
                     WarningDeliveryStatus.DELIVERED

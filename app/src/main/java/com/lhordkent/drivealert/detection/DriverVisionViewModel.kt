@@ -102,6 +102,7 @@ data class DriverVisionUiState(
     val detection: MonitoringDetectionResult? = null,
     val faceAttributes: FaceAttributeResult? = null,
     val calibrationProgress: CalibrationProgress? = null,
+    val calibrationAudioMessage: String? = null,
     val calibrationInProgress: Boolean = false,
     val activeCalibration: CalibrationResult? = null,
     val disconnectInProgress: Boolean = false,
@@ -118,7 +119,7 @@ data class DriverVisionUiState(
 )
 
 class DriverVisionRuntime @JvmOverloads constructor(
-    application: Application,
+    private val application: Application,
     private val calibrationRepository: CalibrationRepository =
         (application as DriveAlertApplication).container.calibrationRepository,
     private val deviceRepository: ProvisionedDeviceRepository =
@@ -141,7 +142,24 @@ class DriverVisionRuntime @JvmOverloads constructor(
     private val wallClock: () -> Long = System::currentTimeMillis,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     private val monitoringLogWriter: com.lhordkent.drivealert.data.monitoringlog.MonitoringLogWriter? = null,
+    private val deviceAccess: com.lhordkent.drivealert.data.device.DeviceAccessPolicy =
+        (application as DriveAlertApplication).container.deviceAccessRepository,
 ) : Closeable {
+    private var accountGeneration = 0L
+    private var accessJob: Job? = null
+    private var calibrationPingJob: Job? = null
+    private val calibrationPingGateway = com.lhordkent.drivealert.device.HttpCalibrationPingGateway()
+
+    private suspend fun mayUse(device: ProvisionedDevice, continueSession: Boolean = false): Boolean {
+        val uid = boundDriverId ?: return false
+        if (device.driverUserId != uid || device.sessionToken == null || com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid != uid) return false
+        return (continueSession && monitoringController.state.isActive) || deviceAccess.allowed(uid, device.deviceId)
+    }
+
+    private fun accessDenied() {
+        mutableState.update { it.copy(streamState = StreamConnectionState.SETUP_REQUIRED,
+            errorMessage = "Verify this device's access online in Device Connection. Existing connections need one registration after this update.") }
+    }
     private val mutableState = MutableStateFlow(DriverVisionUiState())
     val state: StateFlow<DriverVisionUiState> = mutableState.asStateFlow()
     private val mutablePreviewFrame = MutableStateFlow<SharedBitmapFrame?>(null)
@@ -229,16 +247,20 @@ class DriverVisionRuntime @JvmOverloads constructor(
         deviceProvider = { activeDevice },
         endpointResolver = endpointResolver,
         onDeviceResolved = { resolved ->
-            activeDevice = resolved
-            deviceRepository.saveActive(resolved)
+            if (boundDriverId == resolved.driverUserId && com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid == resolved.driverUserId) {
+                activeDevice = resolved
+                deviceRepository.saveActive(resolved)
+            }
         },
     )
     private val visibilityOutputGateway: VisibilityOutputGateway = visibilityOutputGateway ?: HttpVisibilityOutputGateway(
         deviceProvider = { activeDevice },
         endpointResolver = endpointResolver,
         onDeviceResolved = { resolved ->
-            activeDevice = resolved
-            deviceRepository.saveActive(resolved)
+            if (boundDriverId == resolved.driverUserId && com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid == resolved.driverUserId) {
+                activeDevice = resolved
+                deviceRepository.saveActive(resolved)
+            }
         },
     )
     private var deviceJob: Job? = null
@@ -279,6 +301,9 @@ class DriverVisionRuntime @JvmOverloads constructor(
 
     fun bindDriver(driverUserId: String?) {
         if (driverUserId == boundDriverId) return
+        calibrationPingJob?.cancel()
+        accountGeneration++
+        accessJob?.cancel()
         stopMonitoring(interrupted = true)
         stopStream(resetAlignment = true)
         deviceJob?.cancel()
@@ -292,6 +317,15 @@ class DriverVisionRuntime @JvmOverloads constructor(
         persistedCalibrationId = null
         mutableState.value = DriverVisionUiState()
         if (driverUserId == null) return
+        accessJob = scope.launch {
+            (application as DriveAlertApplication).container.deviceAccessRepository.observe(driverUserId).collect {
+                val device = activeDevice
+                if (device != null && !monitoringController.state.isActive && !mayUse(device)) {
+                    stopStream(resetAlignment = true)
+                    accessDenied()
+                }
+            }
+        }
         deviceJob = scope.launch {
             calibrationRepository.active(driverUserId)?.let { calibration ->
                 engine.activatePersistedCalibration(calibration)
@@ -327,18 +361,32 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     activeSourceStreamUrl = sourceStreamUrl,
                     connectionAttemptActive = reconnectJob?.isActive == true,
                 )
-                if (shouldConnect) device?.let(::connect)
+                if (shouldConnect) device?.let { startVision() }
             }
         }
     }
 
     fun startVision() {
+        streamWanted = true
+        val device = activeDevice
+        if (device == null) { streamWanted = true; accessDenied(); return }
+        val expected = accountGeneration
+        scope.launch {
+            if (expected != accountGeneration) return@launch
+            val permitted = mayUse(device, continueSession = true)
+            if (expected != accountGeneration) return@launch
+            if (!permitted) { accessDenied(); return@launch }
+            if (expected == accountGeneration) startAuthorizedVision()
+        }
+    }
+
+    private fun startAuthorizedVision() {
         if (mutableState.value.disconnectInProgress) return
         streamWanted = true
         mutableState.update { it.copy(bleSetupRequested = false) }
         if (heartbeatJob?.isActive != true) heartbeatJob = scope.launch {
             while (streamWanted) {
-                activeDevice?.let { sessionController.heartbeat(it) }
+                activeDevice?.let { if (mayUse(it, continueSession = true)) sessionController.heartbeat(it) }
                 delay(10_000)
             }
         }
@@ -356,6 +404,13 @@ class DriverVisionRuntime @JvmOverloads constructor(
         } else if (source == null) {
             connect(device)
         }
+    }
+
+    fun retryVisionConnection() {
+        if (mutableState.value.disconnectInProgress) return
+        stopStream(resetAlignment = false)
+        reconnectAttempt = 0
+        startVision()
     }
 
     fun returnToBleProvisioning(onReady: () -> Unit = {}) {
@@ -460,10 +515,34 @@ class DriverVisionRuntime @JvmOverloads constructor(
     }
 
     fun startCalibration() {
+        val expected = accountGeneration
+        val device = activeDevice ?: return
+        scope.launch {
+            val permitted = mayUse(device)
+            if (expected != accountGeneration) return@launch
+            if (!permitted) { accessDenied(); return@launch }
+            startAuthorizedCalibration()
+        }
+    }
+
+    private fun startAuthorizedCalibration() {
+        calibrationPingJob?.cancel()
         if (!mutableState.value.alignmentConfirmed || mutableState.value.streamState != StreamConnectionState.CONNECTED || monitoringController.state.isActive) return
         engine.startCalibration()
         val progress = engine.calibrationProgress()
-        mutableState.update { it.copy(calibrationProgress = progress, calibrationInProgress = true, errorMessage = null) }
+        mutableState.update { it.copy(calibrationProgress = progress, calibrationInProgress = true, calibrationAudioMessage = null, errorMessage = null) }
+    }
+
+    suspend fun prepareCalibrationPhase(expected: CalibrationProgress): Boolean {
+        val account = accountGeneration
+        val stream = streamGeneration
+        val device = activeDevice ?: return false
+        fun current() = mutableState.value.calibrationInProgress && engine.calibrationProgress().let {
+            it.phase == expected.phase && it.revision == expected.revision && it.status == CalibrationStatus.READY
+        } && !monitoringController.state.isActive
+        if (!current() || !mayUse(device) || account != accountGeneration || stream != streamGeneration) return false
+        val started = withSpeakerRequest { calibrationPingGateway.countdown(device) }
+        return started && account == accountGeneration && stream == streamGeneration && current()
     }
 
     fun beginCalibrationPhase(expected: CalibrationProgress) {
@@ -473,26 +552,31 @@ class DriverVisionRuntime @JvmOverloads constructor(
         if (mutableState.value.driverTracking.locked && mutableState.value.alignmentConfirmed &&
             mutableState.value.streamState == StreamConnectionState.CONNECTED && !monitoringController.state.isActive &&
             mutableState.value.lighting.allowsAssessment(elapsedClock())) {
+            calibrationPingJob?.cancel()
             engine.beginCalibrationPhase()
             val progress = engine.calibrationProgress()
-            mutableState.update { it.copy(calibrationProgress = progress, errorMessage = null) }
+            mutableState.update { it.copy(calibrationProgress = progress, calibrationAudioMessage = null, errorMessage = null) }
         }
     }
 
     fun previousCalibrationPhase() {
         if (!mutableState.value.calibrationInProgress || monitoringController.state.isActive) return
+        calibrationPingJob?.cancel()
         engine.previousCalibrationPhase()
         val progress = engine.calibrationProgress()
-        mutableState.update { it.copy(calibrationProgress = progress, errorMessage = null) }
+        mutableState.update { it.copy(calibrationProgress = progress, calibrationAudioMessage = null, errorMessage = null) }
     }
 
     fun cancelCalibration() {
+        calibrationPingJob?.cancel()
         val userId = boundDriverId ?: return
+        val expected = accountGeneration
         scope.launch {
-            engine = DriveAlertDetectionEngine()
             val active = calibrationRepository.active(userId)
+            if (expected != accountGeneration) return@launch
+            engine = DriveAlertDetectionEngine()
             active?.let(engine::activatePersistedCalibration)
-            mutableState.update { it.copy(calibrationProgress = null, calibrationInProgress = false, activeCalibration = active) }
+            mutableState.update { it.copy(calibrationProgress = null, calibrationInProgress = false, calibrationAudioMessage = null, activeCalibration = active) }
         }
     }
 
@@ -528,6 +612,11 @@ class DriverVisionRuntime @JvmOverloads constructor(
         monitoringAccessoryMode = accessoryMode
         monitoringStartJob = scope.launch {
             try {
+                if (!mayUse(device)) {
+                    monitoringStarting = false
+                    return@launch onFailure(IllegalStateException("Device access is not authorized for this account. Verify access in Device Connection."))
+                }
+                val expectedAccount = accountGeneration
                 val startedAtEpoch = existingStartedAtEpochMillis ?: wallClock()
                 val sessionId = existingSessionId ?: monitoringSessionRepository.start(
                     StartMonitoringSessionInput(
@@ -537,6 +626,10 @@ class DriverVisionRuntime @JvmOverloads constructor(
                         startedAtEpochMillis = startedAtEpoch,
                     ),
                 )
+                if (expectedAccount != accountGeneration || !mayUse(device)) {
+                    monitoringSessionRepository.finish(driverId, sessionId, MonitoringSessionStatus.INTERRUPTED, wallClock())
+                    return@launch
+                }
                 val recoveredDuration = (wallClock() - startedAtEpoch).coerceAtLeast(0L)
                 monitoringController.start(sessionId, recoveredDuration)
                 resetMovement()
@@ -625,6 +718,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
 
     fun testWarningOutput(stage: WarningStage, sound: WarningSound, volume: PreferredVolume) {
         scope.launch {
+            val device = activeDevice ?: return@launch
+            if (!mayUse(device, continueSession = true)) { accessDenied(); return@launch }
             val delivery = withSpeakerRequest { warningOutputGateway.activateSafely(stage.warningOutputCommand(sound, volume)) }
             mutableState.update {
                 it.copy(
@@ -645,14 +740,18 @@ class DriverVisionRuntime @JvmOverloads constructor(
         mutableState.update { it.copy(streamState = StreamConnectionState.CONNECTING, errorMessage = null) }
         reconnectJob = scope.launch {
             try {
+                if (!mayUse(device, continueSession = true)) { accessDenied(); return@launch }
                 val resolved = endpointResolver.resolve(device)
                 if (resolved == null) {
                     scheduleReconnect("DriveAlert camera is unavailable on this network.")
                     return@launch
                 }
+                if (generation != streamGeneration || !mayUse(device, continueSession = true)) return@launch
                 if (resolved != device) deviceRepository.saveActive(resolved)
                 val next = Esp32MjpegFrameSource(
                     streamUrl = resolved.streamUrl,
+                    sessionToken = resolved.sessionToken,
+                    expectedDeviceId = resolved.deviceId,
                     onState = { status, message ->
                         if (generation == streamGeneration && streamWanted) {
                             mutableState.update { it.copy(streamState = status, errorMessage = message) }
@@ -746,6 +845,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
             elapsedClock() - result.timestampMs > CAMERA_READING_STALE_MS
         ) return
         lastDetectionTimestampMs = result.timestampMs
+        val stepCompleted = mutableState.value.calibrationInProgress &&
+            com.lhordkent.drivealert.detection.calibration.completedCalibrationStep(mutableState.value.calibrationProgress, result.calibration)
         val calibrationCompleted = mutableState.value.calibrationInProgress && result.calibration.status == CalibrationStatus.COMPLETE
         val regionalVisibility = effectiveRegionalVisibility(faceAttributes)
         val lightingIssue = lightingVisibilityIssue(
@@ -777,6 +878,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 lighting = lighting,
                 calibrationProgress = if (it.calibrationInProgress) result.calibration else it.calibrationProgress,
                 calibrationInProgress = if (calibrationCompleted) false else it.calibrationInProgress,
+                calibrationAudioMessage = if (stepCompleted) "Step complete. You can relax the requested pose and read the next instruction." else it.calibrationAudioMessage,
                 activeCalibration = result.activeCalibration ?: it.activeCalibration,
                 visibilityIssue = visibilityIssue,
                 visibilityAcknowledgementRequired = it.visibilityAcknowledgementRequired?.takeIf { pending ->
@@ -784,6 +886,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 },
             )
         }
+        if (stepCompleted) playCalibrationCompletionPing(result.calibration)
         if (!mutableState.value.driverTracking.locked || !mutableState.value.alignmentConfirmed || !lighting.allowsAssessment(elapsedClock())) {
             repeatWarningJob?.cancel()
             monitoringController.accept(emptyList(), emptySet())
@@ -808,6 +911,24 @@ class DriverVisionRuntime @JvmOverloads constructor(
             if (sessionId == monitoringController.state.sessionId && result.timestampMs >= observationCutoffMs) {
                 handleVisibilityEffects(visibilityEffects)
             }
+        }
+    }
+
+    private fun playCalibrationCompletionPing(progress: CalibrationProgress) {
+        calibrationPingJob?.cancel()
+        val expectedAccount = accountGeneration
+        val expectedStream = streamGeneration
+        val device = activeDevice ?: return
+        calibrationPingJob = scope.launch {
+            val permitted = mayUse(device)
+            if (!permitted || expectedAccount != accountGeneration || expectedStream != streamGeneration) return@launch
+            val delivered = withSpeakerRequest { calibrationPingGateway.play(device) }
+            val current = mutableState.value.calibrationProgress
+            if (expectedAccount != accountGeneration || expectedStream != streamGeneration ||
+                current?.phase != progress.phase || current.revision != progress.revision) return@launch
+            mutableState.update { it.copy(calibrationAudioMessage = if (delivered)
+                "Step complete. The device was asked to play the ping. You can relax the requested pose."
+            else "Step complete. The completion ping could not be sent. You can open your eyes, relax your mouth, and return your head to its normal position.") }
         }
     }
 
@@ -1102,6 +1223,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     }
 
     private fun stopStream(resetAlignment: Boolean) {
+        calibrationPingJob?.cancel()
         streamWanted = false
         heartbeatJob?.cancel()
         heartbeatJob = null
@@ -1127,6 +1249,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     }
 
     override fun close() {
+        accessJob?.cancel()
         stopMonitoring(interrupted = true)
         stopStream(resetAlignment = true)
         processor.close()
@@ -1160,6 +1283,7 @@ class DriverVisionViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun startVision() = runtime.startVision()
+    fun retryVisionConnection() = runtime.retryVisionConnection()
 
     fun returnToBleProvisioning(onReady: () -> Unit = {}) {
         runtime.returnToBleProvisioning(onReady)
@@ -1186,6 +1310,7 @@ class DriverVisionViewModel(application: Application) : AndroidViewModel(applica
 
     fun startCalibration() = runtime.startCalibration()
     fun beginCalibrationPhase(expected: CalibrationProgress) = runtime.beginCalibrationPhase(expected)
+    suspend fun prepareCalibrationPhase(expected: CalibrationProgress): Boolean = runtime.prepareCalibrationPhase(expected)
     fun previousCalibrationPhase() = runtime.previousCalibrationPhase()
     fun cancelCalibration() = runtime.cancelCalibration()
 

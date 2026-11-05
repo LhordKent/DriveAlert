@@ -75,6 +75,7 @@ fun DeviceConnectionScreen(
     onRetryConnection: () -> Unit = {},
     onReturnToBleSetup: () -> Unit = {},
     onOpenBleSetup: () -> Unit = {},
+    onManageDeviceAccess: () -> Unit = {},
 ) {
     ScrollableScreen(title = "Device Connection", onBack = onBack) {
         Text(if (showsSavedCameraConnection(vision)) "Your DriveAlert camera" else "Connect your DriveAlert camera", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
@@ -86,6 +87,10 @@ fun DeviceConnectionScreen(
             color = TextSecondary,
         )
         Spacer(Modifier.height(22.dp))
+        SecondaryButton("Manage device access", onManageDeviceAccess)
+        Spacer(Modifier.height(8.dp))
+        Text("Open Subscriptions & Drivers to manage account access and invitations. Back returns you to this connection screen.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        Spacer(Modifier.height(20.dp))
         if (provisioningViewModel == null) {
             WifiProvisioningPanel(
                 vision = vision,
@@ -180,6 +185,7 @@ fun CalibrationScreen(
     onPreviousPhase: () -> Unit,
     onCancel: () -> Unit,
     onBack: () -> Unit,
+    onPreparePhase: suspend (CalibrationProgress) -> Boolean = { false },
 ) {
     androidx.compose.runtime.LaunchedEffect(Unit) { onStartVision() }
     val progress = vision.calibrationProgress
@@ -188,12 +194,20 @@ fun CalibrationScreen(
         vision.lighting.quality == LightingQuality.USABLE && vision.driverTracking.locked && !vision.monitoring.isActive
     var acknowledged by remember(phase, progress?.revision, vision.calibrationInProgress, vision.driverTracking.generation) { mutableStateOf(false) }
     var countdown by remember(phase, progress?.revision, vision.calibrationInProgress, vision.driverTracking.generation) { mutableStateOf(3) }
+    var countdownStarted by remember(phase, progress?.revision, vision.calibrationInProgress, vision.driverTracking.generation) { mutableStateOf(false) }
+    var countdownError by remember(phase, progress?.revision, vision.calibrationInProgress, vision.driverTracking.generation) { mutableStateOf<String?>(null) }
     var confirmRedoAll by remember { mutableStateOf(false) }
     LaunchedEffect(acknowledged, phase, progress?.revision, vision.driverTracking.generation) {
         if (acknowledged) {
-            for (remaining in 3 downTo 1) {
+            if (progress == null || !onPreparePhase(progress)) {
+                countdownError = "The device countdown could not start. Check the speaker connection, then tap Okay to retry. Measurements have not started."
+                acknowledged = false
+                return@LaunchedEffect
+            }
+            countdownStarted = true
+            for ((remaining, duration) in com.lhordkent.drivealert.detection.calibration.CalibrationCountdown.steps) {
                 countdown = remaining
-                delay(1_000)
+                delay(duration)
             }
             countdown = 0
         }
@@ -208,11 +222,13 @@ fun CalibrationScreen(
             onDismissRequest = {},
             title = { Text("Step ${phase.ordinal + 1} of 4: ${phase.instruction()}") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                vision.calibrationAudioMessage?.let { Text(it); Spacer(Modifier.height(12.dp)) }
+                countdownError?.let { Text(it); Spacer(Modifier.height(12.dp)) }
                 Text(phase.guidance())
                 Spacer(Modifier.height(12.dp))
-                Text("Tap Okay to acknowledge these instructions. You will have a three-second countdown to get ready, then hold the requested position for five seconds of valid measurements. If visibility is interrupted, collection pauses until it returns.")
+                Text("Tap Okay to hear the 2.5-second countdown on the DriveAlert speaker. Get into the requested position when the countdown finishes, then hold it for five seconds of valid measurements. The DriveAlert speaker plays a ping when this step finishes. When you hear it, relax the requested pose and read the next instruction. If visibility is interrupted, collection pauses; wait for the completion ping rather than counting five seconds yourself.")
             } },
-            confirmButton = { TextButton(onClick = { acknowledged = true }) { Text("Okay") } },
+            confirmButton = { TextButton(onClick = { countdownError = null; countdownStarted = false; countdown = 3; acknowledged = true }) { Text("Okay") } },
             dismissButton = { Column {
                 if (phase != CalibrationPhase.NEUTRAL) TextButton(onClick = onPreviousPhase) { Text("Previous Step") }
                 TextButton(onClick = onCancel) { Text("Cancel Calibration") }
@@ -231,13 +247,14 @@ fun CalibrationScreen(
     ScrollableScreen(title = "Driver Calibration", onBack = onBack) {
         Text("Personalized calibration", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
-        Text("Calibrate while parked. Sit in your normal driving posture and look ahead toward the road, rather than turning toward the camera. Read each step and tap Okay before it starts.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text("Calibrate while parked. Sit in your normal driving posture and look ahead toward the road, rather than turning toward the camera. Read each step and tap Okay before it starts. The DriveAlert speaker pings after each completed step, including the last one. Make sure the speaker is audible before starting.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(22.dp))
         LiveCameraPreview(vision.streamState, previewFrames, vision.driverRegion, vision.driverTracking)
         Spacer(Modifier.height(18.dp))
         DriverTrackingGuidance(vision)
         LightingGuidance(vision)
         vision.errorMessage?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = TextSecondary) }
+        vision.calibrationAudioMessage?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = TextPrimary) }
         SetupDetailRow(
             "Calibration status",
             when {
@@ -263,7 +280,7 @@ fun CalibrationScreen(
                 Text(phase.guidance(), style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 if (acknowledged && countdown > 0) {
                     Spacer(Modifier.height(12.dp))
-                    Text("Get ready: $countdown", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                    Text(if (countdownStarted) "Get ready: $countdown" else "Starting audio countdown…", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
                 }
                 SetupDetailRow("Measurement", if (vision.measurementAvailable(progress.phase)) "Ready" else "Hold the requested position", if (vision.measurementAvailable(progress.phase)) StatusTone.SUCCESS else StatusTone.WARNING)
                 SetupDetailRow(
@@ -281,7 +298,7 @@ fun CalibrationScreen(
             !vision.calibrationInProgress ->
                 PrimaryButton(if (vision.activeCalibration == null) "Start Calibration" else "Recalibrate", onStartCalibration, enabled = canStart)
             progress?.status == CalibrationStatus.READY ->
-                PrimaryButton(if (acknowledged && countdown > 0) "Get ready: $countdown" else "Waiting for clear driver visibility", {}, enabled = false)
+                PrimaryButton(if (acknowledged && countdown > 0) { if (countdownStarted) "Get ready: $countdown" else "Starting audio countdown…" } else "Waiting for clear driver visibility", {}, enabled = false)
             else -> PrimaryButton(when {
                 !vision.driverTracking.locked -> "Waiting for driver tracking"
                 vision.lighting.quality != LightingQuality.USABLE -> "Waiting for usable lighting"
@@ -398,9 +415,9 @@ private fun CalibrationPhase.instruction() = when (this) {
 
 private fun CalibrationPhase.guidance() = when (this) {
     CalibrationPhase.NEUTRAL -> "Stay parked. Sit in your normal driving posture and look ahead as if watching the road. Keep your eyes naturally open and your mouth relaxed. Keep your head and the camera mount steady; do not turn to face the camera."
-    CalibrationPhase.EYES_CLOSED -> "Keep your head in its normal driving position. After tapping Okay, use the countdown to gently close both eyes without squeezing them shut. Hold this position while measurements are collected."
-    CalibrationPhase.MOUTH_OPEN -> "Keep your head in its normal driving position, facing ahead toward the road. After tapping Okay, use the countdown to open your mouth comfortably as if yawning, then hold it open."
-    CalibrationPhase.HEAD_DOWN -> "Start in your normal driving posture. After tapping Okay, use the countdown to lower your head forward as if nodding down. Keep your face inside the driver area and hold the lowered position. Keep the camera mount steady."
+    CalibrationPhase.EYES_CLOSED -> "Keep your head in its normal driving position. After tapping Okay, use the countdown to gently close both eyes without squeezing them shut. Keep them closed until the DriveAlert speaker pings, then open your eyes and read the next instruction."
+    CalibrationPhase.MOUTH_OPEN -> "Keep your head in its normal driving position, facing ahead toward the road. After tapping Okay, use the countdown to open your mouth comfortably as if yawning. Hold it open until the DriveAlert speaker pings, then relax your mouth and read the next instruction."
+    CalibrationPhase.HEAD_DOWN -> "Start in your normal driving posture. After tapping Okay, use the countdown to lower your head forward as if nodding down. Keep your face inside the driver area and the camera mount steady. Hold until the DriveAlert speaker pings, then raise your head to its normal position."
     CalibrationPhase.COMPLETE -> "Calibration is complete."
 }
 

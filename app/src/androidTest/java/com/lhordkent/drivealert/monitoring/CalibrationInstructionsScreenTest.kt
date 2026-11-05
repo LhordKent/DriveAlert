@@ -36,21 +36,27 @@ class CalibrationInstructionsScreenTest {
     @Test fun instructionsRequireOkayBeforeCollectionAndExplainNormalDrivingPosture() {
         val state = mutableStateOf(vision(CalibrationPhase.NEUTRAL, CalibrationStatus.READY))
         val began = AtomicInteger()
+        val countdowns = AtomicInteger()
         compose.setContent { DriveAlertTheme {
             CalibrationScreen(state.value, onStartVision = {}, onStartCalibration = {},
                 onBeginPhase = { acknowledged ->
                     assertEquals(state.value.calibrationProgress?.revision, acknowledged.revision)
                     began.incrementAndGet()
                     state.value = state.value.copy(calibrationProgress = acknowledged.copy(status = CalibrationStatus.COLLECTING))
-                }, onPreviousPhase = {}, onCancel = {}, onBack = {})
+                }, onPreviousPhase = {}, onCancel = {}, onBack = {}, onPreparePhase = { countdowns.incrementAndGet(); true })
         } }
         compose.onNodeWithText("Step 1 of 4: Normal driving posture").assertIsDisplayed()
         compose.onNode(hasText("Sit in your normal driving posture and look ahead", substring = true) and
             hasAnyAncestor(isDialog())).assertIsDisplayed()
         assertEquals(0, began.get())
         capture("instructions")
+        compose.mainClock.autoAdvance = false
         compose.onNodeWithText("Okay").performClick()
-        compose.waitUntil(6_000) { began.get() == 1 }
+        compose.mainClock.advanceTimeBy(2_400)
+        compose.runOnIdle { assertEquals(0, began.get()); assertEquals(1, countdowns.get()) }
+        compose.mainClock.advanceTimeBy(200)
+        compose.runOnIdle { assertEquals(1, began.get()) }
+        compose.mainClock.autoAdvance = true
         compose.onNodeWithText("Go Back to Previous Step").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("Redo All Steps").performScrollTo().assertIsEnabled()
         capture("controls")
@@ -87,7 +93,7 @@ class CalibrationInstructionsScreenTest {
                     restarted.incrementAndGet()
                     state.value = state.value.copy(calibrationProgress = state.value.calibrationProgress!!.copy(
                         phase = CalibrationPhase.NEUTRAL, status = CalibrationStatus.READY, revision = 1))
-                }, onBeginPhase = { began.incrementAndGet() }, onPreviousPhase = {}, onCancel = {}, onBack = {})
+                }, onBeginPhase = { began.incrementAndGet() }, onPreviousPhase = {}, onCancel = {}, onBack = {}, onPreparePhase = { true })
         } }
         compose.onNodeWithText("Redo All Steps").performScrollTo().performClick()
         compose.onNodeWithText("Redo all calibration steps?").assertIsDisplayed()
@@ -101,6 +107,20 @@ class CalibrationInstructionsScreenTest {
         assertEquals(0, began.get())
         compose.onNodeWithText("Okay").performClick()
         compose.waitUntil(6_000) { began.get() == 1 }
+    }
+
+    @Test fun failedCountdownKeepsInstructionsAndDoesNotBeginMeasurements() {
+        val began = AtomicInteger()
+        val attempts = AtomicInteger()
+        compose.setContent { DriveAlertTheme {
+            CalibrationScreen(vision(CalibrationPhase.NEUTRAL, CalibrationStatus.READY),
+                onStartVision = {}, onStartCalibration = {}, onBeginPhase = { began.incrementAndGet() },
+                onPreviousPhase = {}, onCancel = {}, onBack = {}, onPreparePhase = { attempts.incrementAndGet(); false })
+        } }
+        compose.onNodeWithText("Okay").performClick()
+        compose.onNodeWithText("The device countdown could not start.", substring = true).assertExists()
+        compose.onNodeWithText("Okay").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(0, began.get()); assertEquals(1, attempts.get()) }
     }
 
     private fun capture(name: String) {

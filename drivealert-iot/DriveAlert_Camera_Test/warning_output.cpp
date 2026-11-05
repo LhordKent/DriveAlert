@@ -33,12 +33,14 @@ struct PlaybackCommand {
   bool highPriority;
   bool repeat;
   bool movement;
+  bool calibration;
   unsigned long queuedAtMs;
 };
 PlaybackCommand pendingCommand = {};
 volatile bool commandPending = false;
 unsigned long playbackStartedAtMs = 0;
 unsigned long playbackGuardMs = 0;
+bool countdownStarted = false;
 
 bool elapsed(unsigned long now, unsigned long startedAt, unsigned long duration) {
   return now - startedAt >= duration;
@@ -51,10 +53,12 @@ bool takePending(PlaybackCommand *command) {
     *command = pendingCommand;
     commandPending = false;
     const unsigned long now = millis();
-    available = (!command->repeat && !command->movement) || !elapsed(now, command->queuedAtMs, REMINDER_MAX_QUEUE_AGE_MS);
+    available = (!command->repeat && !command->movement && !command->calibration) || !elapsed(now, command->queuedAtMs, REMINDER_MAX_QUEUE_AGE_MS);
     if (available) {
       playbackStartedAtMs = now;
-      playbackGuardMs = command->track == NO_MOVEMENT_TRACK ? MOVEMENT_PLAYBACK_GUARD_MS
+      playbackGuardMs = command->track == CALIBRATION_COUNTDOWN_TRACK ? CALIBRATION_COUNTDOWN_MS
+          : command->calibration ? CALIBRATION_PLAYBACK_GUARD_MS
+          : command->track == NO_MOVEMENT_TRACK ? MOVEMENT_PLAYBACK_GUARD_MS
           : command->track >= EYES_BLOCKED_TRACK ? VISIBILITY_PLAYBACK_GUARD_MS
           : command->track >= DIGITAL_BEEP_STAGE_3_TRACK ? MIXED_PLAYBACK_GUARD_MS
           : NORMAL_PLAYBACK_GUARD_MS;
@@ -64,16 +68,17 @@ bool takePending(PlaybackCommand *command) {
   return available;
 }
 
-bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority, bool repeat = false, bool movement = false) {
+bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority, bool repeat = false, bool movement = false, bool calibration = false) {
   if (!isAvailable() || track == 0 || valueForVolume(volume) == 0) return false;
   bool accepted = false;
   portENTER_CRITICAL(&commandMux);
-  const bool idleRequired = repeat || movement;
-  const bool replacesMovement = !movement && commandPending && pendingCommand.movement;
+  const bool idleRequired = repeat || movement || calibration;
+  const bool replacesMovement = !movement && !calibration && commandPending && (pendingCommand.movement || pendingCommand.calibration);
   const bool repeatAllowed = !idleRequired || ((!commandPending || replacesMovement) && elapsed(millis(), playbackStartedAtMs, playbackGuardMs));
   if (repeatAllowed && (!commandPending || (highPriority && !pendingCommand.highPriority) || replacesMovement)) {
-    pendingCommand = {track, volume, highPriority, repeat, movement, millis()};
+    pendingCommand = {track, volume, highPriority, repeat, movement, calibration, millis()};
     commandPending = true;
+    if (track == CALIBRATION_COUNTDOWN_TRACK) countdownStarted = false;
     accepted = true;
   }
   portEXIT_CRITICAL(&commandMux);
@@ -159,6 +164,11 @@ void loop() {
   if (!takePending(&command)) return;
   player.volume(valueForVolume(command.volume));
   player.playMp3Folder(command.track);
+  if (command.track == CALIBRATION_COUNTDOWN_TRACK) {
+    portENTER_CRITICAL(&commandMux);
+    countdownStarted = true;
+    portEXIT_CRITICAL(&commandMux);
+  }
 }
 
 State state() {
@@ -219,6 +229,22 @@ bool enqueue(const VisibilityCommand &command) {
   if (!isValid(command)) return false;
   return enqueuePlayback(trackForVisibilityIssue(command.issue), command.volume, false, false,
                          command.issue == VisibilityIssue::MOVEMENT);
+}
+
+bool enqueueCalibrationPing() {
+  // A short setup cue never replaces queued/playing warning speech or alarms.
+  return enqueuePlayback(CALIBRATION_COMPLETE_TRACK, Volume::MEDIUM_LEVEL, false, false, false, true);
+}
+
+bool enqueueCalibrationCountdown() {
+  return enqueuePlayback(CALIBRATION_COUNTDOWN_TRACK, Volume::MEDIUM_LEVEL, false, false, false, true);
+}
+
+bool calibrationCountdownStarted() {
+  portENTER_CRITICAL(&commandMux);
+  const bool started = countdownStarted;
+  portEXIT_CRITICAL(&commandMux);
+  return started;
 }
 
 }  // namespace WarningOutput

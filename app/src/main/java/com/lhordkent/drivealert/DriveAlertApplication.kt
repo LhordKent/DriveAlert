@@ -87,7 +87,11 @@ class AppContainer(private val application: Application) {
         RoomDriverPreferenceRepository(database.driverPreferenceDao())
     val calibrationRepository: CalibrationRepository = RoomCalibrationRepository(database.calibrationDao())
     val provisionedDeviceRepository: ProvisionedDeviceRepository =
-        RoomProvisionedDeviceRepository(database.provisionedDeviceDao())
+        RoomProvisionedDeviceRepository(database.provisionedDeviceDao()) { uid, id -> deviceCredentialStore.session(uid, id) }
+    val deviceCredentialStore by lazy { com.lhordkent.drivealert.device.DeviceCredentialStore(application) }
+    val deviceAccessRepository by lazy {
+        com.lhordkent.drivealert.data.device.DeviceAccessRepository(firestore, database.deviceAccessDao(), deviceCredentialStore)
+    }
     val userProfileRepository: UserProfileRepository by lazy { FirestoreUserProfileRepository(firestore) }
     val trustedContactRepository: TrustedContactRepository by lazy {
         FirestoreTrustedContactRepository(

@@ -227,6 +227,142 @@ service cloud.firestore {
         && (recipientApproves() || recipientDeclines() || senderCancels() || participantRevokes() || driverReRequests());
       allow delete: if false;
     }
+    // Device ownership is intentionally separate from Trusted Contact sharing.
+    function canonicalDevice(id) { return id.matches('^[0-9A-F]{12}$'); }
+    function ownsDevice(id) {
+      return signedIn() && get(/databases/$(database)/documents/deviceOwnership/$(id)).data.ownerUserId == request.auth.uid;
+    }
+    function activeDeviceDriver(uid) {
+      let profile = get(/databases/$(database)/documents/users/$(uid));
+      return profile.data.accountStatus == 'ACTIVE' && profile.data.userRole in ['DRIVER', 'BOTH'];
+    }
+    match /devices/{deviceId} {
+      allow get: if signedIn();
+      allow list, update, delete: if false;
+      allow create: if signedIn() && canonicalDevice(deviceId) && activeDeviceDriver(request.auth.uid)
+        && request.resource.data.keys().hasAll(['deviceId', 'claimed', 'createdAt', 'schemaVersion'])
+        && request.resource.data.keys().hasOnly(['deviceId', 'claimed', 'createdAt', 'schemaVersion'])
+        && request.resource.data.deviceId == deviceId && request.resource.data.claimed == true
+        && request.resource.data.createdAt == request.time && request.resource.data.schemaVersion == 1
+        && getAfter(/databases/$(database)/documents/deviceOwnership/$(deviceId)).data.ownerUserId == request.auth.uid
+        && getAfter(/databases/$(database)/documents/deviceOwnership/$(deviceId)).data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/deviceCredentials/$(deviceId + '__' + request.auth.uid)).data.kind == 'OWNER';
+    }
+    match /deviceOwnership/{deviceId} {
+      allow get: if ownsDevice(deviceId) || (signedIn()
+        && get(/databases/$(database)/documents/deviceDriverAccess/$(deviceId + '__' + request.auth.uid)).data.status in ['PENDING', 'ACTIVE']);
+      allow list: if signedIn() && resource.data.ownerUserId == request.auth.uid;
+      allow create: if signedIn() && canonicalDevice(deviceId) && activeDeviceDriver(request.auth.uid)
+        && request.resource.data.keys().hasAll(['deviceId', 'ownerUserId', 'displayName', 'createdAt', 'schemaVersion'])
+        && request.resource.data.keys().hasOnly(['deviceId', 'ownerUserId', 'displayName', 'createdAt', 'schemaVersion'])
+        && request.resource.data.deviceId == deviceId && request.resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 80
+        && request.resource.data.schemaVersion == 1 && request.resource.data.createdAt == request.time
+        && !exists(/databases/$(database)/documents/devices/$(deviceId))
+        && getAfter(/databases/$(database)/documents/devices/$(deviceId)).data.claimed == true
+        && getAfter(/databases/$(database)/documents/devices/$(deviceId)).data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+    function deviceAccessShape(d) {
+      return d.keys().hasAll(['deviceId', 'ownerUserId', 'ownerDisplayName', 'driverUserId', 'driverDisplayName', 'deviceDisplayName',
+          'status', 'revision', 'targetConnectionCode', 'requestedAt', 'acceptedAt', 'endedAt', 'billingMode', 'demoActivationId'])
+        && d.keys().hasOnly(['deviceId', 'ownerUserId', 'ownerDisplayName', 'driverUserId', 'driverDisplayName', 'deviceDisplayName',
+          'status', 'revision', 'targetConnectionCode', 'requestedAt', 'acceptedAt', 'endedAt', 'billingMode', 'demoActivationId'])
+        && d.deviceId is string && canonicalDevice(d.deviceId) && d.ownerUserId is string && d.driverUserId is string
+        && d.ownerUserId != d.driverUserId && d.ownerDisplayName is string && d.driverDisplayName is string && d.deviceDisplayName is string
+        && d.status in ['PENDING', 'ACTIVE', 'DECLINED', 'CANCELLED', 'REMOVED', 'LEFT']
+        && d.revision is int && d.revision > 0 && d.targetConnectionCode is string
+        && d.requestedAt is timestamp && (d.acceptedAt == null || d.acceptedAt is timestamp)
+        && (d.endedAt == null || d.endedAt is timestamp) && d.billingMode == 'SIMULATED'
+        && d.demoActivationId is string && d.demoActivationId.matches('^[a-zA-Z0-9-]{1,80}$');
+    }
+    function validDeviceInvitation(d) {
+      let code = get(/databases/$(database)/documents/connectionCodes/$(d.targetConnectionCode));
+      let event = getAfter(/databases/$(database)/documents/users/$(d.ownerUserId)/deviceSubscriptionEvents/$(d.demoActivationId));
+      let ownerProfile = get(/databases/$(database)/documents/users/$(d.ownerUserId));
+      return ownsDevice(d.deviceId) && activeDeviceDriver(request.auth.uid) && d.ownerUserId == request.auth.uid
+        && d.status == 'PENDING' && d.requestedAt == request.time && d.acceptedAt == null && d.endedAt == null
+        && code.data.active == true && code.data.ownerUserId == d.driverUserId
+        && d.driverDisplayName == code.data.displayName
+        && d.ownerDisplayName == get(/databases/$(database)/documents/connectionCodes/$(ownerProfile.data.connectionCode)).data.displayName
+        && d.deviceDisplayName == get(/databases/$(database)/documents/deviceOwnership/$(d.deviceId)).data.displayName
+        && !exists(/databases/$(database)/documents/users/$(d.ownerUserId)/deviceSubscriptionEvents/$(d.demoActivationId))
+        && event.data.createdAt == request.time && event.data.deviceId == d.deviceId && event.data.driverUserId == d.driverUserId
+        && getAfter(/databases/$(database)/documents/deviceCredentials/$(d.deviceId + '__' + d.driverUserId)).data.serial == d.revision
+        && getAfter(/databases/$(database)/documents/deviceCredentials/$(d.deviceId + '__' + d.driverUserId)).data.createdAt == request.time;
+    }
+    match /deviceDriverAccess/{accessId} {
+      allow get: if signedIn() && (accessId.matches('^[0-9A-F]{12}__' + request.auth.uid + '$')
+        || ownsDevice(accessId.split('__')[0]));
+      allow list: if signedIn() && (resource.data.ownerUserId == request.auth.uid || resource.data.driverUserId == request.auth.uid);
+      allow create: if deviceAccessShape(request.resource.data)
+        && accessId == request.resource.data.deviceId + '__' + request.resource.data.driverUserId
+        && request.resource.data.revision == 1 && validDeviceInvitation(request.resource.data);
+      allow update: if deviceAccessShape(request.resource.data)
+        && request.resource.data.deviceId == resource.data.deviceId
+        && request.resource.data.ownerUserId == resource.data.ownerUserId
+        && request.resource.data.driverUserId == resource.data.driverUserId
+        && request.resource.data.revision == resource.data.revision + 1
+        && ((resource.data.status in ['DECLINED', 'CANCELLED', 'REMOVED', 'LEFT'] && validDeviceInvitation(request.resource.data))
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revision', 'acceptedAt'])
+            && signedIn() && request.auth.uid == resource.data.driverUserId && activeDeviceDriver(request.auth.uid)
+            && resource.data.status == 'PENDING' && request.resource.data.status == 'ACTIVE'
+            && request.resource.data.acceptedAt == request.time)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revision', 'endedAt'])
+            && request.resource.data.endedAt == request.time && signedIn()
+            && ((request.auth.uid == resource.data.driverUserId
+                && ((resource.data.status == 'PENDING' && request.resource.data.status == 'DECLINED')
+                  || (resource.data.status == 'ACTIVE' && request.resource.data.status == 'LEFT')))
+              || (request.auth.uid == resource.data.ownerUserId && ownsDevice(resource.data.deviceId)
+                && ((resource.data.status == 'PENDING' && request.resource.data.status == 'CANCELLED')
+                  || (resource.data.status == 'ACTIVE' && request.resource.data.status == 'REMOVED'))))));
+      allow delete: if false;
+    }
+    match /users/{ownerUid}/deviceSubscriptionEvents/{activationId} {
+      allow get: if isSelf(ownerUid);
+      allow list, update, delete: if false;
+      allow create: if isSelf(ownerUid)
+        && request.resource.data.keys().hasAll(['deviceId', 'ownerUserId', 'driverUserId', 'mode', 'kind', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['deviceId', 'ownerUserId', 'driverUserId', 'mode', 'kind', 'createdAt'])
+        && request.resource.data.deviceId is string && canonicalDevice(request.resource.data.deviceId)
+        && request.resource.data.ownerUserId == ownerUid && request.resource.data.driverUserId is string
+        && request.resource.data.mode == 'SIMULATED' && request.resource.data.kind == 'ACTIVATION'
+        && request.resource.data.createdAt == request.time && ownsDevice(request.resource.data.deviceId)
+        && getAfter(/databases/$(database)/documents/deviceDriverAccess/$(request.resource.data.deviceId + '__' + request.resource.data.driverUserId)).data.demoActivationId == activationId
+        && getAfter(/databases/$(database)/documents/deviceDriverAccess/$(request.resource.data.deviceId + '__' + request.resource.data.driverUserId)).data.requestedAt == request.time
+        && getAfter(/databases/$(database)/documents/deviceDriverAccess/$(request.resource.data.deviceId + '__' + request.resource.data.driverUserId)).data.status == 'PENDING';
+    }
+    // Secrets/certificates are never stored in publicly readable claim records.
+    match /deviceCredentials/{credentialId} {
+      function credentialShape(d) {
+        return d.keys().hasAll(['deviceId', 'ownerUserId', 'driverUserId', 'accountId', 'secret', 'kind', 'serial', 'certificate', 'createdAt'])
+          && d.keys().hasOnly(['deviceId', 'ownerUserId', 'driverUserId', 'accountId', 'secret', 'kind', 'serial', 'certificate', 'createdAt'])
+          && canonicalDevice(d.deviceId) && d.ownerUserId is string && d.driverUserId is string
+          && credentialId == d.deviceId + '__' + d.driverUserId
+          && d.accountId.matches('^[0-9A-F]{32}$') && d.secret.matches('^[0-9A-F]{64}$')
+          && d.serial is int && d.serial >= 0 && d.serial <= 2147483647 && d.createdAt == request.time;
+      }
+      function driverCertificate(d) {
+        let member = getAfter(/databases/$(database)/documents/deviceDriverAccess/$(credentialId));
+        return ownsDevice(d.deviceId) && d.ownerUserId == request.auth.uid && d.driverUserId != request.auth.uid
+          && d.kind == 'DRIVER' && d.certificate.matches('^[0-9A-F]{64}$') && d.serial > 0
+          && member.data.status == 'PENDING' && member.data.revision == d.serial && member.data.requestedAt == request.time;
+      }
+      allow get: if signedIn() && (ownsDevice(credentialId.split('__')[0])
+        || (resource.data.driverUserId == request.auth.uid && resource.data.kind == 'DRIVER'
+          && get(/databases/$(database)/documents/deviceDriverAccess/$(credentialId)).data.status == 'ACTIVE'));
+      allow create: if signedIn() && credentialShape(request.resource.data)
+        && (driverCertificate(request.resource.data)
+          || (request.resource.data.kind == 'OWNER' && request.resource.data.serial == 0 && request.resource.data.certificate == ''
+            && request.resource.data.ownerUserId == request.auth.uid && request.resource.data.driverUserId == request.auth.uid
+            && !exists(/databases/$(database)/documents/devices/$(request.resource.data.deviceId))
+            && getAfter(/databases/$(database)/documents/deviceOwnership/$(request.resource.data.deviceId)).data.ownerUserId == request.auth.uid));
+      allow update: if signedIn() && credentialShape(request.resource.data) && driverCertificate(request.resource.data)
+        && request.resource.data.deviceId == resource.data.deviceId && request.resource.data.ownerUserId == resource.data.ownerUserId
+        && request.resource.data.driverUserId == resource.data.driverUserId && request.resource.data.accountId == resource.data.accountId
+        && request.resource.data.serial > resource.data.serial;
+      allow list, delete: if false;
+    }
     match /{document=**} { allow read, write: if false; }
   }
 }

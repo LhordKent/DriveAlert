@@ -67,4 +67,5 @@ class CameraConnectionRecoveryScreenTest {
             instrumentation.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it)
         }
     }
+
 }

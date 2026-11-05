@@ -39,6 +39,8 @@ class Esp32MjpegFrameSource(
     private val onState: (StreamConnectionState, String?) -> Unit,
     private val onDisconnected: (Throwable?) -> Unit,
     previewFramesPerSecond: Int = DEFAULT_PREVIEW_FRAMES_PER_SECOND,
+    private val sessionToken: String? = null,
+    private val expectedDeviceId: String? = null,
 ) : Esp32VideoFrameSource<SharedBitmapFrame> {
     private val decodeGate = MonotonicFrameGate(1_000L / previewFramesPerSecond.coerceIn(1, 30))
     private val executor = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "drivealert-mjpeg") }
@@ -56,10 +58,17 @@ class Esp32MjpegFrameSource(
                     it.readTimeout = 10_000
                     it.useCaches = false
                     it.setRequestProperty("Accept", "multipart/x-mixed-replace")
+                    if (sessionToken != null) it.setRequestProperty("Authorization", "Bearer $sessionToken")
                 }
                 connection = active
                 active.connect()
+                check(active.responseCode != HttpURLConnection.HTTP_UNAUTHORIZED) {
+                    "The camera session is no longer authorized. Power the board off and on, then open Bluetooth setup to reconnect."
+                }
                 check(active.responseCode in 200..299) { "Camera returned HTTP ${active.responseCode}." }
+                if (sessionToken != null) check(expectedDeviceId != null && active.getHeaderField("X-DriveAlert-Device") == expectedDeviceId && active.getHeaderField("X-DriveAlert-Auth") == "1") {
+                    "Camera identity was not confirmed. Reconnect through Bluetooth setup with the updated firmware."
+                }
                 val boundary = MjpegParser.boundaryFrom(active.contentType)
                     ?: error("Camera response did not include an MJPEG boundary.")
                 val parser = MjpegParser(active.inputStream, boundary)

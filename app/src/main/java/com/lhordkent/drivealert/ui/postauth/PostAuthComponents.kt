@@ -376,13 +376,14 @@ fun ConfirmDialog(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    actionColor: Color = DriveRed,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(body) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel, color = DriveRed) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel, color = actionColor) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = actionColor) } },
         containerColor = Surface,
         titleContentColor = TextPrimary,
         textContentColor = TextSecondary,

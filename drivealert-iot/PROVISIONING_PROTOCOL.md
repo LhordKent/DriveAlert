@@ -1,4 +1,4 @@
-# DriveAlert BLE provisioning protocol v1
+# DriveAlert BLE provisioning protocol with device authorization
 
 This is the shared source of truth for the Android app and classic ESP32-CAM firmware.
 
@@ -6,12 +6,12 @@ This is the shared source of truth for the Android app and classic ESP32-CAM fir
 
 - Advertised name: `DriveAlert-XXXX`
 - Service is advertised only while provisioning is required.
-- Pairing: LE Secure Connections with Just Works and bonding; no typed PIN
-- ESP32 I/O capability: No Input No Output
-- Credential and command writes require encrypted access.
-- Status reads/notifications require encrypted access.
+- Pairing: LE Secure Connections with a retained per-device six-digit PIN and bonding.
+- ESP32 I/O capability: display only; the installer reads the PIN over USB serial and records it on the device label.
+- Credential/command writes and status reads require MITM-protected encrypted access.
+- The app must also authenticate the signed-in driver's owner-issued credential before setup commands are accepted. See [the authorization contract](DEVICE_AUTHORIZATION_PROTOCOL.md).
 
-Android may display a pairing confirmation, but setup does not require serial access. Just Works encrypts the connection without PIN-based MITM protection. An existing phone may need to forget its old DriveAlert Bluetooth pairing once after this firmware update; stored Wi-Fi credentials are retained.
+New phones enter the device-label PIN in Android's system pairing dialog. An existing phone may need to forget its old Just Works bond once after updating. Stored Wi-Fi details remain. The updated app and firmware are required together; there is no fallback to unauthenticated setup.
 
 ## UUIDs
 
@@ -23,7 +23,7 @@ Android may display a pairing confirmation, but setup does not require serial ac
 | Command | `7f9c1003-8b6e-4c5a-9d2f-6a3b7c8d0001` | Android → ESP32 | UTF-8 command |
 | Status | `7f9c1004-8b6e-4c5a-9d2f-6a3b7c8d0001` | ESP32 → Android | UTF-8 read/notify |
 
-Android requests an MTU of 128 and sends `QUERY_CREDENTIALS` after subscribing to status notifications. For a new network it writes SSID, password, then `APPLY`. For an existing saved network it sends `CONNECT_SAVED`. Every write waits for the preceding GATT callback.
+Android requires an MTU of at least 128 and performs `AUTH_HELLO`/challenge authentication after subscribing. Once authorized and any owner revocations are synced, it sends `QUERY_CREDENTIALS`. For a new network it writes SSID, password, then `APPLY`. For an existing saved network it sends `CONNECT_SAVED`. Every write waits for the preceding GATT callback.
 
 Neither `QUERY_CREDENTIALS` nor merely connecting over BLE starts Wi-Fi. Only `APPLY` and `CONNECT_SAVED` authorize a Wi-Fi attempt for the current power cycle.
 

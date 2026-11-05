@@ -78,6 +78,7 @@ application_default_credentials.json
 **/__pycache__/
 /output/movement-tools/
 /output/connection-firmware-build/
+/output/device-subscription-release/
 /output/*.exe
 /output/*.pdb
 /output/*.o

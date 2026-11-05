@@ -18,18 +18,20 @@ const {
 
 const PROJECT_ID = "drivealert-lhordkent";
 let appCounter = 0;
+const FIRESTORE_ADDRESS = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
+const AUTH_ADDRESS = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
 
 async function clearEmulators() {
-  await fetch(`http://127.0.0.1:8080/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`, { method: "DELETE" });
-  await fetch(`http://127.0.0.1:9099/emulator/v1/projects/${PROJECT_ID}/accounts`, { method: "DELETE" });
+  await fetch(`http://${FIRESTORE_ADDRESS}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`, { method: "DELETE" });
+  await fetch(`http://${AUTH_ADDRESS}/emulator/v1/projects/${PROJECT_ID}/accounts`, { method: "DELETE" });
 }
 
 async function createClient(name, code) {
   const app = initializeApp({ projectId: PROJECT_ID, apiKey: "demo-key", appId: `demo-${++appCounter}` }, `test-${appCounter}`);
   const auth = getAuth(app);
-  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectAuthEmulator(auth, `http://${AUTH_ADDRESS}`, { disableWarnings: true });
   const firestore = getFirestore(app);
-  connectFirestoreEmulator(firestore, "127.0.0.1", 8080);
+  connectFirestoreEmulator(firestore, FIRESTORE_ADDRESS.split(":")[0], Number(FIRESTORE_ADDRESS.split(":")[1]));
   const email = `${name.toLowerCase()}@example.com`;
   const credential = await createUserWithEmailAndPassword(auth, email, "Password123!");
   await setDoc(doc(firestore, "users", credential.user.uid), {

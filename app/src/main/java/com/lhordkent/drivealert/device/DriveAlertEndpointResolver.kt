@@ -26,6 +26,8 @@ class AndroidDriveAlertEndpointResolver(context: Context) : DriveAlertEndpointRe
             persisted = device,
             persistedReachable = { canConnect(device.lastKnownIp, device.streamPort) },
             discover = discovery@ {
+                // An absent name must never select an arbitrary nearby camera.
+                if (device.hostname.isNullOrBlank()) return@discovery null
                 val discovered = withTimeoutOrNull(8_000) { discover(device.hostname) } ?: return@discovery null
                 val address = discovered.host?.hostAddress ?: return@discovery null
                 if (!isLocalAddress(address)) return@discovery null

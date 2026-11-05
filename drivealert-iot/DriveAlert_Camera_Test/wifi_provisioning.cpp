@@ -9,6 +9,7 @@
 #include <esp_wifi.h>
 
 #include "provisioning_protocol.h"
+#include "device_authorization.h"
 
 namespace {
 constexpr char PREFERENCES_NAMESPACE[] = "drivealert_wifi";
@@ -57,6 +58,11 @@ class ProvisioningWriteCallbacks : public BLECharacteristicCallbacks {
 class ProvisioningSecurityCallbacks : public BLESecurityCallbacks {
  public:
   bool onSecurityRequest() override { return true; }
+  uint32_t onPassKeyRequest() override { return DeviceAuthorization::pairingPin(); }
+  void onPassKeyNotify(uint32_t passkey) override {
+    Serial.printf("DriveAlert Bluetooth pairing PIN: %06lu. Record this on the device label.\n", static_cast<unsigned long>(passkey));
+  }
+  bool onConfirmPIN(uint32_t) override { return false; }
 };
 }  // namespace
 
@@ -110,9 +116,12 @@ void WifiProvisioningManager::startProvisioning() {
   BLEDevice::init(deviceName.c_str());
 
   BLESecurity *security = new BLESecurity();
-  // Just Works keeps encryption and bonding without requiring a serial-only PIN.
-  security->setCapability(ESP_IO_CAP_NONE);
-  security->setAuthenticationMode(true, false, true);
+  const uint32_t pairingPin = DeviceAuthorization::pairingPin();
+  if (pairingPin == 0) { Serial.println("Authorization storage unavailable; provisioning is disabled."); return; }
+  security->setCapability(ESP_IO_CAP_OUT);
+  security->setAuthenticationMode(true, true, true);
+  security->setPassKey(true, pairingPin);
+  Serial.printf("DriveAlert Bluetooth pairing PIN: %06lu. Record this on the device label.\n", static_cast<unsigned long>(pairingPin));
   security->setKeySize(16);
   BLEDevice::setSecurityCallbacks(new ProvisioningSecurityCallbacks());
 
@@ -131,11 +140,11 @@ void WifiProvisioningManager::startProvisioning() {
     DriveAlertProvisioningProtocol::STATUS_UUID,
     BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
 
-  const uint16_t writePermissions = ESP_GATT_PERM_WRITE_ENCRYPTED;
+  const uint16_t writePermissions = ESP_GATT_PERM_WRITE_ENC_MITM;
   ssidCharacteristic->setAccessPermissions(writePermissions);
   passwordCharacteristic->setAccessPermissions(writePermissions);
   applyCharacteristic->setAccessPermissions(writePermissions);
-  statusCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED);
+  statusCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM);
   statusCharacteristic->addDescriptor(new BLE2902());
 
   ssidCharacteristic->setCallbacks(new ProvisioningWriteCallbacks(InputKind::SSID));
@@ -152,7 +161,7 @@ void WifiProvisioningManager::startProvisioning() {
 
   provisioningActive = true;
   publishStatus(DriveAlertProvisioningProtocol::STATUS_READY);
-  Serial.printf("BLE provisioning active as %s. No pairing PIN is required.\n", deviceName.c_str());
+  Serial.printf("BLE provisioning active as %s. Use the device pairing PIN when Android asks.\n", deviceName.c_str());
   Serial.println("Setup credentials use encrypted Bluetooth; the Wi-Fi password is never printed.");
 }
 
@@ -208,16 +217,23 @@ void WifiProvisioningManager::clearWifiCredentials() {
 }
 
 void WifiProvisioningManager::handleSsidWrite(const String &value) {
+  if (!DeviceAuthorization::bleAuthorized()) { publishStatus("AUTH_REQUIRED"); return; }
   candidateSsid = value;
   publishStatus(DriveAlertProvisioningProtocol::STATUS_RECEIVED);
 }
 
 void WifiProvisioningManager::handlePasswordWrite(const String &value) {
+  if (!DeviceAuthorization::bleAuthorized()) { publishStatus("AUTH_REQUIRED"); return; }
   candidatePassword = value;
   publishStatus(DriveAlertProvisioningProtocol::STATUS_RECEIVED);
 }
 
 void WifiProvisioningManager::handleApplyWrite(const String &value) {
+  if (value.startsWith("AUTH") || value.startsWith("CLAIM|") || value.startsWith("CERT") || value.startsWith("REVOKE|")) {
+    publishStatus(DeviceAuthorization::command(value));
+    return;
+  }
+  if (!DeviceAuthorization::bleAuthorized()) { publishStatus("AUTH_REQUIRED"); return; }
   // Any command proves the app is actively recovering over the existing link.
   // Cancel the stale-session fallback before processing it.
   recoverBleAtMs = 0;
@@ -231,10 +247,16 @@ void WifiProvisioningManager::handleApplyWrite(const String &value) {
 }
 
 void WifiProvisioningManager::handleBleConnected() {
+  DeviceAuthorization::newBleConnection();
   bleClientConnected = true;
 }
 
 void WifiProvisioningManager::handleBleDisconnected() {
+  DeviceAuthorization::endBleConnection();
+  applyRequested = false;
+  connectSavedRequested = false;
+  credentialStatusRequested = false;
+  candidatePassword = "";
   bleClientConnected = false;
   recoverBleAtMs = 0;
   if (provisioningActive && stopBleAtMs == 0) BLEDevice::startAdvertising();

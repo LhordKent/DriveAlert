@@ -17,6 +17,8 @@ This is not an ESP32-S3/Freenove board and the sensor is not OV2640. The CameraW
 - `DriveAlert_Camera_Test/provisioning_protocol.h`: firmware UUID/status constants
 - `DriveAlert_Camera_Test/app_httpd.cpp`: camera control/MJPEG servers and DriveAlert command endpoints
 - `DriveAlert_Camera_Test/warning_output.*`: DFPlayer UART setup, mappings, and queued playback
+- `DriveAlert_Camera_Test/device_authorization.*`: persistent ownership, offline driver certificates, replay-resistant BLE authentication, and HTTP sessions
+- `DEVICE_AUTHORIZATION_PROTOCOL.md`: authoritative authorization and pairing contract
 - `PROVISIONING_PROTOCOL.md`: shared Android/firmware GATT contract
 - `WARNING_OUTPUT_PROTOCOL.md`: shared Android/firmware local HTTP warning contract
 
@@ -61,13 +63,13 @@ mDNS startup is attempted once per Wi-Fi connection. If the retained BLE stack l
 The ESP32 uses the bundled Bluedroid implementation with:
 
 - LE Secure Connections
-- Just Works pairing without a typed PIN (no MITM protection)
+- A retained random six-digit pairing PIN, read by the installer over USB serial and placed on the device label
 - Bonding
 - 16-byte encryption key
-- `ESP_GATT_PERM_WRITE_ENCRYPTED` on credential/command characteristics
-- `ESP_GATT_PERM_READ_ENCRYPTED` on status
+- `ESP_GATT_PERM_WRITE_ENC_MITM` on credential/command characteristics
+- `ESP_GATT_PERM_READ_ENC_MITM` on status
 
-No pairing PIN is generated or required. Android uses its system pairing flow and may ask for confirmation. Setup credentials remain encrypted, but Just Works does not provide PIN-based MITM protection. The Wi-Fi password is never printed, echoed in status, or included in the advertised name. After updating from PIN-based firmware, an existing phone may need to forget its old DriveAlert Bluetooth pairing once. Stored Wi-Fi credentials are retained; any legacy `ble_pin` value is ignored.
+Android uses its system pairing dialog for PIN entry on new phones. An old Just Works bond may need to be forgotten once after updating. Stored Wi-Fi details remain. Firmware also verifies an offline owner/driver credential before setup and requires an authorized session header on all HTTP endpoints. Owner keys, driver keys, session tokens, and Wi-Fi passwords are never printed. See [authorization](DEVICE_AUTHORIZATION_PROTOCOL.md) and [installation](deployment/DEVICE_SUBSCRIPTION_RELEASE.md).
 
 The advertised name is `DriveAlert-XXXX`, where `XXXX` is a non-secret suffix derived from the device eFuse MAC.
 
@@ -93,7 +95,7 @@ packaged recording, host-test commands and quick hardware checks.
 Required toolchain:
 
 - Arduino IDE/CLI
-- Espressif Arduino-ESP32 core 3.3.11
+- Espressif Arduino-ESP32 core 3.3.12 (verified installed compiler)
 - Board: AI Thinker ESP32-CAM (`esp32:esp32:esp32cam`)
 - PSRAM enabled on the physical board
 
@@ -107,11 +109,11 @@ The firmware compiles for the actual classic ESP32-CAM target with Preferences, 
 2. Reboot; serial access is optional for diagnostics.
 3. Confirm a `DriveAlert-XXXX` advertisement.
 4. In Android, open Device Connection and scan.
-5. Select the ESP32 and confirm Android's pairing dialog if shown; no PIN entry is required.
+5. Register the selected ESP32 online as its primary driver and enter the device-label PIN in Android's pairing dialog. Existing authorized accounts use their cached credential offline.
 6. Enable the target hotspot/network and enter its SSID/password in DriveAlert.
 7. Submit and confirm Android reports success and the assigned IP.
 8. Confirm BLE provisioning stops and Serial never prints the Wi-Fi password.
-9. Open `http://<IP>:81/stream` and confirm the OV3660 MJPEG feed.
+9. Confirm the OV3660 MJPEG feed inside the authorized app. A direct request without its session header must return HTTP 401.
 
 ### B — Manual connection with persisted credentials
 
