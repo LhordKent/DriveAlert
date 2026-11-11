@@ -641,7 +641,10 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 )
                 if (expectedAccount != accountGeneration || !mayUse(device)) {
                     monitoringSessionRepository.finish(driverId, sessionId, MonitoringSessionStatus.INTERRUPTED, wallClock())
-                    return@launch
+                    // The service waits for exactly one callback; returning silently leaves it stuck "starting".
+                    return@launch onFailure(IllegalStateException(
+                        "Device access or the signed-in account changed. Verify access in Device Connection, then start again.",
+                    ))
                 }
                 val recoveredDuration = (wallClock() - startedAtEpoch).coerceAtLeast(0L)
                 monitoringController.start(sessionId, recoveredDuration)

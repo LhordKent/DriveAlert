@@ -49,22 +49,29 @@ class StageNotificationDispatcher(
                     dao.complete(group.dispatchGroupId, NotificationDispatchStatus.DELIVERED, now, null)
                 is NotificationDispatchResult.Terminal ->
                     dao.complete(group.dispatchGroupId, NotificationDispatchStatus.TERMINAL, now, result.code)
-                NotificationDispatchResult.AwaitingMore -> {
-                    dao.recordAttempt(group.dispatchGroupId, group.attemptCount + 1, now, "AWAITING_COMPLETION")
-                    return false
-                }
                 NotificationDispatchResult.Disabled -> return true
-                is NotificationDispatchResult.Retryable -> {
-                    dao.recordAttempt(group.dispatchGroupId, group.attemptCount + 1, now, result.code)
-                    return false
-                }
+                // An unfinished group must not block later groups, and must not retry forever.
+                NotificationDispatchResult.AwaitingMore -> retryLater(group.dispatchGroupId, group.attemptCount, now, "AWAITING_COMPLETION")
+                is NotificationDispatchResult.Retryable -> retryLater(group.dispatchGroupId, group.attemptCount, now, result.code)
             }
         }
         return dao.pendingGroups(driverUserId, 1).isEmpty()
     }
 
+    private suspend fun retryLater(groupId: String, previousAttempts: Int, now: Long, code: String) {
+        val attempts = previousAttempts + 1
+        if (attempts >= MAX_ATTEMPTS) {
+            dao.complete(groupId, NotificationDispatchStatus.TERMINAL, now, "RETRY_EXHAUSTED:$code".take(80))
+        } else {
+            dao.recordAttempt(groupId, attempts, now, code)
+        }
+    }
+
     companion object {
         const val MAX_RECORDS_PER_CHUNK = 20
+
+        /** With WorkManager's 30 s exponential backoff (capped at 5 h) this spans roughly a day and a half. */
+        const val MAX_ATTEMPTS = 12
     }
 }
 

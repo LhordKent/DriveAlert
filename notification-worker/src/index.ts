@@ -111,8 +111,15 @@ async function finalizeGroup(env: Env, uid: string, body: DispatchRequest): Prom
       .bind(body.dispatchGroupId, connection.trustedUid, device.installation_id, Date.now())))
   }
 
+  // A pending delivery whose installation was deleted (sign-out, token reuse, pruning, INVALID token)
+  // or re-registered to another account can never be sent. Close it so the group can finish.
+  await env.DB.prepare(`UPDATE device_deliveries SET status='TERMINAL',last_error='INSTALLATION_REMOVED',updated_at=?
+      WHERE group_id=? AND status='PENDING' AND NOT EXISTS
+      (SELECT 1 FROM installations i WHERE i.installation_id=device_deliveries.installation_id AND i.user_id=device_deliveries.trusted_uid)`)
+    .bind(Date.now(), body.dispatchGroupId).run()
+
   const deliveries = await env.DB.prepare(`SELECT d.trusted_uid,d.installation_id,i.fcm_token
-      FROM device_deliveries d JOIN installations i ON i.installation_id=d.installation_id
+      FROM device_deliveries d JOIN installations i ON i.installation_id=d.installation_id AND i.user_id=d.trusted_uid
       WHERE d.group_id=? AND d.status='PENDING' LIMIT 20`)
     .bind(body.dispatchGroupId).all<{ trusted_uid: string; installation_id: string; fcm_token: string }>()
   for (const delivery of deliveries.results) {
