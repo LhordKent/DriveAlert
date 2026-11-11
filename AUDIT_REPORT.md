@@ -10,7 +10,7 @@
 - **Full test run: all green.** That covers the Android app, the web portal, the database security rules, the alert server and the camera firmware logic (on the PC, not the device).
 - **Outdated test: fixed.** One test expected old on-screen wording; it now matches the app.
 - **Everything above is saved to GitHub.**
-- **New: sharing notice on connection requests (not on GitHub yet).** Before sending a request, the phone app and the website now say: "Your name (…) and email (…) will be visible to the person you send this request to." Tests pass, but it hasn't been checked on screen.
+- **New: sharing notice on connection requests (saved to GitHub).** Before sending a request, the phone app and the website now say: "Your name (…) and email (…) will be visible to the person you send this request to." Tests pass, but it hasn't been checked on screen.
 
 ### 🟡 Known but not fixed yet (in order of importance)
 1. **F2 (lowered to Low–Medium):** a connection request shows the sender's name and email, but the sender's own app supplies them, so a tampered app could fake them. It only works for someone who already has your connection code. **Decision (2026-11-11):** for now we only added a notice telling senders what's shared. The behind-the-scenes block on faked emails was skipped on purpose.
