@@ -19,6 +19,7 @@ async function client(name, role = "DRIVER") {
   const auth = getAuth(app); connectAuthEmulator(auth, `http://${AUTH}`, { disableWarnings: true });
   const db = getFirestore(app); connectFirestoreEmulator(db, FIRESTORE.split(":")[0], Number(FIRESTORE.split(":")[1]));
   const user = await createUserWithEmailAndPassword(auth, `${name}${counter}@example.com`, "Password123!");
+  await require("./verify-email").verifyEmail(auth, user.user);
   const uid = user.user.uid;
   const code = `DA${crypto.randomBytes(26).map(n => "23456789ABCDEFGHJKLMNPQRSTUVWXYZ".charCodeAt(n % 31)).toString()}`;
   await setDoc(doc(db, "users", uid), { uid, firstName: name, lastName: "Test", userRole: role, accountStatus: "ACTIVE", registeredAt: serverTimestamp(), connectionCode: code });

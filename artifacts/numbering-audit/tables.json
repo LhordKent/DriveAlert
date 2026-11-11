@@ -1,0 +1,8526 @@
+[
+  [
+    [
+      "TABLE OF CONTENTS",
+      ""
+    ],
+    [
+      "ACKNOWLEDGEMENT",
+      "i"
+    ],
+    [
+      "DEDICATION",
+      "ii"
+    ],
+    [
+      "TABLE OF CONTENTS",
+      "iii"
+    ],
+    [
+      "LIST OF TABLES",
+      "v"
+    ],
+    [
+      "LIST OF FIGURES",
+      "vi"
+    ],
+    [
+      "CHAPTER IINTRODUCTION",
+      "1"
+    ],
+    [
+      "Rationale of the Study",
+      "3"
+    ],
+    [
+      "Objectives of the Study",
+      "6"
+    ],
+    [
+      "Scope and Limitations",
+      "6"
+    ],
+    [
+      "Significance of the Study",
+      "9"
+    ],
+    [
+      "Flow of the Study",
+      "10"
+    ],
+    [
+      "Definition of Terms",
+      "12"
+    ],
+    [
+      "CHAPTER IIREVIEW OF RELATED LITERATURE AND STUDIES",
+      "16"
+    ],
+    [
+      "Theoretical Background",
+      "16"
+    ],
+    [
+      "Related Literature",
+      "17"
+    ],
+    [
+      "Related Studies",
+      "30"
+    ],
+    [
+      "Comparative Matrix",
+      "32"
+    ],
+    [
+      "CHAPTER IIIRESEARCH METHODOLOGY",
+      "38"
+    ],
+    [
+      "Software Engineering Methodology",
+      "38"
+    ],
+    [
+      "Planning-Initiation Phase",
+      "45"
+    ],
+    [
+      "Business Model Canvas",
+      "45"
+    ],
+    [
+      "Program Workflow",
+      "47"
+    ],
+    [
+      "Validation Board (Stages 1 and 2)",
+      "50"
+    ],
+    [
+      "Gantt Chart/PERT Chart",
+      "52"
+    ],
+    [
+      "Functional Decomposition Diagram",
+      "57"
+    ],
+    [
+      "             Use Case Diagram",
+      "60"
+    ],
+    [
+      "User Interface Design",
+      "63"
+    ],
+    [
+      "Storyboard",
+      "106"
+    ],
+    [
+      "Database Design",
+      "108"
+    ],
+    [
+      "Entity Relationship Diagram",
+      "109"
+    ],
+    [
+      "Data Dictionary",
+      "111"
+    ],
+    [
+      "",
+      ""
+    ],
+    [
+      "",
+      "Network Design",
+      "133"
+    ],
+    [
+      "",
+      "Network Model",
+      "133"
+    ],
+    [
+      "",
+      "Network Topology",
+      "134"
+    ],
+    [
+      "",
+      "Development/Construction/Build Phase",
+      "135"
+    ],
+    [
+      "",
+      "Technology Stack Diagram",
+      "135"
+    ],
+    [
+      "",
+      "Software Specification",
+      "136"
+    ],
+    [
+      "",
+      "Hardware Specification",
+      "138"
+    ],
+    [
+      "",
+      "IoT Architecture",
+      "139"
+    ],
+    [
+      "",
+      "Program Specification",
+      "140"
+    ],
+    [
+      "",
+      "List of Modules",
+      "140"
+    ],
+    [
+      "REFERENCES",
+      "",
+      "142"
+    ],
+    [
+      "APPENDICES",
+      "",
+      "150"
+    ],
+    [
+      "",
+      "APPENDIX A – Transmittal Letter – Respondents",
+      "150"
+    ],
+    [
+      "",
+      "APPENDIX B – Research Instrument  ",
+      "151"
+    ],
+    [
+      "",
+      "APPENDIX C – Results & Findings – Driver",
+      "156"
+    ],
+    [
+      "",
+      "APPENDIX D – Results & Findings – Potential Trusted Contacts",
+      "163"
+    ],
+    [
+      "",
+      "APPENDIX E – Consultation Logs – Adviser",
+      "166"
+    ],
+    [
+      "",
+      "APPENDIX F – Consultation Logs – Censor",
+      "168"
+    ],
+    [
+      "",
+      "APPENDIX G – Censor’s Certificate",
+      "170"
+    ],
+    [
+      "",
+      "APPENDIX H – Grammarly Results",
+      "171"
+    ],
+    [
+      "TEAM COMPOSITION",
+      "172"
+    ],
+    [
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      ""
+    ]
+  ],
+  [
+    [
+      "Table No.",
+      "Table Name",
+      "Page No."
+    ],
+    [
+      "1",
+      "Comparative Matrix",
+      "33"
+    ],
+    [
+      "2",
+      "Comparative Matrix Summary",
+      "36"
+    ],
+    [
+      "3",
+      "Agile Sprint Plan",
+      "40"
+    ],
+    [
+      "4",
+      "Business Model Canvas",
+      "45"
+    ],
+    [
+      "5",
+      "Validation Board",
+      "50"
+    ],
+    [
+      "6",
+      "Gantt Chart",
+      "53"
+    ],
+    [
+      "7",
+      "User",
+      "112"
+    ],
+    [
+      "8",
+      "ConnectionCode",
+      "113"
+    ],
+    [
+      "9",
+      "TrustedContactConnection",
+      "113"
+    ],
+    [
+      "10",
+      "DriverCalibration",
+      "115"
+    ],
+    [
+      "11",
+      "ProvisionedDevice",
+      "116"
+    ],
+    [
+      "12",
+      "DriverPreference",
+      "117"
+    ],
+    [
+      "13",
+      "MonitoringLogPreference",
+      "118"
+    ],
+    [
+      "14",
+      "MonitoringSession",
+      "118"
+    ],
+    [
+      "15",
+      "Alert",
+      "119"
+    ],
+    [
+      "16",
+      "AlertSign",
+      "120"
+    ],
+    [
+      "17",
+      "StageSyncRecord",
+      "120"
+    ],
+    [
+      "18",
+      "StageSyncRecordSign",
+      "122"
+    ],
+    [
+      "19",
+      "MonitoringLog",
+      "122"
+    ],
+    [
+      "20",
+      "MonitoringLogEvent",
+      "123"
+    ],
+    [
+      "21",
+      "SharedStage3Record",
+      "125"
+    ],
+    [
+      "22",
+      "Device",
+      "126"
+    ],
+    [
+      "23",
+      "DeviceOwnership",
+      "127"
+    ],
+    [
+      "24",
+      "DeviceDriverAccess",
+      "128"
+    ],
+    [
+      "25",
+      "DeviceSubscriptionEvent",
+      "130"
+    ],
+    [
+      "26",
+      "DeviceCredential",
+      "131"
+    ],
+    [
+      "27",
+      "DeviceAccessGrant",
+      "132"
+    ],
+    [
+      "28",
+      "DeviceIdentityMapping",
+      "133"
+    ],
+    [
+      "29",
+      "Technology Stack",
+      "136"
+    ],
+    [
+      "30",
+      "Software Specification",
+      "137"
+    ],
+    [
+      "31",
+      "Hardware Specification",
+      "138"
+    ],
+    [
+      "32",
+      "List Of Modules",
+      "140"
+    ]
+  ],
+  [
+    [
+      "Figure No.",
+      "Figure Name",
+      "Page No."
+    ],
+    [
+      "1",
+      "Flow of the Study",
+      "11"
+    ],
+    [
+      "2",
+      "Agile Methodology",
+      "38"
+    ],
+    [
+      "3",
+      "Program Workflow (Drivers)",
+      "47"
+    ],
+    [
+      "4",
+      "Program Workflow (Monitoring Session)",
+      "48"
+    ],
+    [
+      "5",
+      "Program Workflow (Trusted Contact)",
+      "49"
+    ],
+    [
+      "6.1",
+      "Functional Decomposition Diagram",
+      "58"
+    ],
+    [
+      "6.2",
+      "Functional Decomposition Diagram cont’d",
+      "58"
+    ],
+    [
+      "6.3",
+      "Functional Decomposition Diagram cont’d",
+      "59"
+    ],
+    [
+      "7.1",
+      "Use Case Diagram",
+      "61"
+    ],
+    [
+      "7.2",
+      "Use Case Diagram cont’d",
+      "62"
+    ],
+    [
+      "8",
+      "Starter Screen (Driver and Trusted Contact)",
+      "64"
+    ],
+    [
+      "9",
+      "Sign In Screen (Driver and Trusted Contact)",
+      "65"
+    ],
+    [
+      "10",
+      "Create Account Screen (Driver and Trusted Contact)",
+      "66"
+    ],
+    [
+      "11",
+      "Forgot Password Screen (Driver and Trusted Contact)",
+      "67"
+    ],
+    [
+      "12",
+      "Setup and Device Screen (Driver)",
+      "68"
+    ],
+    [
+      "13",
+      "Device Connection Screen (Driver)",
+      "69"
+    ],
+    [
+      "14",
+      "Camera Alignment Screen (Driver)",
+      "70"
+    ],
+    [
+      "15",
+      "Driver Calibration Screen (Driver)",
+      "71"
+    ],
+    [
+      "16",
+      "Driver Home Screen (Driver)",
+      "72"
+    ],
+    [
+      "17",
+      "Camera Preview Screen (Driver)",
+      "73"
+    ],
+    [
+      "18",
+      "Before Monitoring Dialog (Driver)",
+      "74"
+    ],
+    [
+      "19",
+      "Monitoring Activity Screen (Driver)",
+      "75"
+    ],
+    [
+      "20",
+      "Alert History Screen (Driver)",
+      "76"
+    ],
+    [
+      "21",
+      "Alert Detail Screen (Driver)",
+      "77"
+    ],
+    [
+      "22",
+      "Trusted Contacts Screen (Driver)",
+      "78"
+    ],
+    [
+      "23",
+      "Invite a Trusted Contact Screen (Driver)",
+      "79"
+    ],
+    [
+      "24",
+      "Shared Alerts Screen (Trusted Contact)",
+      "80"
+    ],
+    [
+      "25",
+      "Invite a Driver Screen (Trusted Contact)",
+      "81"
+    ],
+    [
+      "26",
+      "Requests Screen (Trusted Contact)",
+      "82"
+    ],
+    [
+      "27",
+      "Driver Settings Screen (Driver)",
+      "83"
+    ],
+    [
+      "28",
+      "Subscriptions and Drivers Screen (Driver)",
+      "84"
+    ],
+    [
+      "29",
+      "Invite an Additional Driver Screen (Driver)",
+      "85"
+    ],
+    [
+      "30",
+      "Demo Subscription Activation Dialog (Driver)",
+      "86"
+    ],
+    [
+      "31",
+      "Device Invitation Screen (Driver)",
+      "87"
+    ],
+    [
+      "32",
+      "Active Additional Driver Access Screen (Driver)",
+      "88"
+    ],
+    [
+      "33",
+      "Trusted Contact Settings Screen (Trusted Contact)",
+      "89"
+    ],
+    [
+      "34",
+      "Account Screen (Driver and Trusted Contact)",
+      "90"
+    ],
+    [
+      "35",
+      "History and Storage Screen (Driver and Trusted Contact)",
+      "91"
+    ],
+    [
+      "36",
+      "Monitoring Logs Screen (Driver)",
+      "92"
+    ],
+    [
+      "37",
+      "Session Log Screen (Driver)",
+      "93"
+    ],
+    [
+      "38",
+      "Log Deletion Screen (Driver)",
+      "94"
+    ],
+    [
+      "39",
+      "Driver Notifications Screen (Driver)",
+      "95"
+    ],
+    [
+      "40",
+      "Trusted Contact Notifications Screen (Trusted Contact)",
+      "96"
+    ],
+    [
+      "41",
+      "Warning Sound Screen (Driver)",
+      "97"
+    ],
+    [
+      "42",
+      "About DriveAlert Screen (Driver and Trusted Contact)",
+      "98"
+    ],
+    [
+      "43",
+      "Log Out Confirmation Dialog (Driver and Trusted Contact)",
+      "99"
+    ],
+    [
+      "44",
+      "Sign In Screen (Web)",
+      "100"
+    ],
+    [
+      "45",
+      "Create Account Screen (Web)",
+      "100"
+    ],
+    [
+      "46",
+      "Dashboard Screen (Web)",
+      "101"
+    ],
+    [
+      "47",
+      "Connected Drivers Screen (Web)",
+      "101"
+    ],
+    [
+      "48",
+      "Shared Alert History Screen (Web)",
+      "102"
+    ],
+    [
+      "49",
+      "Shared Alert Detail Screen (Web)",
+      "102"
+    ],
+    [
+      "50",
+      "Requests Screen (Web)",
+      "103"
+    ],
+    [
+      "51",
+      "Invite a Driver Screen (Web)",
+      "103"
+    ],
+    [
+      "52",
+      "Account Screen (Web)",
+      "104"
+    ],
+    [
+      "53",
+      "Settings Screen (Web)",
+      "104"
+    ],
+    [
+      "54",
+      "History and Storage Screen (Web)",
+      "105"
+    ],
+    [
+      "55",
+      "About DriveAlert Screen (Web)",
+      "105"
+    ],
+    [
+      "56",
+      "Driver Storyboard",
+      "106"
+    ],
+    [
+      "57",
+      "Trusted Contact Storyboard",
+      "107"
+    ],
+    [
+      "58",
+      "Trusted Contact Storyboard (Web)",
+      "108"
+    ],
+    [
+      "59",
+      "Entity Relationship Diagram",
+      "109"
+    ],
+    [
+      "60",
+      "DriveAlert Network Model",
+      "134"
+    ],
+    [
+      "61",
+      "DriveAlert Network Topology",
+      "135"
+    ],
+    [
+      "62",
+      "DriveAlert IoT Hardware Architecture",
+      "139"
+    ]
+  ],
+  [
+    [
+      "Related Studies/ Systems",
+      "Features",
+      "Limitations",
+      "Platform Detail",
+      "Support",
+      "Monetization Scheme"
+    ],
+    [
+      "Name: “Drowsy Driving Alert – Drive Safe” | URL: https://www.drowsydrivingalert.app/ | Year: Current deployed application / 2026 listing | Proponent(s): | 1. Trung Huynh",
+      "1. Monitors the driver’s face and eyes. | 2. Detects extended eye closure. | 3. Provides audio and visual alerts. | 4. Performs processing on the smartphone.",
+      "1. Requires proper smartphone positioning. | 2. Depends on clear facial visibility. | 3. Lighting, obstruction, and device conditions may affect warnings.",
+      "Mobile application (Android and iOS)",
+      "Official website, FAQ, support email, and app-store support channels.",
+      "Free download with a seven-day trial, in-app purchases, and Pro subscription. "
+    ],
+    [
+      "Name: “WingDriver” | URL:  | https://wingdriver.com/ | Year: Current deployed  | application / 2026 listing | Proponent(s): | 1. WingDriver, Inc.",
+      "1. Detects drowsiness, fatigue, and distraction. | 2. Uses smartphone computer vision | 3. Provides visual and audible warnings. | 4. Offers business driver-safety solutions.",
+      "1. Relies on smartphone camera and  | processing capability. | 2. Requires consistent  | visibility of the driver. | 3. Business deployment  | requires provider coordination.",
+      "Mobile application | (smartphone-based)",
+      "Support email, chat support,  | contact form, and business demonstration requests.",
+      "A free mobile application is available; business-service pricing is available through direct inquiry. | "
+    ]
+  ],
+  [
+    [
+      "Related Studies/ Systems",
+      "Features",
+      "Limitations",
+      "Platform Detail",
+      "Support",
+      "Monetization Scheme"
+    ],
+    [
+      "Name: “Fatigue Alert – Stay Awake” | URL: https://apps.apple.com/us/app/fatigue-alert-stay-awake/id6479893638 | Year: Current deployed application / 2026 listing | Proponent(s): | 1. Xuhai Luo",
+      "1. Monitors head posture. | 2. Provides sound  | and vibration warnings. | 3. Supports system notifications and Apple Watch feedback. | 4. Operates in the background or while the screen is locked.",
+      "1. Requires supported AirPods or Beats. | headphones. | 2. Limited to compatible Apple devices. | 3. Focuses mainly on head posture",
+      "Mobile and wearable- | supported application (iPhone, iPad, and Apple Watch)",
+      "Developer email, App. | Store support channel, and developer response system",
+      "Free download with in-  | app purchases and an auto-renewing subscription."
+    ],
+    [
+      "Name: “Anti Sleep Pilot” | URL: https://antisleeppilot.com/ | Year: Current product  | documentation / 2026 | Proponent(s): | 1. ASP Technology ApS",
+      "1. Calculates the driver’s drowsiness level | 2. Uses personal, trip, and sensor information. | 3. Conducts reaction-time tests. | 4. Provides audible and  | visual break recommendations",
+      "1. Requires a personal risk profile. |   | 2. Requires periodic driver interaction. | 3. GPS and low-speed conditions may affect trip- | state interpretation.",
+      "Embedded dashboard device  | and mobile application (iOS)",
+      "FAQ, downloadable manual,  | product and app support pages, email support, and  | telephone assistance.",
+      "One-time hardware purchase and  | separately paid mobile application;"
+    ]
+  ],
+  [
+    [
+      "Related Studies/ Systems",
+      "Features",
+      "Limitations",
+      "Platform Detail",
+      "Support",
+      "Monetization Scheme"
+    ],
+    [
+      "Name: “alertme Drowsy Driver Device” | URL: https://resqme. | com/products/alertme-drowsy-driver-device | Year: Current deployed product / 2026 listing | Proponent(s): | 1. resqme, Inc.",
+      "1. Detects downward head nodding. | 2. Produces a 90-decibel alarm. | 3. Uses lightweight battery-powered hardware. | 4. Operates without a phone or internet connection.",
+      "1. Must be worn behind the ear. | 2. Detects only head-nodding movement. | 3. Provides only a local audible warning.",
+      "Wearable electronic device",
+      "Telephone and email  | support, FAQ, | contact assistance, and return and refund support.",
+      "One-time hardware purchase. "
+    ]
+  ],
+  [
+    [
+      "Features",
+      "DriveAlert",
+      "Drowsy Driving Alert",
+      "Wing | Driver",
+      "Fatigue Alert",
+      "Anti Sleep Pilot",
+      "alertme"
+    ],
+    [
+      "Uses driver-state indicators for alert generation",
+      "✓",
+      "✓",
+      "✓",
+      "✓",
+      "✓",
+      "✓"
+    ],
+    [
+      "Uses local computer-vision processing on a smartphone",
+      "✓",
+      "✓",
+      "✓",
+      "✗",
+      "✗",
+      "✗"
+    ],
+    [
+      "Uses external monitoring hardware",
+      "✓",
+      "✗",
+      "✗",
+      "✓",
+      "✓",
+      "✓"
+    ],
+    [
+      "Provides audible warning output",
+      "✓",
+      "✓",
+      "✓",
+      "✓",
+      "✓",
+      "✓"
+    ],
+    [
+      "Stores drowsiness-alert records",
+      "✓",
+      "✗",
+      "✓",
+      "✗",
+      "✗",
+      "✗"
+    ],
+    [
+      "Supports Trusted Contact synchronization",
+      "✓",
+      "✗",
+      "✗",
+      "✗",
+      "✗",
+      "✗"
+    ],
+    [
+      "Uses a dedicated external monitoring camera",
+      "✓",
+      "✗",
+      "✗",
+      "✗",
+      "✗",
+      "✗"
+    ]
+  ],
+  [
+    [
+      "SDLCPhases",
+      "Sprint 1:Goal: Research and Manuscript Foundation |  | Time Frame:2 weeks",
+      "Sprint 2:Goal: Manuscript Completion and Development Transition | Time Frame:2 weeks",
+      "Sprint 3:Technical Foundation, IoT Sourcing, and Manuscript Compliance |  | Time Frame:2 weeks"
+    ],
+    [
+      "Plan",
+      "Plan the research problem, objectives, scope, questionnaire, survey process, and literature requirements.",
+      "Plan the remaining methodology, diagrams, specifications, revisions, and development-transition activities.",
+      "Plan project setup, database foundations, IoT parts sourcing, manuscript revisions, and compliance requirements."
+    ],
+    [
+      "Design",
+      "Organize Chapters 1 and 2, the questionnaire format, and the comparative review structure.",
+      "Finalize workflows, UI designs, ERD, network design, technology stack, and system specifications.",
+      "Refine the database schema, proposed hardware layout, project structure, initial screens, and manuscript diagrams."
+    ],
+    [
+      "Develop",
+      "Conduct the survey, analyze responses, and complete the initial Chapters 1 and 2 drafts.",
+      "Complete Chapter 3, revise Chapters 1 to 3, organize appendices, and finalize the manuscript.",
+      "Configure projects and Firebase, establish local storage, source IoT parts, revise the manuscript, and prepare compliance documents."
+    ]
+  ],
+  [
+    [
+      "Test",
+      "Validate survey results, citations, objectives, research gap, scope, and section consistency.",
+      "Check consistency among requirements, diagrams, references, captions, modules, and manuscript sections.",
+      "Test project builds and initial database operations. Check parts compatibility, manuscript consistency, and document completeness."
+    ],
+    [
+      "Deploy",
+      "Compile the completed survey outputs and revised Chapters 1 and 2 for review.",
+      "Finalize the approved manuscript and prepare requirements, tools, assignments, and development resources.",
+      "Commit and push changes to GitHub. Submit manuscript revisions and compliance documents, and route the approval sheet."
+    ],
+    [
+      "Review",
+      "Review the research foundation, evidence quality, objectives, scope, and identified system need.",
+      "Confirm manuscript completeness, design alignment, technical feasibility, and readiness for development.",
+      "Review project readiness, parts availability, manuscript feedback, compliance status, and pending approvals."
+    ],
+    [
+      "SDLCPhases",
+      "Sprint 4:Goal: IoT Assembly, Communication, and Core Application Functions |  | Time Frame:2 weeks",
+      "Sprint 5:Goal: MediaPipe Integration and Live Facial Measurements |  | Time Frame:2 weeks",
+      "Sprint 6:Goal: Calibration, Drowsiness Detection, and Warning Control |  | Time Frame:2 weeks"
+    ],
+    [
+      "Plan",
+      "Plan IoT assembly, Bluetooth setup, local Wi-Fi communication, video streaming, and account functions.",
+      "Plan MediaPipe integration, facial landmarks, EAR, MAR, head-pitch calculations, and lighting checks.",
+      "Plan guided calibration, detection thresholds, confirmation conditions, warning stages, and local alert records."
+    ]
+  ],
+  [
+    [
+      "Design",
+      "Finalize wiring, device setup flow, communication interfaces, account screens, and navigation.",
+      "Define measurement formulas, Driver-area selection, visibility feedback, and the live processing flow.",
+      "Define calibration steps, sign-confirmation rules, warning-stage transitions, and alert-record structures."
+    ],
+    [
+      "Develop",
+      "Assemble and program the IoT device. Implement Bluetooth provisioning, camera streaming, authentication, and initial mobile and web screens.",
+      "Integrate MediaPipe with the IoT camera stream. Implement facial measurements, Driver-area selection, and lighting checks.",
+      "Implement calibration, eye-closure, yawning, and head-down detection, staged speaker warnings, and local alert recording."
+    ],
+    [
+      "Test",
+      "Test power stability, camera capture, speaker output, device connections, video streaming, and account functions.",
+      "Test landmark stability, measurement consistency, processing delay, lighting conditions, and Android compatibility.",
+      "Test calibration, false alerts, missed detections, stage progression, speaker response, and offline record storage."
+    ],
+    [
+      "Deploy",
+      "Upload firmware to the IoT device. Commit and push tested firmware and application changes to GitHub.",
+      "Commit and push the tested camera-processing and facial-measurement changes to GitHub.",
+      "Commit and push tested calibration, detection, warning, and local-record changes to GitHub."
+    ],
+    [
+      "Review",
+      "Review hardware stability, connection reliability, account functions, and issues ",
+      "Review processing performance, tracking reliability, lighting limitations, and ",
+      "Review detection reliability, warning behavior, record accuracy, and readiness for Trusted Contact integration."
+    ]
+  ],
+  [
+    [
+      "",
+      "before MediaPipe integration.",
+      "readiness for calibration and detection.",
+      ""
+    ],
+    [
+      "SDLCPhases",
+      "Sprint 7:Goal: Trusted Contact Sharing and System Integration |  | Time Frame:2 weeks",
+      "Sprint 8:Goal: Integrated Testing and System Refinement |  | Time Frame:2 weeks",
+      "Sprint 9:Goal: Controlled Evaluation and Release Preparation |  | Time Frame:2 weeks"
+    ],
+    [
+      "Plan",
+      "Plan Trusted Contact connections, Stage 3 synchronization, dashboards, and system integration.",
+      "Prepare mobile, web, IoT, and controlled-condition test cases. Identify remaining manuscript revisions.",
+      "Schedule controlled evaluation, prioritize remaining fixes, and prepare manuscript completion tasks."
+    ],
+    [
+      "Design",
+      "Define approval rules, eligible shared records, synchronization flow, and mobile and web views.",
+      "Define expected results, failure scenarios, evaluation procedures, and acceptance criteria.",
+      "Finalize evaluation forms, demonstration scenarios, release checks, and manuscript formatting."
+    ],
+    [
+      "Develop",
+      "Implement connection requests, approved access, Stage 3 synchronization, and record summaries. Integrate mobile, web, and IoT functions.",
+      "Correct integration defects, refine interfaces and recovery behavior, and update manuscript descriptions and diagrams.",
+      "Resolve remaining defects, conduct controlled evaluation, analyze findings, and complete manuscript revisions."
+    ],
+    [
+      "Test",
+      "Test requests, approvals, revocation, offline queues, synchronized records, ",
+      "Test detection, warnings, offline monitoring, synchronization, access control, usability, and device compatibility.",
+      "Run regression tests and verify detection, audible warnings, offline operation, "
+    ]
+  ],
+  [
+    [
+      "",
+      "dashboards, and the integrated workflow.",
+      "",
+      "synchronization, and approved access."
+    ],
+    [
+      "Deploy",
+      "Commit and push tested integration changes to GitHub. Deploy the web portal to a test environment.",
+      "Commit and push fixes to GitHub. Generate a test APK and update the web test deployment.",
+      "Commit and push verified changes. Generate the release-candidate APK and update the web deployment."
+    ],
+    [
+      "Review",
+      "Review sharing accuracy, access restrictions, integration stability, and unresolved issues before formal testing.",
+      "Review test evidence, unresolved defects, manuscript alignment, and readiness for controlled evaluation.",
+      "Review evaluation findings, release readiness, manuscript completeness, and requirements for manuscript final submission."
+    ],
+    [
+      "SDLCPhases",
+      "Sprint 10:Goal: Final Submission, Deployment, and Presentation |  | Time Frame:2 weeks"
+    ],
+    [
+      "Plan",
+      "Plan final manuscript submission, system deployment, and presentation preparation."
+    ],
+    [
+      "Design",
+      "Finalize manuscript formatting, deployment settings, presentation materials, and demonstration flow."
+    ],
+    [
+      "Develop",
+      "Complete manuscript corrections and approval requirements. Resolve final system issues and prepare the demonstration."
+    ],
+    [
+      "Test",
+      "Verify manuscript completeness and test the final APK, web portal, IoT firmware, and demonstration workflow."
+    ],
+    [
+      "Deploy",
+      "Submit the manuscript. Commit and push final changes, generate the final APK, and deploy the web portal."
+    ],
+    [
+      "Review",
+      "Confirm manuscript submission, system readiness, presentation preparation, and project completion."
+    ]
+  ],
+  [
+    [
+      "Key Partners",
+      "Key Activities",
+      "Value Proposition",
+      "Customer Relationships",
+      "Customer Segments"
+    ],
+    [
+      "Drivers of four-wheeled vehicles and larger vehicles  | Trusted Contact | ",
+      "Development of the DriveAlert mobile and web applications | Integration of MediaPipe Face Landmarker | Development and calibration of drowsiness-sign detection thresholds | Setup and testing of the IoT device | Management of drowsiness-alert records and Trusted Contact synchronization | System testing and continuous improvement",
+      "Real-time driver drowsiness monitoring | Detection of prolonged eye closure, yawning, and head nodding  | Offline monitoring through local Wi-Fi connection | Onboard speaker warning output using predefined audio warning alerts with adjustable volume and an enforced minimum level | Alert history records and Drowsiness insight for driver review  | Trusted Contact synchronization for shared Alert record review",
+      "Mobile app alerts and warning notifications | Trusted Contact updates for Alert records | Basic setup guide for the IoT device and mobile application | User feedback and continuous improvement | ",
+      "Drivers of four-wheeled vehicles and larger vehicles  | Trusted Contact | "
+    ],
+    [
+      "",
+      "Key Resources",
+      "",
+      "Channels",
+      ""
+    ],
+    [
+      "",
+      "MediaPipe Face Landmarker model | Cloud infrastructure (Google Firebase & Google Cloud)  | Android and web development tools | DriveAlert IoT device  | Alert records and Drowsiness insight summaries for Trusted Contact synchronization ",
+      "",
+      "Mobile application | Website | System demonstration | Online promotion",
+      ""
+    ],
+    [
+      "Cost Structure",
+      "Revenue Streams"
+    ],
+    [
+      "IoT device components and assembly  | Mobile and web application development  | Facial-analysis integration and system testing  | Cloud database and synchronization services  | Deployment, maintenance, and documentation",
+      "One-time purchase of the DriveAlert IoT device | Subscription for additional user of DriveAlert device | "
+    ]
+  ],
+  [
+    [
+      "Experiments",
+      "1",
+      "2"
+    ],
+    [
+      "User",
+      "Drivers of four-wheeled vehicles and larger vehicles ",
+      "Potential Trusted Contacts of drivers"
+    ],
+    [
+      "Problem",
+      "Drivers may experience drowsiness while driving and display observable signs such as heavy eyelids, frequent yawning, and head nodding. These signs may not always be recognized immediately, which may affect the driver’s attentiveness while operating a vehicle.",
+      "Trusted Contacts may need a practical way to remain informed about drowsiness-alert information shared by a Driver, particularly when records cannot be synchronized immediately because internet connectivity is unavailable."
+    ],
+    [
+      "Solution",
+      "Develop DriveAlert, an IoT-based driver drowsiness monitoring and alert system that monitors prolonged eye closure, yawning, and head nodding, provides warning alerts, stores drowsiness-alert records, and ",
+      "Provide a Trusted Contact feature in DriveAlert that allows an approved Trusted Contact to review synchronized drowsiness-alert records and related information after the Driver has authorized access."
+    ]
+  ],
+  [
+    [
+      "",
+      "supports Trusted Contact synchronization.",
+      ""
+    ],
+    [
+      "Riskiest Assumptions",
+      "Drivers experience drowsiness or sleepiness while driving, find warning alerts helpful, and are willing to consider using an affordable and easy-to-use driver-monitoring system.",
+      "Potential Trusted Contacts are willing to review Driver-approved alert records, consider the shared information useful, accept delayed synchronization, and are willing to use an easy-to-use Trusted Contact feature."
+    ],
+    [
+      "Method & Success Criteria",
+      "A survey was conducted among drivers to assess drowsiness or sleepiness while driving, perceived helpfulness of warning alerts, and willingness to use an affordable and easy-to-use monitoring system. Success requires at least 70% positive responses for drowsiness experience and willingness to use the system.",
+      "A survey was conducted among potential Trusted Contacts to assess willingness to review shared records, perceived usefulness, acceptance of Driver-approved access and delayed synchronization, and willingness to use the feature. Success requires at least 70% positive acceptance of the Trusted Contact feature."
+    ],
+    [
+      "Result & Destination",
+      "The survey showed that 95.2% of 42 respondents had experienced drowsiness or sleepiness while driving, while 81.0% were willing to use a system like DriveAlert if affordable and easy to use. Since both exceeded 70%, development will proceed.",
+      "The survey showed that 88.2% of 17 respondents were willing to review shared records, 94.1% found the information useful, and 82.4% accepted delayed synchronization and would probably use the feature. Since the results exceeded 70%, the feature will proceed."
+    ],
+    [
+      "Learnings",
+      "The findings showed that drowsiness while driving is relevant among the surveyed drivers and that respondents showed interest in an affordable and easy-to-use monitoring system. These results support further development of DriveAlert’s monitoring and warning functions.",
+      "The findings showed that potential Trusted Contacts generally accepted Driver-approved access, delayed synchronization, and shared alert information. These results support retaining and refining DriveAlert’s Trusted Contact and record-sharing functions."
+    ]
+  ],
+  [
+    [
+      "Task ID",
+      "Task Name",
+      "Task Lead",
+      "Start Date",
+      "End Date",
+      "JUN 2026",
+      "JULY 2026",
+      "AUG 2026",
+      "SEPT 2026",
+      "OCT 2026",
+      "NOV 2026"
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4"
+    ],
+    [
+      "1",
+      "INTRODUCTION"
+    ],
+    [
+      "1.1",
+      "Create an introduction",
+      "Basubas",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.2",
+      "Explain the problem, research gap and solution",
+      "Isagunde",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.3",
+      "Write the specific objectives",
+      "Basubas",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.4",
+      "Define what the system includes and excludes",
+      "Isagunde",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.5",
+      "Explain who benefits from the study",
+      "Catarig",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.6",
+      "Show the study process",
+      "Catarig",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.7",
+      "Define the study terms",
+      "Borces",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.8",
+      "Make the questionnaire",
+      "Basubas",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.9",
+      "Collect responses",
+      "Isagunde",
+      "July 1",
+      "July 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.10",
+      "Add citations",
+      "Basubas",
+      "July 1",
+      "July 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "1.11",
+      "Revise Chapter 1",
+      "All",
+      "July 1",
+      "July 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "2",
+      "REVIEW OF RELATED LITERATURE AND STUDIES"
+    ],
+    [
+      "2.1",
+      "Identify and explain the theories",
+      "Catarig",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "2.2",
+      "Research journals",
+      "Borces",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "2.3",
+      "Gather and summarize literature",
+      "Isagunde",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "2.4",
+      "Review related studies",
+      "Basubas",
+      "June 25",
+      "June 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "2.5",
+      "Compare DriveAlert with existing systems and identify the research gap",
+      "Isagunde",
+      "July 1",
+      "July 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "2.6",
+      "Add citations, organize references, and revise Chapter 2",
+      "Basubas",
+      "July 1",
+      "July 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3",
+      "RESEARCH METHODOLOGY"
+    ],
+    [
+      "3.1",
+      "Select and explain the Agile methodology",
+      "Isagunde",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.2",
+      "Define the system requirements and development plan",
+      "Basubas",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.3",
+      "Prepare the Business Model Canvas",
+      "Basubas",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.4",
+      "Create the Driver and Trusted Contact program workflows",
+      "Borces",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.5",
+      "Complete the Validation Boards for Stages 1 and 2",
+      "Basubas",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.6",
+      "Prepare the Gantt charts",
+      "Isagunde",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.7",
+      "Create the Functional Decomposition Diagram",
+      "Catarig",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.8",
+      "Create the Use Case Diagram ",
+      "Basubas",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.9",
+      "Design the mobile and web user interfaces",
+      "Borces",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.10",
+      "Create the storyboard",
+      "Basubas",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.11",
+      "Identify the required database entities, attributes, and relationships",
+      "Borces",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.12",
+      "Create the Entity Relationship Diagram",
+      "Basubas",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.13",
+      "Prepare the Data Dictionary",
+      "Catarig",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.14",
+      "Create the Network Design",
+      "Isagunde",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  [
+    [
+      "Task ID",
+      "Task Name",
+      "Task Lead",
+      "Start Date",
+      "End Date",
+      "JUN 2026",
+      "JULY 2026",
+      "AUG 2026",
+      "SEPT 2026",
+      "OCT 2026",
+      "NOV 2026"
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4"
+    ],
+    [
+      "3.15",
+      "Create the Network Model",
+      "Isagunde",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.16",
+      "Describe the system development",
+      "Basubas",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.17",
+      "Create the Technology Stack Diagram",
+      "Basubas",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.18",
+      "Define the software and hardware specifications",
+      "Borces",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.19",
+      "Prepare the Program Specification",
+      "Catarig",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.20",
+      "Prepare the Team Composition",
+      "Isagunde",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.21",
+      "Prepare the Appendices",
+      "Basubas",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.22",
+      "Prepare the List of Modules",
+      "Basubas",
+      "July 9",
+      "July 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.23",
+      "Revise the Gantt Chart and Agile Sprint Plan",
+      "Isagunde",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.24",
+      "Revise Chapter 3",
+      "All",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "3.25",
+      "Finalize the manuscript",
+      "All",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "4",
+      "DEVELOPMENT TRANSITION PREPARATION"
+    ],
+    [
+      "4.1",
+      "Review the finalized manuscript requirements, diagrams, and module boundaries",
+      "All",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "4.2",
+      "Prepare development tools, accounts, hardware requirements, and project resources",
+      "Basubas and Borces",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "4.3",
+      "Assign module ownership, repository workflow, and coding standards",
+      "All",
+      "July 15",
+      "July 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "5",
+      "PROJECT FOUNDATION, IOT SOURCING, AND MANUSCRIPT COMPLIANCE"
+    ],
+    [
+      "5.1",
+      "Create the Git repository and configure Android, web, and Firebase projects",
+      "Basubas, Isagunde, and Borces",
+      "July 23",
+      "July 29",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "5.2",
+      "Refine local and cloud schemas for accounts, connections, and device access",
+      "Borces",
+      "July 23",
+      "July 29",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "5.3",
+      "Identify suppliers and source the required IoT components",
+      "Basubas and All",
+      "July 23",
+      "July 29",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "5.4",
+      "Review component specifications, compatibility, and proposed wiring",
+      "Basubas and Borces",
+      "July 23",
+      "July 29",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "5.5",
+      "Establish local storage with separate Driver calibration and alert records",
+      "Borces",
+      "August 1",
+      "August 5",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "5.6",
+      "Prepare project structure, account layouts, and device invitation rules",
+      "Isagunde and Catarig",
+      "August 1",
+      "August 5",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "5.7",
+      "Revise the manuscript and diagrams based on review feedback",
+      "All",
+      "August 1",
+      "August 5",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "5.8",
+      "Prepare compliance documents and route the approval sheet",
+      "All",
+      "August 1",
+      "August 5",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "5.9",
+      "Check builds and documents, commit and push changes, and review readiness",
+      "All",
+      "August 1",
+      "August 5",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "6",
+      "IOT ASSEMBLY, COMMUNICATION, AND CORE APPLICATION FUNCTIONS"
+    ],
+    [
+      "6.1",
+      "Assemble the camera, speaker, power connections, and mounting",
+      "Basubas and All",
+      "August 8",
+      "August 12",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "6.2",
+      "Configure camera firmware, capture settings, and device services",
+      "Basubas",
+      "August 8",
+      "August 12",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "6.3",
+      "Implement Bluetooth provisioning and local Wi-Fi connection",
+      "Basubas",
+      "August 8",
+      "August 12",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "6.4",
+      "Implement the IoT HTTP stream and Android video receiving",
+      "Basubas and Borces",
+      "August 8",
+      "August 12",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  [
+    [
+      "Task ID",
+      "Task Name",
+      "Task Lead",
+      "Start Date",
+      "End Date",
+      "JUN 2026",
+      "JULY 2026",
+      "AUG 2026",
+      "SEPT 2026",
+      "OCT 2026",
+      "NOV 2026"
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4"
+    ],
+    [
+      "6.5",
+      "Verify onboard speaker playback and initial warning commands",
+      "Basubas and Catarig",
+      "August 8",
+      "August 12",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "6.6",
+      "Build accounts, device ownership, and simulated subscription invitations",
+      "Basubas and Isagunde",
+      "August 6",
+      "August 19",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "6.7",
+      "Build initial web views and online Driver setup for offline device access",
+      "Isagunde and Catarig",
+      "August 6",
+      "August 19",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "6.8",
+      "Test power, streaming, reconnection, and account functions",
+      "All",
+      "August 15",
+      "August 19",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "6.9",
+      "Upload tested firmware, push changes to GitHub, and review connection readiness",
+      "Basubas and Borces",
+      "August 15",
+      "August 19",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "7",
+      "MEDIAPIPE INTEGRATION AND LIVE FACIAL MEASUREMENTS"
+    ],
+    [
+      "7.1",
+      "Integrate MediaPipe Face Landmarker into Android processing",
+      "Basubas",
+      "August 22",
+      "August 26",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "7.2",
+      "Build live frame processing from the IoT camera stream",
+      "Basubas and Borces",
+      "August 22",
+      "August 26",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "7.3",
+      "Identify eye and mouth landmarks and calculate EAR and MAR",
+      "Basubas and Borces",
+      "August 22",
+      "August 26",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "7.4",
+      "Calculate head-pitch measurements from facial transformations",
+      "Basubas",
+      "August 22",
+      "August 26",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "7.5",
+      "Implement Driver-area selection and tracking continuity",
+      "Basubas",
+      "August 22",
+      "August 26",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "7.6",
+      "Implement facial-lighting and visibility checks",
+      "Basubas and Borces",
+      "August 27",
+      "August 31",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "7.7",
+      "Develop camera-alignment and facial-visibility feedback",
+      "Isagunde",
+      "August 27",
+      "August 31",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "7.8",
+      "Test landmark stability, lighting, delay, and Android compatibility",
+      "All",
+      "August 27",
+      "August 31",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "7.9",
+      "Commit and push processing changes and review calibration readiness",
+      "Basubas and Borces",
+      "August 27",
+      "August 31",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "8",
+      "CALIBRATION, DROWSINESS DETECTION, AND WARNING CONTROL"
+    ],
+    [
+      "8.1",
+      "Implement guided Driver calibration and stored calibration values",
+      "Basubas",
+      "September 3",
+      "September 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "8.2",
+      "Implement prolonged-eye-closure detection using calibrated EAR",
+      "Basubas",
+      "September 8",
+      "September 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "8.3",
+      "Implement yawning detection using calibrated MAR",
+      "Catarig and Basubas",
+      "September 8",
+      "September 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "8.4",
+      "Implement relative head-pitch and temporal head-down detection",
+      "Basubas",
+      "September 8",
+      "September 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "8.5",
+      "Implement confirmation, episode grouping, and warning-stage rules",
+      "Basubas",
+      "September 3",
+      "September 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "8.6",
+      "Connect staged warnings to the onboard speaker command",
+      "Basubas and Isagunde",
+      "September 8",
+      "September 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "8.7",
+      "Implement local monitoring-session and alert-history records",
+      "Borces",
+      "September 3",
+      "September 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "8.8",
+      "Test calibration, false alerts, stage progression, and offline records",
+      "All",
+      "September 8",
+      "September 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "8.9",
+      "Commit and push tested changes and review detection reliability",
+      "All",
+      "September 8",
+      "September 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "9",
+      "TRUSTED CONTACT SHARING AND SYSTEM INTEGRATION"
+    ],
+    [
+      "9.1",
+      "Implement connection requests, approval, and Driver relationships",
+      "Borces and Catarig",
+      "September 17",
+      "September 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  [
+    [
+      "Task ID",
+      "Task Name",
+      "Task Lead",
+      "Start Date",
+      "End Date",
+      "JUN 2026",
+      "JULY 2026",
+      "AUG 2026",
+      "SEPT 2026",
+      "OCT 2026",
+      "NOV 2026"
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4"
+    ],
+    [
+      "9.2",
+      "Implement approved access, revocation, and security rules",
+      "Borces",
+      "September 17",
+      "September 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "9.3",
+      "Create eligible Stage 3 transition and persistence records",
+      "Basubas and Borces",
+      "September 17",
+      "September 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "9.4",
+      "Implement synchronization retries and Android notifications using Worker, D1, and FCM",
+      "Basubas and Borces",
+      "September 17",
+      "September 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "9.5",
+      "Develop mobile shared-record views and Driver alert summaries",
+      "Isagunde and Catarig",
+      "September 17",
+      "September 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "9.6",
+      "Connect the web portal to approved Driver records and requests",
+      "Isagunde and Catarig",
+      "September 17",
+      "September 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "9.7",
+      "Integrate mobile, web, IoT warnings, records, and notifications",
+      "All",
+      "September 17",
+      "September 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "9.8",
+      "Test sharing eligibility, revocation, offline queues, and full workflow",
+      "All",
+      "September 24",
+      "September 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "9.9",
+      "Push tested changes, deploy the web test build, and review integration",
+      "Isagunde and Borces",
+      "September 24",
+      "September 30",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "10",
+      "INTEGRATED TESTING AND SYSTEM REFINEMENT"
+    ],
+    [
+      "10.1",
+      "Test accounts, Driver invitations, simulated subscriptions, and offline setup",
+      "Borces and Catarig",
+      "October 1",
+      "October 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "10.2",
+      "Test camera tracking, lighting pauses, and connection recovery",
+      "Basubas and Isagunde",
+      "October 1",
+      "October 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "10.3",
+      "Test calibration, sign confirmation, warning stages, and speaker response",
+      "Basubas and Catarig",
+      "October 1",
+      "October 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "10.4",
+      "Test separate Driver calibration, alert histories, settings, and retention",
+      "Isagunde and Borces",
+      "October 1",
+      "October 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "10.5",
+      "Test approved sharing, revocation, synchronization, and retries",
+      "Borces and Catarig",
+      "October 1",
+      "October 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "10.6",
+      "Test web responsiveness, usability, and device compatibility",
+      "Isagunde and Catarig",
+      "October 1",
+      "October 7",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "10.7",
+      "Correct integrated defects and perform focused regression tests",
+      "All",
+      "October 8",
+      "October 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "10.8",
+      "Update manuscript descriptions and diagrams to match the system",
+      "All",
+      "October 8",
+      "October 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "10.9",
+      "Push fixes, generate a test APK, and update the web test deployment",
+      "Basubas and Isagunde",
+      "October 8",
+      "October 14",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "11",
+      "CONTROLLED EVALUATION AND RELEASE PREPARATION"
+    ],
+    [
+      "11.1",
+      "Finalize controlled-evaluation procedures, forms, and device setup",
+      "All",
+      "October 15",
+      "October 21",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "11.2",
+      "Conduct controlled eye-closure, yawning, and head-down trials",
+      "All",
+      "October 15",
+      "October 28",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "11.3",
+      "Evaluate audible warnings, offline monitoring, and approved sharing",
+      "All",
+      "October 15",
+      "October 28",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "11.4",
+      "Record false alerts, missed detections, delays, and test results",
+      "Basubas and Borces",
+      "October 15",
+      "October 28",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "11.5",
+      "Resolve remaining mobile, web, IoT, and synchronization defects",
+      "All",
+      "October 15",
+      "October 28",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "11.6",
+      "Analyze evaluation findings against the study objectives",
+      "Basubas and Catarig",
+      "October 22",
+      "October 28",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "11.7",
+      "Complete manuscript findings, diagrams, and supporting evidence",
+      "Isagunde and Borces",
+      "October 22",
+      "October 28",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "11.8",
+      "Run complete regression tests and verify release readiness",
+      "All",
+      "October 22",
+      "October 28",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  [
+    [
+      "Task ID",
+      "Task Name",
+      "Task Lead",
+      "Start Date",
+      "End Date",
+      "JUN 2026",
+      "JULY 2026",
+      "AUG 2026",
+      "SEPT 2026",
+      "OCT 2026",
+      "NOV 2026"
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W1",
+      "W2",
+      "W3",
+      "W4"
+    ],
+    [
+      "11.9",
+      "Push verified changes, generate the release-candidate APK, and update the web",
+      "Basubas and Isagunde",
+      "October 22",
+      "October 28",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "12",
+      "FINAL SUBMISSION, DEPLOYMENT, AND PRESENTATION"
+    ],
+    [
+      "12.1",
+      "Finalize manuscript formatting, references, and required corrections",
+      "All",
+      "November 1",
+      "November 5",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "12.2",
+      "Complete approval requirements, compliance documents, and appendices",
+      "All",
+      "November 1",
+      "November 5",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "12.3",
+      "Verify manuscript completeness and prepare the submission package",
+      "All",
+      "November 1",
+      "November 5",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "12.4",
+      "Submit the final manuscript",
+      "All",
+      "November 6",
+      "November 11",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "12.5",
+      "Resolve final system issues and verify corrected functions",
+      "All",
+      "November 6",
+      "November 11",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "12.6",
+      "Generate and install the final APK and upload verified IoT firmware",
+      "Basubas and Borces",
+      "November 6",
+      "November 11",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "12.7",
+      "Deploy and verify the Trusted Contact web portal and access rules",
+      "Isagunde and Borces",
+      "November 6",
+      "November 11",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "12.8",
+      "Prepare presentation materials and rehearse the demonstration",
+      "All",
+      "October 29",
+      "November 11",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "12.9",
+      "Push final changes and verify deployment, presentation, and project completion",
+      "All",
+      "November 6",
+      "November 11",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  [
+    [
+      "LEGEND",
+      "COMPLETE"
+    ],
+    [
+      "",
+      "ONGOING"
+    ],
+    [
+      "",
+      "INCOMPLETE"
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "uid (PK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Firebase Authentication UID and User document identifier."
+    ],
+    [
+      "connectionCode (FK)",
+      "String",
+      "28",
+      "OPTIONAL",
+      "Logical reference to the account’s ConnectionCode document."
+    ],
+    [
+      "firstName",
+      "String",
+      "—",
+      "OPTIONAL",
+      "User’s first name."
+    ],
+    [
+      "middleName",
+      "String",
+      "—",
+      "OPTIONAL",
+      "User’s middle name."
+    ],
+    [
+      "lastName",
+      "String",
+      "—",
+      "OPTIONAL",
+      "User’s last name."
+    ],
+    [
+      "email",
+      "String",
+      "—",
+      "OPTIONAL",
+      "User’s email address."
+    ],
+    [
+      "phoneNumber",
+      "String",
+      "—",
+      "OPTIONAL",
+      "User’s phone number."
+    ],
+    [
+      "userRole",
+      "String",
+      "—",
+      "OPTIONAL",
+      "Account role: DRIVER, TRUSTED_CONTACT, or BOTH."
+    ],
+    [
+      "accountStatus",
+      "String",
+      "—",
+      "OPTIONAL",
+      "Account status: ACTIVE or DEACTIVATED."
+    ],
+    [
+      "registeredAt",
+      "Timestamp",
+      "—",
+      "OPTIONAL",
+      "Account registration timestamp."
+    ],
+    [
+      "deactivatedAt",
+      "Timestamp",
+      "—",
+      "NULL",
+      "Account deactivation timestamp; may be absent or null."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "connectionCode (PK)",
+      "String",
+      "28",
+      "NOT NULL",
+      "Primary document identifier; normalized 28-character lookup code."
+    ],
+    [
+      "ownerUserId (FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Owner UID; logical reference to User.uid."
+    ],
+    [
+      "displayName",
+      "String",
+      "—",
+      "NOT NULL",
+      "Account name displayed during connection-code lookup."
+    ],
+    [
+      "createdAt",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Timestamp when the connection-code record was created."
+    ],
+    [
+      "active",
+      "Boolean",
+      "—",
+      "NOT NULL",
+      "Whether the connection code is active."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "connectionId (PK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Primary identifier matching the connection document ID."
+    ],
+    [
+      "driverUserId (FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Driver UID; logical reference to User.uid."
+    ],
+    [
+      "trustedContactUserId (FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Trusted Contact UID; logical reference to User.uid."
+    ],
+    [
+      "requestedByUserId (FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Requester UID; logical reference to User.uid."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "targetConnectionCode (FK)",
+      "String",
+      "28",
+      "NOT NULL",
+      "Logical reference to the target ConnectionCode document."
+    ],
+    [
+      "driverName",
+      "String",
+      "—",
+      "NOT NULL",
+      "Driver name saved with the connection."
+    ],
+    [
+      "driverEmail",
+      "String",
+      "—",
+      "NOT NULL",
+      "Driver email saved with the connection."
+    ],
+    [
+      "trustedContactName",
+      "String",
+      "—",
+      "NOT NULL",
+      "Trusted Contact name saved with the connection."
+    ],
+    [
+      "trustedContactEmail",
+      "String",
+      "—",
+      "NOT NULL",
+      "Trusted Contact email saved with the connection."
+    ],
+    [
+      "status",
+      "String",
+      "—",
+      "NOT NULL",
+      "Connection state: PENDING, APPROVED, DECLINED, or REVOKED."
+    ],
+    [
+      "requestedAt",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Timestamp when the connection was requested."
+    ],
+    [
+      "approvedAt",
+      "Timestamp",
+      "—",
+      "NULL",
+      "Timestamp when the request was approved."
+    ],
+    [
+      "declinedAt",
+      "Timestamp",
+      "—",
+      "NULL",
+      "Timestamp when the request was declined."
+    ],
+    [
+      "revokedAt",
+      "Timestamp",
+      "—",
+      "NULL",
+      "Timestamp when the connection was revoked."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "calibrationId (PK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Primary identifier of the calibration record."
+    ],
+    [
+      "driverUserId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Driver UID; logical reference to User.uid."
+    ],
+    [
+      "earThreshold",
+      "REAL",
+      "—",
+      "NOT NULL",
+      "Personalized eye aspect ratio threshold for eye closure."
+    ],
+    [
+      "marThreshold",
+      "REAL",
+      "—",
+      "NOT NULL",
+      "Personalized mouth aspect ratio threshold for yawning."
+    ],
+    [
+      "headPitchThresholdDegrees",
+      "REAL",
+      "—",
+      "NOT NULL",
+      "Head-pitch threshold in degrees for head nodding."
+    ],
+    [
+      "neutralHeadPitchDegrees",
+      "REAL",
+      "—",
+      "NOT NULL",
+      "Neutral head-pitch baseline in degrees."
+    ],
+    [
+      "detectorSchemaVersion",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Version of the calibration detector schema."
+    ],
+    [
+      "neutralEar",
+      "REAL",
+      "—",
+      "NOT NULL",
+      "Eye aspect ratio measured with the eyes open."
+    ],
+    [
+      "closedEyeEar",
+      "REAL",
+      "—",
+      "NOT NULL",
+      "Eye aspect ratio measured with the eyes closed."
+    ],
+    [
+      "neutralMar",
+      "REAL",
+      "—",
+      "NOT NULL",
+      "Mouth aspect ratio measured with the mouth relaxed."
+    ],
+    [
+      "openMouthMar",
+      "REAL",
+      "—",
+      "NOT NULL",
+      "Mouth aspect ratio measured with the mouth open."
+    ],
+    [
+      "downwardPitchMultiplier",
+      "REAL",
+      "—",
+      "NOT NULL",
+      "Multiplier applied to the downward head-pitch baseline."
+    ],
+    [
+      "calibratedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Calibration completion time in epoch milliseconds."
+    ],
+    [
+      "isActive",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Whether this record is active; stored as 0 or 1."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "deviceId (PK/FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Composite key component; logical Device reference for canonical IDs."
+    ],
+    [
+      "driverUserId (PK/FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Composite primary-key component; logically references User.uid."
+    ],
+    [
+      "hostname",
+      "TEXT",
+      "—",
+      "NULL",
+      "Optional device hostname."
+    ],
+    [
+      "lastKnownIp",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Last known device IP address."
+    ],
+    [
+      "streamPort",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Network port used for the camera stream."
+    ],
+    [
+      "streamPath",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Path used for the camera stream."
+    ],
+    [
+      "lastConnectedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Last successful device connection time in epoch milliseconds."
+    ],
+    [
+      "isActive",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Whether this record is active; stored as 0 or 1."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "driverUserId (PK/FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Driver UID; logical reference to User.uid."
+    ],
+    [
+      "selectedWarningSound",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Selected warning-sound enum value."
+    ],
+    [
+      "preferredWarningVolume",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Preferred warning volume: MINIMUM, MEDIUM, or HIGH."
+    ],
+    [
+      "setupAndDeviceRemindersEnabled",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Enables setup and device reminders; 0 or 1."
+    ],
+    [
+      "contactRequestUpdatesEnabled",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Enables Driver contact-request updates; 0 or 1."
+    ],
+    [
+      "trustedRequestUpdatesEnabled",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Enables Trusted Contact request updates; 0 or 1."
+    ],
+    [
+      "sharedStage3RecordsEnabled",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Enables shared Stage 3 record notifications; 0 or 1."
+    ],
+    [
+      "warningAlertsEnabled",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Enables warning-alert notifications; 0 or 1."
+    ],
+    [
+      "historyRetentionDays",
+      "INTEGER",
+      "—",
+      "NULL",
+      "History retention in days; null keeps history until deleted."
+    ],
+    [
+      "updatedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Last record update time in epoch milliseconds."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "driverUserId (PK/FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Driver UID; logical reference to User.uid."
+    ],
+    [
+      "retentionDays",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Monitoring-log retention in days; null keeps logs until deleted."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "sessionId (PK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Primary identifier of the monitoring session."
+    ],
+    [
+      "driverUserId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Driver UID; logical reference to User.uid."
+    ],
+    [
+      "calibrationId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Room foreign key to DriverCalibration.calibrationId."
+    ],
+    [
+      "deviceId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Logical device reference combined with driverUserId."
+    ],
+    [
+      "startedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Session start time in epoch milliseconds."
+    ],
+    [
+      "endedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Session end time in epoch milliseconds."
+    ],
+    [
+      "status",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Session state: ACTIVE, PAUSED, COMPLETED, or INTERRUPTED."
+    ],
+    [
+      "highestWarningStage",
+      "TEXT",
+      "—",
+      "NULL",
+      "Highest warning stage reached: STAGE_1, STAGE_2, or STAGE_3."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "createdAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Record creation time in epoch milliseconds."
+    ],
+    [
+      "updatedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Last record update time in epoch milliseconds."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "alertId (PK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Primary identifier of the confirmed alert."
+    ],
+    [
+      "sessionId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Room foreign key to MonitoringSession.sessionId."
+    ],
+    [
+      "driverUserId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Driver UID; logical reference to User.uid."
+    ],
+    [
+      "detectedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Alert detection time in epoch milliseconds."
+    ],
+    [
+      "warningStageAtDetection",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Warning stage when the alert was detected."
+    ],
+    [
+      "alarmTriggered",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Whether the onboard alarm was triggered; 0 or 1."
+    ],
+    [
+      "alarmTriggeredAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Onboard alarm activation time in epoch milliseconds."
+    ],
+    [
+      "createdAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Record creation time in epoch milliseconds."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "alertId (PK/FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Composite key component and Room foreign key to Alert.alertId."
+    ],
+    [
+      "signType (PK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Detected sign enum: eye closure, yawning, or head nodding."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "stageSyncRecordId (PK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Primary identifier of the local synchronization record."
+    ],
+    [
+      "sessionId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Room foreign key to MonitoringSession.sessionId."
+    ],
+    [
+      "driverUserId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Driver UID; logical reference to User.uid."
+    ],
+    [
+      "firestoreDocumentId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Cloud record ID within the Driver’s stageSyncRecords subcollection."
+    ],
+    [
+      "recordType",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Stage 3 transition or persistence record type."
+    ],
+    [
+      "periodStartedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Warning-period start time in epoch milliseconds."
+    ],
+    [
+      "periodEndedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Warning-period end time in epoch milliseconds."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "eventCount",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Number of confirmed events within the record’s warning period."
+    ],
+    [
+      "eligibility",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Sharing eligibility: pending evaluation, eligible, or no approved contact."
+    ],
+    [
+      "syncStatus",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Synchronization state of the record."
+    ],
+    [
+      "attemptCount",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Number of synchronization attempts."
+    ],
+    [
+      "lastAttemptAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Last synchronization attempt time in epoch milliseconds."
+    ],
+    [
+      "syncedAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Successful synchronization time in epoch milliseconds."
+    ],
+    [
+      "syncErrorCode",
+      "TEXT",
+      "—",
+      "NULL",
+      "Error code from the last failed synchronization."
+    ],
+    [
+      "syncErrorMessage",
+      "TEXT",
+      "—",
+      "NULL",
+      "Error message from the last failed synchronization."
+    ],
+    [
+      "createdAtEpochMillis",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Record creation time in epoch milliseconds."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "stageSyncRecordId (PK/FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Composite key component and Room foreign key to StageSyncRecord."
+    ],
+    [
+      "signType (PK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Detected sign enum: eye closure, yawning, or head nodding."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "sessionId (PK/FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Primary log identifier; logically matches MonitoringSession.sessionId."
+    ],
+    [
+      "driverUserId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Driver UID; logical reference to User.uid."
+    ],
+    [
+      "startedAt",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Log start time in epoch milliseconds."
+    ],
+    [
+      "endedAt",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Log end time in epoch milliseconds."
+    ],
+    [
+      "status",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Lifecycle status of the diagnostic log."
+    ],
+    [
+      "recordingGap",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Whether the log contains a recording gap; 0 or 1."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "sequence (PK)",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Auto-generated primary key ordering local log events."
+    ],
+    [
+      "sessionId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Room foreign key to MonitoringLog.sessionId."
+    ],
+    [
+      "driverUserId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Driver UID; logical reference to User.uid."
+    ],
+    [
+      "calibrationId (FK)",
+      "TEXT",
+      "—",
+      "NULL",
+      "Optional logical reference to DriverCalibration.calibrationId."
+    ],
+    [
+      "eventId",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Unique event identifier; protected by a unique index."
+    ],
+    [
+      "occurredAt",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Event occurrence time in epoch milliseconds."
+    ],
+    [
+      "kind",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Type of monitoring event recorded."
+    ],
+    [
+      "sign",
+      "TEXT",
+      "—",
+      "NULL",
+      "Visible sign associated with the event, when applicable."
+    ],
+    [
+      "measuredValue",
+      "REAL",
+      "—",
+      "NULL",
+      "Measured value associated with the event."
+    ],
+    [
+      "threshold",
+      "REAL",
+      "—",
+      "NULL",
+      "Detection threshold used for the event."
+    ],
+    [
+      "durationMs",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Observed sign duration in milliseconds."
+    ],
+    [
+      "requiredDurationMs",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Required sign duration in milliseconds."
+    ],
+    [
+      "downwardRatio",
+      "REAL",
+      "—",
+      "NULL",
+      "Measured downward head-pitch ratio."
+    ],
+    [
+      "ratioThreshold",
+      "REAL",
+      "—",
+      "NULL",
+      "Required downward head-pitch ratio."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "calibrationVersion",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Calibration version recorded for the event."
+    ],
+    [
+      "stage",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Warning stage recorded for the event."
+    ],
+    [
+      "repeated",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Whether the event is repeated; 0 or 1."
+    ],
+    [
+      "result",
+      "TEXT",
+      "—",
+      "NULL",
+      "Outcome associated with the event."
+    ],
+    [
+      "responseAt",
+      "INTEGER",
+      "—",
+      "NULL",
+      "Event response time in epoch milliseconds."
+    ],
+    [
+      "processId",
+      "TEXT",
+      "—",
+      "NULL",
+      "Identifier of the application process recording the event."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "stageSyncRecordId (PK/FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Record document ID within the Driver path; references the local StageSyncRecord."
+    ],
+    [
+      "driverUserId (PK/FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Parent Driver UID and part of the document-path key; references User.uid."
+    ],
+    [
+      "sessionId (FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Logical reference to the local MonitoringSession.sessionId."
+    ],
+    [
+      "recordType",
+      "String",
+      "—",
+      "NOT NULL",
+      "Stage 3 transition or persistence record type."
+    ],
+    [
+      "periodStartedAt",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Timestamp at the start of the warning period."
+    ],
+    [
+      "periodEndedAt",
+      "Timestamp",
+      "—",
+      "NULL",
+      "Timestamp at the end of the warning period."
+    ],
+    [
+      "eventCount",
+      "Integer",
+      "—",
+      "NOT NULL",
+      "Number of confirmed events within the record’s warning period."
+    ],
+    [
+      "signs",
+      "Array",
+      "—",
+      "NOT NULL",
+      "Embedded array of detected visible-sign names."
+    ],
+    [
+      "warningStage",
+      "String",
+      "—",
+      "NOT NULL",
+      "Shared warning stage; always STAGE_3."
+    ],
+    [
+      "warningStageAtDetection",
+      "Integer",
+      "—",
+      "NOT NULL",
+      "Shared warning-stage number; always 3."
+    ],
+    [
+      "syncStatus",
+      "String",
+      "—",
+      "NOT NULL",
+      "Cloud synchronization state; always SYNCED."
+    ],
+    [
+      "createdAtClient",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Client timestamp when the local record was created."
+    ],
+    [
+      "uploadedAt",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Server timestamp when the shared record was uploaded."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "deviceId (PK)",
+      "String",
+      "12",
+      "NOT NULL",
+      "Canonical 12-character Bluetooth device identifier and document ID."
+    ],
+    [
+      "claimed",
+      "Boolean",
+      "—",
+      "NOT NULL",
+      "Claim marker; true for a registered device."
+    ],
+    [
+      "createdAt",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Server timestamp when the device was first registered."
+    ],
+    [
+      "schemaVersion",
+      "Integer",
+      "—",
+      "NOT NULL",
+      "Registry document schema version; currently 1."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "deviceId (PK/FK)",
+      "String",
+      "12",
+      "NOT NULL",
+      "Primary key and logical reference to Device.deviceId."
+    ],
+    [
+      "ownerUserId (FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Primary Driver UID; logical reference to User.uid."
+    ],
+    [
+      "displayName",
+      "String",
+      "80",
+      "NOT NULL",
+      "Device label shown to its primary and invited drivers."
+    ],
+    [
+      "createdAt",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Server timestamp when primary ownership was created."
+    ],
+    [
+      "schemaVersion",
+      "Integer",
+      "—",
+      "NOT NULL",
+      "Ownership document schema version; currently 1."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "deviceId (PK/FK)",
+      "String",
+      "12",
+      "NOT NULL",
+      "Composite document-key component; references Device.deviceId."
+    ],
+    [
+      "driverUserId (PK/FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Composite document-key component; references the invited User.uid."
+    ],
+    [
+      "ownerUserId (FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Primary Driver UID; logical reference to User.uid."
+    ],
+    [
+      "targetConnectionCode (FK)",
+      "String",
+      "28",
+      "NOT NULL",
+      "Logical reference to the invited account’s ConnectionCode."
+    ],
+    [
+      "demoActivationId (FK)",
+      "String",
+      "1–80",
+      "NOT NULL",
+      "Current activation ID within the primary Driver’s DeviceSubscriptionEvent path."
+    ],
+    [
+      "ownerDisplayName",
+      "String",
+      "—",
+      "NOT NULL",
+      "Primary Driver name saved with the invitation."
+    ],
+    [
+      "driverDisplayName",
+      "String",
+      "—",
+      "NOT NULL",
+      "Invited Driver name saved with the invitation."
+    ],
+    [
+      "deviceDisplayName",
+      "String",
+      "—",
+      "NOT NULL",
+      "Device label saved with the invitation."
+    ],
+    [
+      "status",
+      "String",
+      "—",
+      "NOT NULL",
+      "PENDING, ACTIVE, DECLINED, CANCELLED, REMOVED, or LEFT."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "revision",
+      "Integer",
+      "—",
+      "NOT NULL",
+      "Positive revision increased on acceptance, ending access, or reinvitation."
+    ],
+    [
+      "requestedAt",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Server timestamp when this invitation was sent."
+    ],
+    [
+      "acceptedAt",
+      "Timestamp",
+      "—",
+      "NULL",
+      "Server timestamp of acceptance; null before acceptance."
+    ],
+    [
+      "endedAt",
+      "Timestamp",
+      "—",
+      "NULL",
+      "Server timestamp when access or the invitation ended; otherwise null."
+    ],
+    [
+      "billingMode",
+      "String",
+      "—",
+      "NOT NULL",
+      "Subscription mode; always SIMULATED."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "activationId (PK)",
+      "String",
+      "1–80",
+      "NOT NULL",
+      "Document-path identifier; composite key with ownerUserId, not a stored body field."
+    ],
+    [
+      "ownerUserId (PK/FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Primary Driver UID and parent-path key; references User.uid."
+    ],
+    [
+      "deviceId (FK)",
+      "String",
+      "12",
+      "NOT NULL",
+      "Logical reference to the Device receiving additional-driver access."
+    ],
+    [
+      "driverUserId (FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Invited account UID; logical reference to User.uid."
+    ],
+    [
+      "mode",
+      "String",
+      "—",
+      "NOT NULL",
+      "Activation mode; always SIMULATED."
+    ],
+    [
+      "kind",
+      "String",
+      "—",
+      "NOT NULL",
+      "Event type; always ACTIVATION."
+    ],
+    [
+      "createdAt",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Server timestamp of the immutable activation event."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "deviceId (PK/FK)",
+      "String",
+      "12",
+      "NOT NULL",
+      "Composite document-key component; references Device.deviceId."
+    ],
+    [
+      "driverUserId (PK/FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Composite document-key component; identifies the authorized User.uid."
+    ],
+    [
+      "ownerUserId (FK)",
+      "String",
+      "—",
+      "NOT NULL",
+      "Primary Driver UID; logical reference to User.uid."
+    ],
+    [
+      "accountId",
+      "String",
+      "32",
+      "NOT NULL",
+      "32-character account identifier derived from the Firebase UID."
+    ],
+    [
+      "secret",
+      "String",
+      "64",
+      "NOT NULL",
+      "Private 64-character hexadecimal device-authorization secret."
+    ],
+    [
+      "kind",
+      "String",
+      "—",
+      "NOT NULL",
+      "Credential role: OWNER or DRIVER."
+    ],
+    [
+      "serial",
+      "Integer",
+      "—",
+      "NOT NULL",
+      "Owner serial is 0; Driver serial identifies the invitation revision."
+    ],
+    [
+      "certificate",
+      "String",
+      "0 / 64",
+      "NOT NULL",
+      "Owner value is empty; Driver value is a 64-character authorization certificate."
+    ],
+    [
+      "createdAt",
+      "Timestamp",
+      "—",
+      "NOT NULL",
+      "Server timestamp when this credential was issued."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "userId (PK/FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Composite primary-key component; logically references the signed-in User.uid."
+    ],
+    [
+      "deviceId (PK/FK)",
+      "TEXT",
+      "12",
+      "NOT NULL",
+      "Composite primary-key component; logically references Device.deviceId."
+    ],
+    [
+      "ownerUserId (FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Primary Driver UID; logical reference to User.uid."
+    ],
+    [
+      "displayName",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Device label saved in the verified local access cache."
+    ],
+    [
+      "status",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Cached OWNER or membership state; only OWNER and ACTIVE permit access."
+    ],
+    [
+      "revision",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Last server-confirmed access revision; prevents stale grants restoring access."
+    ],
+    [
+      "verifiedAt",
+      "INTEGER",
+      "—",
+      "NOT NULL",
+      "Time of successful server verification in epoch milliseconds."
+    ]
+  ],
+  [
+    [
+      "Column Name",
+      "Data Type",
+      "Field Size",
+      "Null",
+      "Description"
+    ],
+    [
+      "userId (PK/FK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Composite primary-key component; logically references User.uid."
+    ],
+    [
+      "legacyDeviceId (PK)",
+      "TEXT",
+      "—",
+      "NOT NULL",
+      "Composite key component identifying the previous local device ID."
+    ],
+    [
+      "canonicalDeviceId (FK)",
+      "TEXT",
+      "12",
+      "NOT NULL",
+      "Logical reference to the canonical Device.deviceId."
+    ]
+  ],
+  [
+    [
+      "MOBILE DEVELOPMENT",
+      "WEB DEVELOPMENT",
+      "SERVER",
+      "AI MODEL",
+      "HARDWARE/IOT",
+      "FUTURE DEVELOPMENT"
+    ],
+    [
+      "Kotlin | Android SDK | Jetpack Compose | Material 3 | Room / SQLite | WorkManager",
+      "TypeScript | React | HTML / CSS | Tailwind CSS | Vite",
+      "Firebase Auth | Cloud Firestore | Firebase Hosting | Firebase Cloud Messaging | Cloudflare Workers | Cloudflare D1",
+      "MediaPipe Face Landmarker | FaceAttribNet | ",
+      "ESP32-CAM | OV3660 Camera | DFPlayer Mini | Speaker | microSD Card | C/C++ Firmware | BLE / Wi-Fi | HTTP / MJPEG",
+      "Android Studio | Arduino IDE / CLI | Arduino ESP32 Core | Gradle | Git"
+    ]
+  ],
+  [
+    [
+      "Component",
+      "Specification"
+    ],
+    [
+      "Operating System",
+      "Windows, Android OS Version 8 and above"
+    ],
+    [
+      "Text Editor/IDE",
+      "Visual Studio Code & Android Studio"
+    ],
+    [
+      "Programming Language",
+      "Kotlin, JavaScript, C/C++"
+    ],
+    [
+      "Web Browser",
+      "Microsoft Edge, Opera, Google Chrome"
+    ],
+    [
+      "Mobile",
+      "Android"
+    ],
+    [
+      "Database",
+      "Cloud Firestore, SQLite"
+    ],
+    [
+      "Framework",
+      "ReactJS, Android Material Design"
+    ]
+  ],
+  [
+    [
+      "PC"
+    ],
+    [
+      " | CPU",
+      "64-bit or 32-bit support | 2.5GHz or faster processor | Intel i5 10th Gen+ or AMD Ryzen 5 3000 series or higher"
+    ],
+    [
+      "Memory",
+      "At least 8 GB RAM or above"
+    ],
+    [
+      "Storage",
+      "10 GB Available space or more"
+    ],
+    [
+      "GPU",
+      "Integrated or Dedicated Graphics | Intel UHD Graphics or AMD Graphics or Nvidia Graphics"
+    ],
+    [
+      "Mobile"
+    ],
+    [
+      "CPU",
+      "Octa Core or more | 2.0 GHz or faster processor"
+    ],
+    [
+      "Memory",
+      "At least 4 GB RAM or above"
+    ],
+    [
+      "Storage",
+      "6 GB available space or more"
+    ]
+  ],
+  [
+    [
+      "Programmer/ | Process Owner",
+      "Modules",
+      "Driver",
+      "Trusted Contact"
+    ],
+    [
+      "Isagunde",
+      "Account Management",
+      "",
+      ""
+    ],
+    [
+      "",
+      "Register",
+      "*",
+      "*"
+    ],
+    [
+      "",
+      "Log in",
+      "*",
+      "*"
+    ],
+    [
+      "",
+      "View Profile",
+      "*",
+      "*"
+    ],
+    [
+      "",
+      "Update Profile",
+      "*",
+      "*"
+    ],
+    [
+      "",
+      "Log out",
+      "*",
+      "*"
+    ],
+    [
+      "No. of Points (1 point per module per user)",
+      "1",
+      "1"
+    ],
+    [
+      "Basubas",
+      "Device Setup & Connection Management",
+      "",
+      ""
+    ],
+    [
+      "",
+      "View Setup Requirements",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Allow Required App Permissions",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Enable Mobile Hotspot",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Connect IoT Device",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "View Connection Status",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Reconnect Device",
+      "*",
+      ""
+    ],
+    [
+      "No. of Points (1 point per module per user)",
+      "1",
+      ""
+    ],
+    [
+      "Basubas",
+      "Driver Drowsiness Monitoring Management",
+      "",
+      ""
+    ],
+    [
+      "",
+      "Calibration",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Start Monitoring Session",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Preview Camera Alignment",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Run Drowsiness Detection",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Detect Drowsiness Signs",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "View Monitoring Status",
+      "*",
+      ""
+    ]
+  ],
+  [
+    [
+      "",
+      "Stop Monitoring Session",
+      "*",
+      ""
+    ],
+    [
+      "No. of Points (1 point per module per user)",
+      "1",
+      ""
+    ],
+    [
+      "Basubas",
+      "Alert & Warning Management",
+      "",
+      ""
+    ],
+    [
+      "",
+      "Receive Confirmed Warning Event",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Determine Warning Stage",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Receive onboard speaker warning ",
+      "*",
+      ""
+    ],
+    [
+      "No. of Points (1 point per module per user)",
+      "1",
+      ""
+    ],
+    [
+      "Catarig & Borces",
+      "Drowsiness-alert Records & Trusted Contact Management",
+      "",
+      ""
+    ],
+    [
+      "",
+      "View Drowsiness Alert History",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "View Alert Details",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "View Drowsiness Insights",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Synchronize Eligible Alerts",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Manage Trusted Contacts",
+      "*",
+      ""
+    ],
+    [
+      "",
+      "Accept or Decline Request",
+      "",
+      "*"
+    ],
+    [
+      "",
+      "View All Drivers",
+      "",
+      "*"
+    ],
+    [
+      "",
+      "View Synced Alert",
+      "",
+      "*"
+    ],
+    [
+      "No. of Points (1 point per module per user)",
+      "1",
+      "1"
+    ],
+    [
+      "Total number of modules per user",
+      "5",
+      "2"
+    ],
+    [
+      "Total number of modules",
+      "7"
+    ]
+  ],
+  [
+    [
+      "Module Name",
+      "Unit Name",
+      "Date Tested",
+      "Test Case ID",
+      "Test Case Description",
+      "Expected Results",
+      "Actual Results",
+      "Remarks"
+    ],
+    [
+      "AccountManagement",
+      "Register",
+      "",
+      "U1.1.1",
+      "Mobile:Registerwith validdetails.",
+      "Anaccount iscreated;the userselects arole.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Register",
+      "",
+      "U1.1.2",
+      "Web:Registerwith validdetails.",
+      "A TrustedContactaccount iscreated.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Register",
+      "",
+      "U1.1.3",
+      "Mobileand Web:Registerwithmissingrequiredfields.",
+      "Registration isblockedwith fielderrors.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Register",
+      "",
+      "U1.1.5",
+      "Mobileand Web:Registerwith anexistingemail.",
+      "Theduplicateaccount isrejected.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Register",
+      "",
+      "U1.1.6",
+      "Mobileand Web:Registerwith ashortpassword.",
+      "At leasteightcharactersarerequired.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Register",
+      "",
+      "U1.1.7",
+      "Mobileand Web:Entermismatchedpasswords.",
+      "Registration isblockeduntil theymatch.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Log in",
+      "",
+      "U1.2.1",
+      "Mobileand Web:Log inwith valid",
+      "Thecorrectaccountopens.",
+      "Performed asexpected",
+      "Passed"
+    ]
+  ],
+  [
+    [
+      "Module Name",
+      "Unit Name",
+      "Date Tested",
+      "Test Case ID",
+      "Test Case Description",
+      "Expected Results",
+      "Actual Results",
+      "Remarks"
+    ],
+    [
+      "AccountManagement",
+      "Log in",
+      "",
+      "U1.2.1",
+      "credentials.",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "Log in",
+      "",
+      "U1.2.2",
+      "Mobileand Web:Log inwithincorrectcredentials.",
+      "Sign-infails withan error.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Log in",
+      "",
+      "U1.2.3",
+      "Mobileand Web:Log inwithemptyfields.",
+      "Required-fielderrorspreventsign-in.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ViewProfile",
+      "",
+      "U1.3.1",
+      "Mobileand Web:Open thesigned-inprofile.",
+      "Thecorrectaccountdetailsappear.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "UpdateProfile",
+      "",
+      "U1.4.1",
+      "Mobileand Web:Savevalidprofilechanges.",
+      "Updateddetails aresaved anddisplayed.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "UpdateProfile",
+      "",
+      "U1.4.2",
+      "Mobileand Web:Save ablankrequiredname.",
+      "Theupdate isrejected.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Log out",
+      "",
+      "U1.5.1",
+      "Mobileand Web:Log outfrom theaccount.",
+      "Thesessionends andsign-inappears.",
+      "Performed asexpected",
+      "Passed"
+    ]
+  ],
+  [
+    [
+      "Module Name",
+      "Unit Name",
+      "Date Tested",
+      "Test Case ID",
+      "Test Case Description",
+      "Expected Results",
+      "Actual Results",
+      "Remarks"
+    ],
+    [
+      "DeviceSetup &ConnectionManagement",
+      "ViewSetupRequirements",
+      "",
+      "U2.1.1",
+      "Mobile:Opendevicesetupinstructions.",
+      "Setuprequirements aredisplayed.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "AllowRequiredAppPermissions",
+      "",
+      "U2.2.1",
+      "Mobile:GrantrequiredBluetoothpermissions.",
+      "BLEsetup canproceed.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "AllowRequiredAppPermissions",
+      "",
+      "U2.2.2",
+      "Mobile:DenyrequiredBluetoothpermissions.",
+      "Theaffectedsetup stepisblocked.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "EnableMobileHotspot",
+      "",
+      "U2.3.1",
+      "Mobile:Enablethe phonehotspotmanually.",
+      "Thehotspot isavailablefor setup.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ConnectIoTDevice",
+      "",
+      "U2.4.1",
+      "Mobile:Connectanauthorized cameradevice.",
+      "Thedeviceconnectsandstreamsframes.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ConnectIoTDevice",
+      "",
+      "U2.4.2",
+      "Mobile:SubmitWi-Fisetupwithoutan SSID.",
+      "Credentialvalidationblockssubmission.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ConnectIoTDevice",
+      "",
+      "U2.4.4",
+      "Mobile:Confirmanadditional-driver",
+      "Apendinginvitationis createdwithout",
+      "Performed asexpected",
+      "Passed"
+    ]
+  ],
+  [
+    [
+      "Module Name",
+      "Unit Name",
+      "Date Tested",
+      "Test Case ID",
+      "Test Case Description",
+      "Expected Results",
+      "Actual Results",
+      "Remarks"
+    ],
+    [
+      "DeviceSetup &ConnectionManagement",
+      "ConnectIoTDevice",
+      "",
+      "U2.4.4",
+      "invitation.",
+      "realpayment.",
+      "",
+      ""
+    ],
+    [
+      "",
+      "ConnectIoTDevice",
+      "",
+      "U2.4.5",
+      "Mobile:Acceptonline,thencompletedevicesetup.",
+      "TheinvitedDrivercan usecachedaccessoffline.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ViewConnection Status",
+      "",
+      "U2.5.1",
+      "Mobile:Disconnect aconnecteddevice.",
+      "Thedisplayedconnection statuschanges.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Reconnect Device",
+      "",
+      "U2.6.1",
+      "Mobile:Reconnect a saved,reachabledevice.",
+      "Thecameraconnection isrestored.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "DriverDrowsinessMonitoringManagement",
+      "Calibration",
+      "",
+      "U3.1.1",
+      "Mobile:Completeallcalibration phases.",
+      "Driver-specificcalibration issaved.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Calibration",
+      "",
+      "U3.1.2",
+      "Mobile:Leavecalibrationincomplete.",
+      "Incompletecalibration cannotbe saved.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "StartMonitoring Session",
+      "",
+      "U3.2.1",
+      "Mobile:Start withallmonitoringrequirements met.",
+      "Onemonitoring sessionstarts.",
+      "Performed asexpected",
+      "Passed"
+    ]
+  ],
+  [
+    [
+      "Module Name",
+      "Unit Name",
+      "Date Tested",
+      "Test Case ID",
+      "Test Case Description",
+      "Expected Results",
+      "Actual Results",
+      "Remarks"
+    ],
+    [
+      "DriverDrowsinessMonitoringManagement",
+      "StartMonitoring Session",
+      "",
+      "U3.2.2",
+      "Mobile:Startwithoutsavedcalibration.",
+      "Monitoring isblocked.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "StartMonitoring Session",
+      "",
+      "U3.2.3",
+      "Mobile:Startwithout aconnectedcamerastream.",
+      "Monitoring isblockeduntilconnected.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "PreviewCameraAlignment",
+      "",
+      "U3.3.1",
+      "Mobile:Opencameraalignmentpreview.",
+      "Live IoTcameraframesappear.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "RunDrowsinessDetection",
+      "",
+      "U3.4.1",
+      "Mobile:Lose thefaceduringdetection.",
+      "Assessment pauses;confirmedhistoryremains.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "DetectDrowsiness Signs",
+      "",
+      "U3.5.1",
+      "Mobile:Detectprolongedeyeclosure.",
+      "Prolongedeyeclosure isconfirmed.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "DetectDrowsiness Signs",
+      "",
+      "U3.5.2",
+      "Mobile:Detectyawning.",
+      "Yawningisconfirmed.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "DetectDrowsiness Signs",
+      "",
+      "U3.5.3",
+      "Mobile:Detectheadnodding.",
+      "Headnoddingisconfirmed.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ViewMonitoring Status",
+      "",
+      "U3.6.1",
+      "Mobile:View an",
+      "Thecurrent",
+      "Performed as",
+      "Passed"
+    ]
+  ],
+  [
+    [
+      "Module Name",
+      "Unit Name",
+      "Date Tested",
+      "Test Case ID",
+      "Test Case Description",
+      "Expected Results",
+      "Actual Results",
+      "Remarks"
+    ],
+    [
+      "DriverDrowsinessMonitoringManagement",
+      "ViewMonitoring Status",
+      "",
+      "U3.6.1",
+      "activemonitoring session.",
+      "monitoring stateappears.",
+      "expected",
+      ""
+    ],
+    [
+      "",
+      "StopMonitoring Session",
+      "",
+      "U3.7.1",
+      "Mobile:Stop anactivesession.",
+      "Detectionstops andthesessionend issaved.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "Alert &WarningManagement",
+      "ReceiveConfirmedWarningEvent",
+      "",
+      "U4.1.1",
+      "Mobile:Receive aconfirmeddrowsiness event.",
+      "The alertisrecordedandwarninglogicruns.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "DetermineWarningStage",
+      "",
+      "U4.2.1",
+      "Mobile:Receivethe firstconfirmedevent.",
+      "Thewarningadvancesto Stage1.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "DetermineWarningStage",
+      "",
+      "U4.2.2",
+      "Mobile:Receivefurtherdistinctconfirmedevents.",
+      "ThewarningadvancesthroughStages 2and 3.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "DetermineWarningStage",
+      "",
+      "U4.2.3",
+      "Mobile:Completequietwarningperiods.",
+      "The stagedecreasesstepwiseto normal.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Receiveonboardspeakerwarning",
+      "",
+      "U4.3.1",
+      "Mobile:Trigger awarningon aconnecteddevice.",
+      "Therequestedonboardwarningplays.",
+      "Performed asexpected",
+      "Passed"
+    ]
+  ],
+  [
+    [
+      "Module Name",
+      "Unit Name",
+      "Date Tested",
+      "Test Case ID",
+      "Test Case Description",
+      "Expected Results",
+      "Actual Results",
+      "Remarks"
+    ],
+    [
+      "Drowsiness-alertRecords&TrustedContactManagement",
+      "ViewDrowsiness AlertHistory",
+      "",
+      "U5.1.1",
+      "Mobile:Open theDriver'salerthistory.",
+      "Only thatDriver'srecordsappear.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ViewAlertDetails",
+      "",
+      "U5.2.1",
+      "Mobile:Open asavedalert.",
+      "Theselectedalert andsignsappear.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ViewDrowsinessInsights",
+      "",
+      "U5.3.1",
+      "Mobile:Viewinsightsfor savedalerts.",
+      "Summaries matchtheDriver'srecords.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "SynchronizeEligibleAlerts",
+      "",
+      "U5.4.1",
+      "Mobile:Share aneligibleStage 3recordonline.",
+      "Approvedcontactscanaccess thesharedrecord.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "SynchronizeEligibleAlerts",
+      "",
+      "U5.4.2",
+      "Mobile:Restoreinternetafter anofflineeligiblealert.",
+      "Thependingrecordcansynchronize.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ManageTrustedContacts",
+      "",
+      "U5.5.1",
+      "Mobileand Web:Send avalidcontactrequest.",
+      "Theconnection remainspendingapproval.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ManageTrustedContacts",
+      "",
+      "U5.5.2",
+      "Mobileand Web:Use aninvalid orown",
+      "Therequest isblocked.",
+      "Performed asexpected",
+      "Passed"
+    ]
+  ],
+  [
+    [
+      "Module Name",
+      "Unit Name",
+      "Date Tested",
+      "Test Case ID",
+      "Test Case Description",
+      "Expected Results",
+      "Actual Results",
+      "Remarks"
+    ],
+    [
+      "Drowsiness-alertRecords&TrustedContactManagement",
+      "ManageTrustedContacts",
+      "",
+      "U5.5.2",
+      "connection code.",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "Accept orDeclineRequest",
+      "",
+      "U5.6.1",
+      "Mobileand Web:Accept apendingincomingrequest.",
+      "Theconnectionbecomesapproved.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "Accept orDeclineRequest",
+      "",
+      "U5.6.2",
+      "Mobileand Web:Decline apendingincomingrequest.",
+      "Therequestcloseswithoutgrantingaccess.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "View AllDrivers",
+      "",
+      "U5.7.1",
+      "Mobileand Web:Open theconnectedDriverlist.",
+      "ApprovedconnectedDriversaredisplayed.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ViewSyncedAlert",
+      "",
+      "U5.8.1",
+      "Mobileand Web:Open anapprovedDriver'ssharedalert.",
+      "Permittedrecorddetailsappearwithoutcameramedia.",
+      "Performed asexpected",
+      "Passed"
+    ],
+    [
+      "",
+      "ViewSyncedAlert",
+      "",
+      "U5.8.2",
+      "Mobileand Web:Open analert afteronlineconnectionrevocation.",
+      "Shared-recordaccess isrefused.",
+      "Performed asexpected",
+      "Passed"
+    ]
+  ],
+  [
+    [
+      "Test Case ID",
+      "Module 1",
+      "Integration Process",
+      "Module 2",
+      "Pre-condition",
+      "Result",
+      "Remarks"
+    ],
+    [
+      "IT-1",
+      "Account Management",
+      "After registration, the Driver opens setup and continues to Driver Home without returning to view selection.",
+      "Device Setup & Connection Management",
+      "New Driver account; online registration completed.",
+      "Performed as expected",
+      "Passed"
+    ],
+    [
+      "IT-2",
+      "Device Setup & Connection Management",
+      "An authorized camera connects; saved Driver calibration allows one monitoring session to start.",
+      "Driver Drowsiness Monitoring Management",
+      "Authorized camera available; alignment confirmed; Driver calibrated.",
+      "Performed as expected",
+      ""
+    ],
+    [
+      "IT-3",
+      "Driver Drowsiness Monitoring Management",
+      "Confirmed detection events update the warning stage and trigger its onboard speaker warning.",
+      "Alert & Warning Management",
+      "Active monitoring; visible sign confirmed; speaker connected.",
+      "Performed as expected",
+      ""
+    ],
+    [
+      "IT-4",
+      "Alert & Warning Management",
+      "A confirmed alert is saved under the current Driver and appears with matching details in Driver Alert History.",
+      "Drowsiness-alert Records & Trusted Contact Management",
+      "Signed-in Driver; active session; confirmed alert event.",
+      "Performed as expected",
+      "Passed"
+    ],
+    [
+      "IT-5",
+      "Drowsiness-alert Records & Trusted Contact Management (View Drowsiness Alert History)",
+      "The Driver opens Drowsiness Insights; its summaries match the saved alerts in that Driver’s history.",
+      "Drowsiness-alert Records & Trusted Contact Management (View Drowsiness Insights)",
+      "Known alert records saved for the current Driver.",
+      "Performed as expected",
+      "Passed"
+    ]
+  ],
+  [
+    [
+      "Test Case ID",
+      "Module 1",
+      "Integration Process",
+      "Module 2",
+      "Pre-condition",
+      "Result",
+      "Remarks"
+    ],
+    [
+      "IT-6",
+      "Drowsiness-alert Records & Trusted Contact Management (Driver)",
+      "A connection request is accepted; the approved relationship appears for the Driver and Trusted Contact on their respective screens.",
+      "Drowsiness-alert Records & Trusted Contact Management (Trusted Contact)",
+      "Driver and Trusted Contact online; pending request exist.",
+      "Performed as expected",
+      "Passed"
+    ],
+    [
+      "IT-7",
+      "Alert & Warning Management",
+      "An eligible Stage 3 record synchronizes; the approved Trusted Contact opens the same shared details in the mobile app and web portal.",
+      "Drowsiness-alert Records & Trusted Contact Management",
+      "Eligible Stage 3 record; approved connection; internet available.",
+      "Performed as expected",
+      "Passed"
+    ],
+    [
+      "IT-8",
+      "Alert & Warning Management",
+      "An eligible record remains pending while offline; when internet returns, synchronization makes it available to the approved Trusted Contact.",
+      "Drowsiness-alert Records & Trusted Contact Management",
+      "Eligible record queued; approved contact; internet unavailable.",
+      "Performed as expected",
+      "Passed"
+    ],
+    [
+      "IT-9",
+      "Drowsiness-alert Records & Trusted Contact Management (Driver)",
+      "The Driver revokes the connection; shared-record access is refused on the Trusted Contact mobile app and web portal.",
+      "Drowsiness-alert Records & Trusted Contact Management (Trusted Contact)",
+      "Approved connection; shared record visible; both clients online.",
+      "Performed as expected",
+      "Passed"
+    ],
+    [
+      "IT-10",
+      "Device Setup & Connection Management",
+      "The additional Driver accepts a device invitation and completes online setup; offline monitoring uses separate calibration and history.",
+      "Driver Drowsiness Monitoring Management",
+      "Simulated subscription invitation pending; internet for setup; camera available.",
+      "Performed as expected",
+      ""
+    ]
+  ],
+  [
+    [
+      "Test Criteria",
+      "Poor",
+      "Fair",
+      "Good",
+      "Very Good"
+    ],
+    [
+      "Graphical User Interface (GUI)"
+    ],
+    [
+      "Consistency (The user interface is of the same formatting style and icons throughout the system.)",
+      "",
+      "",
+      "X",
+      ""
+    ],
+    [
+      "Reusability (The system contains reusable GUI components such as familiar buttons, text and check boxes, and other tools.)",
+      "",
+      "",
+      "X",
+      ""
+    ],
+    [
+      "Forgiveness and Tolerance (The interface displays message or confirmation prompts that would allow the users to undo or redo critical actions.)",
+      "",
+      "",
+      "X",
+      ""
+    ],
+    [
+      "Simplicity (The GUI design include simple GUI buttons, such as simple screens with clear, uncrowded messages.)",
+      "",
+      "",
+      "X",
+      ""
+    ],
+    [
+      "Readability (The interface has appropriate colors, font sizes, and styles that is convenient to the target users.)",
+      "",
+      "",
+      "X",
+      ""
+    ],
+    [
+      "Clarity (Displayed error, help, and warning messages are clear, concise, and as elementary as possible to assist user in operating the software.)",
+      "",
+      "",
+      "X",
+      ""
+    ],
+    [
+      "Flexibility (The system includes user preferences setting to allow changes, for example, increasing the font size.)",
+      "",
+      "X",
+      "",
+      ""
+    ],
+    [
+      "User-friendliness (The GUI design must be user-friendly, by providing helpful, courteous, and non-offending messages.)",
+      "",
+      "",
+      "X",
+      ""
+    ],
+    [
+      "System Performance"
+    ],
+    [
+      "Conformance to the Requirements (The system effectively met all the identified features and/or requirements.)",
+      "",
+      "X",
+      "",
+      ""
+    ],
+    [
+      "Conformance to the Objectives (All specific objectives of the system are met by the program.)",
+      "",
+      "X",
+      "",
+      ""
+    ],
+    [
+      "Efficiency (The entire system functions efficiently. It doesn’t have delay in any transaction.)",
+      "",
+      "X",
+      "",
+      ""
+    ],
+    [
+      "Security (The system is secured. Login details are authenticated. Input parameters are ensured prior to the execution of the next transaction.)",
+      "",
+      "",
+      "X",
+      ""
+    ],
+    [
+      "Integrity (The software allows the registered user to have control over its own private information.)",
+      "",
+      "",
+      "X",
+      ""
+    ],
+    [
+      "Overall Impression (In general, the program or system is functional and useful.)",
+      "",
+      "",
+      "X",
+      ""
+    ]
+  ],
+  [
+    [
+      "PROJECT IDENTIFICATION"
+    ],
+    [
+      "Project Name: | DriveAlert: An IoT-Based Driver Drowsiness Monitoring and Alert System Using Computer Vision",
+      "Date Created: | June 2026"
+    ],
+    [
+      "Project Sponsor/Owner: | DriveAlert Team",
+      "Project Manager: | Lhord Kent R. Basubas"
+    ],
+    [
+      "Project Adviser: | Roche A. Plando ",
+      "Dean: | Eric P. Ortega"
+    ]
+  ],
+  [
+    [
+      "ACCEPTANCE CRITERIA TEST MATRIX"
+    ],
+    [
+      " | ",
+      "Critical | ",
+      "Test Results | ",
+      ""
+    ],
+    [
+      "Number",
+      "Acceptance Criterion Description",
+      "Yes",
+      "No",
+      "Accept",
+      "Reject",
+      "Comments"
+    ],
+    [
+      "1",
+      "I can register, sign in with valid credentials, and access the appropriate Driver or Trusted Contact view.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "2",
+      "I can view and update my profile, and log out of my account.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "3",
+      "As an authorized Driver, I can complete device setup, connect the camera, and view its connection status.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "4",
+      "As a Driver, I can complete calibration and use my own saved calibration during monitoring.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "5",
+      "As a Driver, I can start and stop monitoring with the authorized camera.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "6",
+      "Monitoring detects prolonged eye closure, yawning, and head nodding under supported conditions.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "7",
+      "Confirmed events update the warning stage and produce the corresponding onboard speaker warning.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "8",
+      "As a Driver, I can review my own alert history, details, and record-based insights.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "9",
+      "I can accept or decline connection requests and revoke approved connections to end shared-record access.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "10",
+      "Stage 3 records queued offline synchronize when internet returns and appear for approved contacts on mobile and web.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "11",
+      "An additional Driver can accept a simulated subscription invitation without payment, complete setup online, and monitor offline with separate calibration and history.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ],
+    [
+      "12",
+      "As a Trusted Contact, I see only approved shared records, excluding camera media, location, and complete Driver history.",
+      "✓",
+      "",
+      "✓",
+      "",
+      ""
+    ]
+  ],
+  [
+    [
+      "OTHER CONSIDERATIONS"
+    ],
+    [
+      "Business Objectives – Did the software application/system meet the business objectives?"
+    ],
+    [
+      "Yes",
+      "No",
+      "State whether the system met each applicable requirement and describe any unmet requirement: |  | "
+    ],
+    [
+      "Does the software application/system require any changes prior to installation? If so, please describe."
+    ],
+    [
+      "Yes",
+      "No",
+      "Identify any changes or requirements needed before installation: |  | "
+    ]
+  ],
+  [
+    [
+      "APPROVAL"
+    ],
+    [
+      "Project Sponsor/Owner | ",
+      "Signature",
+      "Date"
+    ],
+    [
+      "Yes",
+      "No",
+      "",
+      "June 2026"
+    ]
+  ],
+  [
+    [
+      "Items",
+      "Unit",
+      "Amount"
+    ],
+    [
+      "Hardware:"
+    ],
+    [
+      "IoT parts (complete device set)",
+      "1",
+      "₱ 1,500"
+    ],
+    [
+      "Android smartphone",
+      "1",
+      "₱ 5,000"
+    ],
+    [
+      "Software and Services:"
+    ],
+    [
+      "AI subscription",
+      "1",
+      "₱ 4,000"
+    ],
+    [
+      "Android Studio / Arduino IDE",
+      "1",
+      "₱ 0"
+    ],
+    [
+      "Firebase services",
+      "1",
+      "₱ 0"
+    ],
+    [
+      "Cloudflare Worker / D1",
+      "1",
+      "₱ 0"
+    ],
+    [
+      "MediaPipe / TensorFlow Lite",
+      "1",
+      "₱ 0"
+    ],
+    [
+      "React / TypeScript / Vite / Git",
+      "1",
+      "₱ 0"
+    ],
+    [
+      "Total",
+      "",
+      "₱ 10,500"
+    ]
+  ],
+  [
+    [
+      "Users",
+      "Description"
+    ],
+    [
+      "Driver",
+      "The Driver uses the Android application to connect an authorized DriveAlert device, align the camera, and complete the guided personal calibration while parked. The Driver starts and stops monitoring, previews the camera, receives onboard warnings, and reviews personal alert history, insights, and monitoring logs. The Driver can change warning preferences and manage Trusted Contact requests and approved connections. A primary Driver may also invite additional Drivers through a simulated subscription that collects no real payment. Device registration, invitation acceptance, and initial authorization require internet access. After setup, authorized Drivers can use the device offline while keeping their calibration and alert history separate."
+    ],
+    [
+      "Trusted Contact",
+      "The Trusted Contact uses the Android application or web portal to request and manage approved connections with Drivers. The Trusted Contact reviews eligible shared Stage 3 transition and persistence records, including their warning periods, detected signs, event counts, and synchronization details. The Trusted Contact can accept or decline requests, disconnect from a Driver, and manage shared-history retention and personal record removal. Shared records become available after an eligible upload and provide historical awareness. Trusted Contact access does not include live camera video, vehicle location, complete Driver alert history, or control of the Driver's monitoring session."
+    ]
+  ],
+  [
+    [
+      "Name",
+      ":",
+      "Lhord Kent R. Basubas"
+    ],
+    [
+      "Address",
+      ":",
+      "Cabancalan Mandaue, Cebu"
+    ],
+    [
+      "Contact Number",
+      ":",
+      "09566304870"
+    ],
+    [
+      "Email Address",
+      ":",
+      "lhordalvic@gmail.com"
+    ],
+    [
+      "Date of Birth",
+      ":",
+      "October 24, 2005"
+    ],
+    [
+      "Place of Birth",
+      ":",
+      "Cebu City, Cebu"
+    ],
+    [
+      "Civil Status",
+      ":",
+      "Single"
+    ],
+    [
+      "Religion",
+      ":",
+      "Roman Catholic"
+    ]
+  ],
+  [
+    [
+      "Name",
+      ":",
+      "Lhord Kent R. Basubas"
+    ],
+    [
+      "Address",
+      ":",
+      "Cabancalan Mandaue, Cebu"
+    ],
+    [
+      "Contact Number",
+      ":",
+      "09566304870"
+    ],
+    [
+      "Email Address",
+      ":",
+      "lhordalvic@gmail.com"
+    ],
+    [
+      "Date of Birth",
+      ":",
+      "October 24, 2005"
+    ],
+    [
+      "Place of Birth",
+      ":",
+      "Cebu City, Cebu"
+    ],
+    [
+      "Civil Status",
+      ":",
+      "Single"
+    ],
+    [
+      "Religion",
+      ":",
+      "Roman Catholic"
+    ]
+  ],
+  [
+    [
+      "2022 - Present",
+      "College Education | University of Cebu - Banilad Campus | Bachelor of Science in Information Technology Gov. M. Cuenco Ave, Cebu City, 6000 Cebu"
+    ],
+    [
+      "2016 - 2022",
+      "Secondary Education | Cabancalan National High School, Cebu City, 6000 Cebu"
+    ],
+    [
+      "2010 - 2016",
+      "Elementary Education Cabancalan, Elementary School"
+    ]
+  ],
+  [
+    [
+      "Name",
+      ":",
+      "Princess Marie Denise F. Isagunde"
+    ],
+    [
+      "Address",
+      ":",
+      "Pagsabungan Mandaue, Cebu"
+    ],
+    [
+      "Contact Number",
+      ":",
+      "09915700829"
+    ],
+    [
+      "Email Address",
+      ":",
+      "deniseisagunde45@gmail.com"
+    ],
+    [
+      "Date of Birth",
+      ":",
+      "August 5, 2005"
+    ],
+    [
+      "Place of Birth",
+      ":",
+      "Cebu City, Cebu"
+    ],
+    [
+      "Civil Status",
+      ":",
+      "Single"
+    ],
+    [
+      "Religion",
+      ":",
+      "Roman Catholic"
+    ]
+  ],
+  [
+    [
+      "Name",
+      ":",
+      "Princess Marie Denise F. Isagunde"
+    ],
+    [
+      "Address",
+      ":",
+      "Pagsabungan Mandaue, Cebu"
+    ],
+    [
+      "Contact Number",
+      ":",
+      "09915700829"
+    ],
+    [
+      "Email Address",
+      ":",
+      "deniseisagunde45@gmail.com"
+    ],
+    [
+      "Date of Birth",
+      ":",
+      "August 5, 2005"
+    ],
+    [
+      "Place of Birth",
+      ":",
+      "Cebu City, Cebu"
+    ],
+    [
+      "Civil Status",
+      ":",
+      "Single"
+    ],
+    [
+      "Religion",
+      ":",
+      "Roman Catholic"
+    ]
+  ],
+  [
+    [
+      "2022 - Present",
+      "College Education | University of Cebu - Banilad Campus | Bachelor of Science in Information Technology Gov. M. Cuenco Ave, Cebu City, 6000 Cebu"
+    ],
+    [
+      "2016 - 2022",
+      "Secondary Education SPM Academy INC, Cebu City, 6014 Cebu"
+    ],
+    [
+      "2010 - 2016",
+      "Elementary Education | Banilad Elementary School, Mandaue Cebu"
+    ]
+  ],
+  [
+    [
+      "Name",
+      ":",
+      "Gabriel A. Borces"
+    ],
+    [
+      "Address",
+      ":",
+      "Lower Bacayan, Cebu City"
+    ],
+    [
+      "Contact Number",
+      ":",
+      "09942664614"
+    ],
+    [
+      "Email Address",
+      ":",
+      "gabrielborces69@gmail.com"
+    ],
+    [
+      "Date of Birth",
+      ":",
+      "May 16, 2005"
+    ],
+    [
+      "Place of Birth",
+      ":",
+      "Cebu City, Cebu"
+    ],
+    [
+      "Civil Status",
+      ":",
+      "Single"
+    ],
+    [
+      "Religion",
+      ":",
+      "Roman Catholic"
+    ]
+  ],
+  [
+    [
+      "Name",
+      ":",
+      "Gabriel A. Borces"
+    ],
+    [
+      "Address",
+      ":",
+      "Lower Bacayan, Cebu City"
+    ],
+    [
+      "Contact Number",
+      ":",
+      "09942664614"
+    ],
+    [
+      "Email Address",
+      ":",
+      "gabrielborces69@gmail.com"
+    ],
+    [
+      "Date of Birth",
+      ":",
+      "May 16, 2005"
+    ],
+    [
+      "Place of Birth",
+      ":",
+      "Cebu City, Cebu"
+    ],
+    [
+      "Civil Status",
+      ":",
+      "Single"
+    ],
+    [
+      "Religion",
+      ":",
+      "Roman Catholic"
+    ]
+  ],
+  [
+    [
+      "2022 - Present",
+      "College Education | University of Cebu - Banilad Campus | Bachelor of Science in Information Technology Gov. M. Cuenco Ave, Cebu City, 6000 Cebu"
+    ],
+    [
+      "2016 - 2022",
+      "Secondary Education | Talamban National High School, Cebu City, 6000 Cebu"
+    ],
+    [
+      "2010 - 2016",
+      "Elementary Education | Golden Gate Childrens House, Cebu"
+    ]
+  ],
+  [
+    [
+      "Name",
+      ":",
+      "John Adrian C. Catarig"
+    ],
+    [
+      "Address",
+      ":",
+      "Centro Mandaue, Cebu"
+    ],
+    [
+      "Contact Number",
+      ":",
+      "09912080909"
+    ],
+    [
+      "Email Address",
+      ":",
+      "Johnadriancatarig@gmail.com"
+    ],
+    [
+      "Date of Birth",
+      ":",
+      "February 9, 2004"
+    ],
+    [
+      "Place of Birth",
+      ":",
+      "Cebu City, Cebu"
+    ],
+    [
+      "Civil Status",
+      ":",
+      "Single"
+    ],
+    [
+      "Religion",
+      ":",
+      "Roman Catholic"
+    ]
+  ],
+  [
+    [
+      "Name",
+      ":",
+      "John Adrian C. Catarig"
+    ],
+    [
+      "Address",
+      ":",
+      "Centro Mandaue, Cebu"
+    ],
+    [
+      "Contact Number",
+      ":",
+      "09912080909"
+    ],
+    [
+      "Email Address",
+      ":",
+      "Johnadriancatarig@gmail.com"
+    ],
+    [
+      "Date of Birth",
+      ":",
+      "February 9, 2004"
+    ],
+    [
+      "Place of Birth",
+      ":",
+      "Cebu City, Cebu"
+    ],
+    [
+      "Civil Status",
+      ":",
+      "Single"
+    ],
+    [
+      "Religion",
+      ":",
+      "Roman Catholic"
+    ]
+  ],
+  [
+    [
+      "2022 - Present",
+      "College Education | University of Cebu - Banilad Campus | Bachelor of Science in Information Technology Gov. M. Cuenco Ave, Cebu City, 6000 Cebu"
+    ],
+    [
+      "2016 - 2022",
+      "Secondary Education | University of Cebu, Lapu-Lapu Mandaue Campus, Cebu City, 6000 Cebu"
+    ],
+    [
+      "2010 - 2016",
+      "Elementary Education St. Joseph’s Academy"
+    ]
+  ]
+]

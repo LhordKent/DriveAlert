@@ -53,6 +53,7 @@ import com.lhordkent.drivealert.monitoring.SceneBrightnessTracker
 import com.lhordkent.drivealert.monitoring.FaceLightingAssessment
 import com.lhordkent.drivealert.monitoring.FaceLightingTracker
 import com.lhordkent.drivealert.monitoring.lightingVisibilityIssue
+import com.lhordkent.drivealert.monitoring.monitoringVisibilityIssue
 import com.lhordkent.drivealert.monitoring.declaredIssue
 import com.lhordkent.drivealert.monitoring.VisibilityIssue
 import com.lhordkent.drivealert.monitoring.VisibilityOutputCommand
@@ -116,7 +117,11 @@ data class DriverVisionUiState(
     val smoothedLuminance: Double? = null,
     val lighting: FaceLightingAssessment = FaceLightingAssessment(),
     val errorMessage: String? = null,
-)
+) {
+    val insufficientLighting: Boolean get() = streamState == StreamConnectionState.CONNECTED &&
+        lightingVisibilityIssue(driverTracking.locked, lighting, lowLight == true, driverTracking.detectedFaceCount) ==
+        VisibilityIssue.INSUFFICIENT_LIGHTING
+}
 
 class DriverVisionRuntime @JvmOverloads constructor(
     private val application: Application,
@@ -181,6 +186,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         return try { block() } finally { outputRequestsInFlight-- }
     }
     private val lightingTracker = FaceLightingTracker()
+    private var lastLightingDiagnosticTimestampMs: Long? = null
     private val regionStore = DriverRegionStore()
     private var regionKey: String? = null
     private var savedRegion: SavedDriverRegion? = null
@@ -217,6 +223,13 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 mutableState.update { it.copy(driverTracking = tracking) }
                 // Serialize quality, engine and session decisions on the runtime's main scope.
                 val lighting = lightingTracker.update(elapsedClock(), lightingSample?.takeIf { it.timestampMs >= observationCutoffMs })
+                if (BuildConfig.DEBUG && lightingSample != null && lightingSample.timestampMs != lastLightingDiagnosticTimestampMs) {
+                    lastLightingDiagnosticTimestampMs = lightingSample.timestampMs
+                    Log.d("DriveAlertLighting", "faceL=%.1f faceC=%.1f quality=%s recovering=%s locked=%s age=%dms".format(
+                        lightingSample.luminance, lightingSample.contrast, lighting.quality, lighting.recovering,
+                        tracking.locked, elapsedClock() - lightingSample.timestampMs,
+                    ))
+                }
                 if (BuildConfig.DEBUG && lighting.quality != mutableState.value.lighting.quality) {
                     Log.d("DriverFaceLock", "lighting=${lighting.quality} target=${tracking.generation}")
                 }
@@ -849,23 +862,14 @@ class DriverVisionRuntime @JvmOverloads constructor(
             com.lhordkent.drivealert.detection.calibration.completedCalibrationStep(mutableState.value.calibrationProgress, result.calibration)
         val calibrationCompleted = mutableState.value.calibrationInProgress && result.calibration.status == CalibrationStatus.COMPLETE
         val regionalVisibility = effectiveRegionalVisibility(faceAttributes)
-        val lightingIssue = lightingVisibilityIssue(
-            result.faceDetected, lighting,
+        val observedVisibilityIssue = if (monitoringController.state.isActive) monitoringVisibilityIssue(
+            faceDetected = result.faceDetected, lighting = lighting,
             sceneDark = mutableState.value.lowLight == true &&
                 lastBrightnessTimestampMs?.let { elapsedClock() - it in 0L..CAMERA_READING_STALE_MS } == true,
-        )
-        val observedVisibilityIssue = if (monitoringController.state.isActive) {
-            when {
-                !mutableState.value.alignmentConfirmed || !mutableState.value.driverTracking.locked -> VisibilityIssue.FACE_UNAVAILABLE
-                lightingIssue != null -> lightingIssue
-                !lighting.allowsAssessment(elapsedClock()) -> null
-                regionalVisibility.lowerFaceObstructed && regionalVisibility.eyeRegionObstructed ->
-                    VisibilityIssue.BOTH_REGIONS_OBSTRUCTED
-                regionalVisibility.eyeRegionObstructed -> VisibilityIssue.EYE_REGION_OBSTRUCTED
-                regionalVisibility.lowerFaceObstructed -> VisibilityIssue.LOWER_FACE_OBSTRUCTED
-                else -> null
-            }
-        } else null
+            tracking = mutableState.value.driverTracking,
+            alignmentConfirmed = mutableState.value.alignmentConfirmed,
+            regionalVisibility = regionalVisibility,
+        ) else null
         val visibilityEffects = if (monitoringController.state.isActive) {
             visibilityAlertController.update(result.timestampMs, observedVisibilityIssue)
         } else emptyList()

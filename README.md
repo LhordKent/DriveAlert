@@ -4,6 +4,14 @@ DriveAlert is a native Android application built with Kotlin and Jetpack Compose
 
 The free Firestore connection-code workflow is implemented and documented in [CONNECTION_CODE_PLAN.md](CONNECTION_CODE_PLAN.md). It works without Cloud Functions or the Blaze plan.
 
+## Email verification
+
+Android and web email/password accounts must verify inbox ownership before entering DriveAlert. Signup sends a Firebase verification link; the verification screen supports checking status, resending with a cooldown, correcting the address through a new verification link, and signing out. Existing unverified accounts must verify too.
+
+An unverified Firebase Auth record can exist, but profile creation, connection codes, protected data access, and authenticated notification endpoints stay blocked until verification. Pending signup details are saved locally without passwords and completed after verification. Already verified Android users can continue restoring their sessions offline.
+
+Roll out the updated Firestore rules, notification worker, web build, and Android APK together. Building or testing does not deploy these changes or install the APK. Android instrumentation tests require installation and are intentionally only compiled when installation is deferred.
+
 ## Transfer this project to another computer
 
 On the laptop:

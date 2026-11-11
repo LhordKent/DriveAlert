@@ -8,7 +8,7 @@ import { AccountPage } from '../../src/features/account/AccountPage'
 import { portalValue } from '../testData'
 
 it('shows editable profile data and copies the connection code', async () => {
-  render(<MemoryRouter><AuthContext.Provider value={{ user: { email: 'mara@example.com' } as never, loading: false }}><PortalContext.Provider value={portalValue()}><AccountPage /></PortalContext.Provider></AuthContext.Provider></MemoryRouter>)
+  render(<MemoryRouter><AuthContext.Provider value={{ user: { email: 'mara@example.com' } as never, loading: false, verified: true, refreshVerification: async () => {} }}><PortalContext.Provider value={portalValue()}><AccountPage /></PortalContext.Provider></AuthContext.Provider></MemoryRouter>)
   expect(screen.getByText('Mara Santos')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /edit profile/i })).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: /copy code/i }))

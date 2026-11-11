@@ -18,7 +18,8 @@ import {
 import { PortalContext, type LoadStatus, type PortalContextValue } from './portalContext'
 
 export function PortalProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user: account, verified } = useAuth()
+  const user = verified ? account : null
   const history = useHistoryRetention(user?.uid)
   const [connectionOwner, setConnectionOwner] = useState(user?.uid)
   const [profile, setProfile] = useState<UserProfile | null>(null)

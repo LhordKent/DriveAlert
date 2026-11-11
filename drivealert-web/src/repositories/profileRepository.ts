@@ -29,6 +29,8 @@ export const profileRepository = {
         await runTransaction(firestore, async (transaction) => {
           const profileRef = doc(firestore, 'users', uid)
           const codeRef = doc(firestore, 'connectionCodes', connectionCode)
+          const existingProfile = await transaction.get(profileRef)
+          if (existingProfile.exists()) return
           const codeSnapshot = await transaction.get(codeRef)
           if (codeSnapshot.exists()) throw new PortalError('conflict', 'connection-code-collision')
 

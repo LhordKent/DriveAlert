@@ -5,17 +5,112 @@ import org.junit.Test
 
 class FaceLightingTrackerTest {
     @Test
-    fun `unknown and initial borderline lighting never enable assessment`() {
+    fun `covered dark camera chooses lighting instead of missing driver`() {
+        val lost = com.lhordkent.drivealert.detection.face.DriverTrackingState(
+            status = com.lhordkent.drivealert.detection.face.DriverTrackingStatus.LOST, detectedFaceCount = 0)
+        assertEquals(VisibilityIssue.INSUFFICIENT_LIGHTING, monitoringVisibilityIssue(false, FaceLightingAssessment(),
+            true, lost, true, com.lhordkent.drivealert.detection.model.RegionalVisibility()))
+        assertEquals(VisibilityIssue.FACE_UNAVAILABLE, monitoringVisibilityIssue(false, FaceLightingAssessment(),
+            false, lost, true, com.lhordkent.drivealert.detection.model.RegionalVisibility()))
+    }
+
+    @Test
+    fun `an out of area face or ambiguity cannot be mislabeled darkness`() {
+        for (count in listOf(1, 4)) {
+            val tracking = com.lhordkent.drivealert.detection.face.DriverTrackingState(
+                status = com.lhordkent.drivealert.detection.face.DriverTrackingStatus.LOST, detectedFaceCount = count)
+            assertEquals(VisibilityIssue.FACE_UNAVAILABLE, monitoringVisibilityIssue(false, FaceLightingAssessment(),
+                true, tracking, true, com.lhordkent.drivealert.detection.model.RegionalVisibility()))
+        }
+    }
+
+    @Test
+    fun `setup detects covered camera without requiring face lighting samples or alignment`() {
+        val state = com.lhordkent.drivealert.detection.DriverVisionUiState(
+            streamState = com.lhordkent.drivealert.detection.frame.StreamConnectionState.CONNECTED,
+            lowLight = true,
+            driverTracking = com.lhordkent.drivealert.detection.face.DriverTrackingState(
+                status = com.lhordkent.drivealert.detection.face.DriverTrackingStatus.LOST, detectedFaceCount = 0))
+        assertTrue(state.insufficientLighting)
+        assertFalse(state.copy(streamState = com.lhordkent.drivealert.detection.frame.StreamConnectionState.RECONNECTING).insufficientLighting)
+        assertFalse(state.copy(lowLight = false).insufficientLighting)
+    }
+
+    @Test
+    fun `every fresh sample resolves to usable or insufficient with no threshold gap`() {
+        for (luminance in listOf(0.0, 24.9, 25.0, 35.5, 44.9, 45.0, 100.0)) {
+            for (contrast in listOf(0.0, 19.9, 20.0, 24.0, 255.0)) {
+                val tracker = FaceLightingTracker()
+                var result = FaceLightingAssessment()
+                for (time in 0L..2_000L step 500) result = tracker.update(time, sample(time, luminance, contrast))
+                val expected = if (luminance < 25.0 || luminance < 45.0 && contrast < 20.0)
+                    LightingQuality.INSUFFICIENT else LightingQuality.USABLE
+                assertEquals("L=$luminance C=$contrast", expected, result.quality)
+            }
+        }
+    }
+
+    @Test
+    fun `recorded dim camera readings become usable after two seconds instead of waiting forever`() {
+        val tracker = FaceLightingTracker()
+        // Captured from the connected TECNO/ESP32-CAM while the face was locked.
+        val readings = listOf(50.7 to 34.0, 49.6 to 38.0, 50.4 to 37.0, 52.1 to 37.0,
+            49.2 to 38.0, 51.5 to 38.0, 53.1 to 35.0, 49.6 to 37.0, 45.0 to 34.0,
+            47.6 to 34.0, 48.8 to 33.0)
+        readings.forEachIndexed { index, (luminance, contrast) ->
+            val time = index * 200L
+            val assessment = tracker.update(time + 380, sample(time, luminance, contrast))
+            if (time < 2_000) {
+                assertTrue(assessment.recovering)
+                assertFalse(assessment.allowsAssessment(time + 380))
+            } else {
+                assertEquals(LightingQuality.USABLE, assessment.quality)
+                assertTrue(assessment.allowsAssessment(time + 380))
+            }
+        }
+    }
+
+    @Test
+    fun `deep darkness still pauses immediately after admitting the dim camera trace`() {
+        val tracker = FaceLightingTracker()
+        for (time in 0L..2_000L step 200) tracker.update(time, sample(time, 48.0, 33.0))
+        val dark = tracker.update(2_200, sample(2_200, 20.0, 15.0))
+        assertEquals(LightingQuality.INSUFFICIENT, dark.quality)
+        assertFalse(dark.allowsAssessment(2_200))
+        assertEquals("Insufficient lighting", dark.statusLabel)
+    }
+
+    @Test
+    fun `captured brightness 35 point 5 and contrast 24 become usable without a third lighting state`() {
+        val tracker = FaceLightingTracker()
+        for (time in 0L..10_000L step 200) {
+            val assessment = tracker.update(time, sample(time, 35.5, 24.0))
+            if (time < 2_000) {
+                assertEquals("Checking lighting", assessment.statusLabel)
+                assertFalse(assessment.allowsAssessment(time))
+            } else {
+                assertEquals("Usable", assessment.statusLabel)
+                assertTrue(assessment.allowsAssessment(time))
+            }
+        }
+        assertEquals("Waiting for lighting sample", tracker.update(10_200, null).statusLabel)
+    }
+
+    @Test
+    fun `missing samples and initial recovery never enable assessment`() {
         val tracker = FaceLightingTracker()
         assertFalse(tracker.update(0, null).allowsAssessment(0))
-        assertEquals(LightingQuality.UNKNOWN, tracker.update(200, sample(200, 45.0, 30.0)).quality)
+        val checking = tracker.update(200, sample(200, 30.0, 22.0))
+        assertEquals(LightingQuality.UNKNOWN, checking.quality)
+        assertEquals("Checking lighting", checking.statusLabel)
+        assertFalse(checking.allowsAssessment(200))
     }
 
     @Test
     fun `poor threshold boundaries and high contrast dim lighting`() {
         assertEquals(LightingQuality.INSUFFICIENT, FaceLightingTracker().update(0, sample(0, 24.9, 100.0)).quality)
-        assertEquals(LightingQuality.INSUFFICIENT, FaceLightingTracker().update(0, sample(0, 44.9, 29.9)).quality)
-        assertEquals(LightingQuality.UNKNOWN, FaceLightingTracker().update(0, sample(0, 25.0, 30.0)).quality)
+        assertEquals(LightingQuality.INSUFFICIENT, FaceLightingTracker().update(0, sample(0, 44.9, 19.9)).quality)
+        assertTrue(FaceLightingTracker().update(0, sample(0, 25.0, 20.0)).recovering)
         val tracker = FaceLightingTracker()
         for (time in 0L..2_000L step 200L) tracker.update(time, sample(time, 35.0, 40.0))
         assertTrue(tracker.update(2_000, sample(2_000, 35.0, 40.0)).allowsAssessment(2_000))
@@ -36,16 +131,16 @@ class FaceLightingTrackerTest {
     }
 
     @Test
-    fun `borderline readings hold usable state but interrupt recovery from darkness`() {
+    fun `all nonpoor readings count continuously toward recovery from darkness`() {
         val tracker = readyTracker()
-        assertTrue(tracker.update(2_200, sample(2_200, 50.0, 35.0)).allowsAssessment(2_200))
+        assertTrue(tracker.update(2_200, sample(2_200, 30.0, 22.0)).allowsAssessment(2_200))
         tracker.update(2_400, sample(2_400, 20.0, 0.0))
         tracker.update(2_600, sample(2_600))
-        val borderline = tracker.update(2_800, sample(2_800, 50.0, 35.0))
-        assertFalse(borderline.recovering)
-        assertEquals(LightingQuality.INSUFFICIENT, borderline.quality)
-        for (time in 3_000L..4_800L step 200L) assertFalse(tracker.update(time, sample(time)).allowsAssessment(time))
-        assertTrue(tracker.update(5_000, sample(5_000)).allowsAssessment(5_000))
+        val recovering = tracker.update(2_800, sample(2_800, 30.0, 22.0))
+        assertTrue(recovering.recovering)
+        assertEquals(LightingQuality.INSUFFICIENT, recovering.quality)
+        for (time in 3_000L..4_400L step 200L) assertFalse(tracker.update(time, sample(time)).allowsAssessment(time))
+        assertTrue(tracker.update(4_600, sample(4_600)).allowsAssessment(4_600))
     }
 
     @Test
@@ -86,11 +181,11 @@ class FaceLightingTrackerTest {
         }
     }
 
-    @Test fun `dark or borderline pixels after a sample gap cannot use the quick resume path`() {
-        for (luminance in listOf(20.0, 50.0)) {
+    @Test fun `insufficient pixels after a sample gap cannot use the quick resume path`() {
+        for ((luminance, contrast) in listOf(20.0 to 35.0, 40.0 to 10.0)) {
             val tracker = readyTracker()
             tracker.update(2_200, null)
-            assertFalse(tracker.update(2_400, sample(2_400, luminance, 35.0)).allowsAssessment(2_400))
+            assertFalse(tracker.update(2_400, sample(2_400, luminance, contrast)).allowsAssessment(2_400))
             for (time in 2_600L..4_400L step 200) assertFalse(tracker.update(time, sample(time)).allowsAssessment(time))
             assertTrue(tracker.update(4_600, sample(4_600)).allowsAssessment(4_600))
         }

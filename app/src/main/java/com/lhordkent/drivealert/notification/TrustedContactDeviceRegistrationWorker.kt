@@ -16,7 +16,7 @@ class TrustedContactDeviceRegistrationWorker(
     parameters: WorkerParameters,
 ) : CoroutineWorker(appContext, parameters) {
     override suspend fun doWork(): Result {
-        if (FirebaseAuth.getInstance().currentUser == null) return Result.success()
+        if (FirebaseAuth.getInstance().currentUser?.isEmailVerified != true) return Result.success()
         val application = applicationContext as DriveAlertApplication
         if (!application.container.trustedContactDeviceRegistrar.isConfigured) return Result.success()
         return if (runCatching {

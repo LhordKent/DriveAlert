@@ -6,7 +6,6 @@ import { AuthLayout } from './AuthLayout'
 import { FormField } from './FormField'
 import { registrationSchema, type RegistrationValues } from './schemas'
 import { authRepository } from '../../repositories/authRepository'
-import { profileRepository } from '../../repositories/profileRepository'
 import { Button } from '../../components/Button'
 import { InlineError } from '../../components/PageState'
 
@@ -16,8 +15,7 @@ export function RegisterPage() {
   const submit = handleSubmit(async (values) => {
     setServerError('')
     try {
-      const user = await authRepository.register(values)
-      await profileRepository.createTrustedContact(user.uid, values)
+      await authRepository.register(values)
     } catch (error) {
       setServerError(error instanceof Error ? error.message : 'Your account could not be created. Please try again.')
     }

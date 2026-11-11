@@ -20,6 +20,23 @@ class AuthFlowTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun unverifiedSessionShowsVerificationInsteadOfAppNavigation() {
+        var checks = 0
+        composeRule.setContent {
+            DriveAlertTheme {
+                DriveAlertApp(
+                    callbacks = AuthCallbacks(onCheckVerification = { checks++ }),
+                    sessionState = AuthSessionState(isResolving = false, verificationEmail = "pending@gmail.com"),
+                )
+            }
+        }
+        composeRule.onNodeWithText("Verify your email").assertIsDisplayed()
+        composeRule.onNodeWithText("I've verified my email").performClick()
+        composeRule.runOnIdle { assertEquals(1, checks) }
+        composeRule.onNodeWithText("Choose your view").assertDoesNotExist()
+    }
+
+    @Test
     fun navigationConnectsAllFourScreens() {
         launch()
 

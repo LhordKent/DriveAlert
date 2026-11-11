@@ -9,7 +9,7 @@ import { profileRepository } from '../../src/repositories/profileRepository'
 vi.mock('../../src/repositories/authRepository', () => ({ authRepository: { register: vi.fn(), signIn: vi.fn(), resetPassword: vi.fn(), observe: vi.fn(), logout: vi.fn() } }))
 vi.mock('../../src/repositories/profileRepository', () => ({ profileRepository: { createTrustedContact: vi.fn(), observe: vi.fn() } }))
 
-it('creates Firebase identity then a Trusted Contact profile', async () => {
+it('creates the identity and defers the profile until verification', async () => {
   vi.mocked(authRepository.register).mockResolvedValue({ uid: 'trusted-new' } as never)
   vi.mocked(profileRepository.createTrustedContact).mockResolvedValue()
   render(<MemoryRouter><RegisterPage /></MemoryRouter>)
@@ -20,5 +20,5 @@ it('creates Firebase identity then a Trusted Contact profile', async () => {
   await userEvent.type(screen.getByLabelText('Confirm password'), 'Password123!')
   await userEvent.click(screen.getByRole('button', { name: /create account/i }))
   expect(authRepository.register).toHaveBeenCalled()
-  expect(profileRepository.createTrustedContact).toHaveBeenCalledWith('trusted-new', expect.objectContaining({ firstName: 'Mara', lastName: 'Santos' }))
+  expect(profileRepository.createTrustedContact).not.toHaveBeenCalled()
 })

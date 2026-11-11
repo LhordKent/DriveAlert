@@ -742,7 +742,11 @@ internal fun PostAuthUiState.withDriverConnections(
 internal fun PostAuthUiState.withTrustedConnections(
     connections: List<TrustedContactConnection>,
 ): PostAuthUiState {
-    val drivers = connections.filter { it.status == ConnectionStatus.APPROVED }.map { connection ->
+    // A local approval snapshot can precede the server timestamp. Querying with a guessed
+    // approval time is rejected by Firestore and leaves the shared-record listener failed.
+    val drivers = connections.filter {
+        it.status == ConnectionStatus.APPROVED && it.approvedAtEpochMillis != null
+    }.map { connection ->
         val previous = connectedDrivers.firstOrNull { it.id == connection.driverUserId }
         ConnectedDriver(
             id = connection.driverUserId,

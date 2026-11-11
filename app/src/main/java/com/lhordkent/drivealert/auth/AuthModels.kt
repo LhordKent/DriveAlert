@@ -22,6 +22,9 @@ data class AuthCallbacks(
     val onSignUp: (input: SignUpInput) -> Unit = {},
     val onResetPassword: (email: String) -> Unit = {},
     val onSignOut: () -> Unit = {},
+    val onCheckVerification: () -> Unit = {},
+    val onResendVerification: () -> Unit = {},
+    val onChangeVerificationEmail: (String) -> Unit = {},
 )
 
 data class AuthOperationState(
@@ -42,6 +45,7 @@ data class AuthSessionState(
     val isResolving: Boolean = true,
     val user: AuthenticatedUser? = null,
     val entry: AuthenticationEntry = AuthenticationEntry.NONE,
+    val verificationEmail: String? = null,
 )
 
 object AuthValidation {

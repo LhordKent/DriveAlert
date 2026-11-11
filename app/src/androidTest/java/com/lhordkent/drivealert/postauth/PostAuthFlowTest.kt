@@ -38,7 +38,7 @@ class PostAuthFlowTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun freshAuthenticationRequiresLiveCalibrationBeforeMonitoring() {
+    fun newAccountStaysOnHomeAfterSetupAndCannotBypassMonitoringRequirements() {
         launchSignedIn(AuthenticationEntry.ACCOUNT_CREATED)
 
         composeRule.onNodeWithText("Choose your view").assertIsDisplayed()
@@ -51,9 +51,11 @@ class PostAuthFlowTest {
         composeRule.onNodeWithText("Personalized calibration").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("Continue to Home").performScrollTo().performClick()
-        composeRule.onNodeWithText("Setup needed").assertIsDisplayed()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Setup needed").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Choose your view").assertDoesNotExist()
         composeRule.onNodeWithText("Start Monitoring").performScrollTo().performClick()
-        composeRule.onNodeWithText("Personalized calibration").assertIsDisplayed()
+        composeRule.onNodeWithText("Connect your DriveAlert camera").assertIsDisplayed()
     }
 
     @Test
@@ -75,8 +77,8 @@ class PostAuthFlowTest {
             MonitoringScenario.NORMAL to "Monitoring active",
             MonitoringScenario.EYE_UNAVAILABLE to "Eye monitoring is unavailable",
             MonitoringScenario.YAWNING_UNAVAILABLE to "Yawning monitoring is unavailable",
-            MonitoringScenario.EYE_AND_YAWNING_UNAVAILABLE to "Insufficient facial information is available",
-            MonitoringScenario.FACE_TRACKING_UNAVAILABLE to "Face tracking is unavailable",
+            MonitoringScenario.EYE_AND_YAWNING_UNAVAILABLE to "Two or more monitoring signs are unavailable",
+            MonitoringScenario.FACE_TRACKING_UNAVAILABLE to "Face not visible. Check camera position",
         )
         val selected = mutableStateOf(MonitoringScenario.NORMAL)
         composeRule.setContent {
@@ -90,7 +92,7 @@ class PostAuthFlowTest {
         }
         expected.forEach { (scenario, text) ->
             composeRule.runOnIdle { selected.value = scenario }
-            composeRule.onNodeWithText(text, substring = true).assertIsDisplayed()
+            composeRule.onNodeWithText(text, substring = true).performScrollTo().assertIsDisplayed()
         }
     }
 
@@ -141,6 +143,7 @@ class PostAuthFlowTest {
                     vision = DriverVisionUiState(
                         streamState = StreamConnectionState.CONNECTED,
                         activeCalibration = calibration,
+                        alignmentConfirmed = true,
                         monitoring = ActiveMonitoringState(isActive = active.value),
                     ),
                     onStartMonitoring = { selected -> accessoryMode = selected; startCount++; active.value = true },

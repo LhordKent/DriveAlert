@@ -92,10 +92,17 @@ class VisibilityAlertController(
         }
         recoveryStartedAtMs = null
         if (issue != activeIssue) {
+            val sameVisibilityLoss = when (activeIssue) {
+                VisibilityIssue.FACE_UNAVAILABLE -> issue == VisibilityIssue.INSUFFICIENT_LIGHTING
+                VisibilityIssue.INSUFFICIENT_LIGHTING -> issue == VisibilityIssue.FACE_UNAVAILABLE
+                else -> false
+            }
             activeIssue = issue
-            candidateStartedAtMs = timestampMs
-            notified = false
-            lastNotifiedAtMs = null
+            if (!sameVisibilityLoss) {
+                candidateStartedAtMs = timestampMs
+                notified = false
+                lastNotifiedAtMs = null
+            }
         }
         val requiredDelay = when (issue) {
             VisibilityIssue.LOWER_FACE_OBSTRUCTED -> lowerFaceDelayMs

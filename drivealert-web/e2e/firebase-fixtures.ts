@@ -1,9 +1,10 @@
 import { deleteApp, getApps, initializeApp } from 'firebase/app'
-import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth } from 'firebase/auth'
+import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, reload } from 'firebase/auth'
 import { connectFirestoreEmulator, doc, getFirestore, serverTimestamp, setDoc } from 'firebase/firestore'
 
 const PROJECT_ID = 'drivealert-lhordkent'
 const FIRESTORE_ADDRESS = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'
+const AUTH_ADDRESS = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099'
 let clientCounter = 0
 
 export interface EmulatorUser {
@@ -18,7 +19,7 @@ export interface EmulatorUser {
 export async function clearEmulators() {
   await Promise.all([
     fetch(`http://${FIRESTORE_ADDRESS}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`, { method: 'DELETE' }),
-    fetch(`http://127.0.0.1:9099/emulator/v1/projects/${PROJECT_ID}/accounts`, { method: 'DELETE' }),
+    fetch(`http://${AUTH_ADDRESS}/emulator/v1/projects/${PROJECT_ID}/accounts`, { method: 'DELETE' }),
   ])
 }
 
@@ -30,12 +31,19 @@ export async function createEmulatorUser(name: string, role: 'DRIVER' | 'TRUSTED
   const index = ++clientCounter
   const app = initializeApp({ projectId: PROJECT_ID, apiKey: 'demo-key', appId: `e2e-${index}` }, `e2e-${index}`)
   const auth = getAuth(app)
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  connectAuthEmulator(auth, `http://${AUTH_ADDRESS}`, { disableWarnings: true })
   const firestore = getFirestore(app)
   connectFirestoreEmulator(firestore, '127.0.0.1', Number(FIRESTORE_ADDRESS.split(':').at(-1)))
   const email = `${name.toLowerCase()}-${index}@example.com`
   const password = 'Password123!'
   const credential = await createUserWithEmailAndPassword(auth, email, password)
+  const response = await fetch(`http://${AUTH_ADDRESS}/identitytoolkit.googleapis.com/v1/accounts:update`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ localId: credential.user.uid, emailVerified: true }),
+  })
+  if (!response.ok) throw new Error('Unable to verify fixture account')
+  await reload(credential.user)
+  await credential.user.getIdToken(true)
   const fullName = `${name} Tester`
   await setDoc(doc(firestore, 'users', credential.user.uid), {
     uid: credential.user.uid,

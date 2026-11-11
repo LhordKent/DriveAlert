@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { doc, getDocFromServer } from 'firebase/firestore'
 import {
   addStageRecord,
   approveTrustedRequest,
@@ -63,6 +64,14 @@ test('accepts a Driver, opens and reloads shared alert detail, then disconnects'
   await expect(page.getByRole('alertdialog')).toBeVisible()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Disconnect', exact: true }).click()
   await expect(page.getByText('No connected Drivers')).toBeVisible()
+  // The list updates optimistically; verify the revocation reached the server before reloading.
+  await expect.poll(async () => {
+    const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'
+    const response = await fetch(`http://${host}/v1/projects/drivealert-lhordkent/databases/(default)/documents/trustedContactConnections/${relationshipId(driver, trusted)}`, { headers: { Authorization: 'Bearer owner' } })
+    const document = await response.json() as { fields?: { status?: { stringValue?: string } } }
+    return document.fields?.status?.stringValue
+  }).toBe('REVOKED')
+  await expect(getDocFromServer(doc(trusted.firestore, 'users', driver.uid, 'stageSyncRecords', 'stage-record-1'))).rejects.toMatchObject({ code: 'permission-denied' })
   await page.goto(`/drivers/${driver.uid}/records/stage-record-1`)
   await expect(page.getByRole('heading', { name: 'Record unavailable' })).toBeVisible()
 })

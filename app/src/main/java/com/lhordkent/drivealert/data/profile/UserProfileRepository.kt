@@ -47,7 +47,10 @@ class FirestoreUserProfileRepository(
         )
         profile.middleName?.takeIf(String::isNotBlank)?.let { values["middleName"] = it }
         profile.phoneNumber?.takeIf(String::isNotBlank)?.let { values["phoneNumber"] = it }
-        users.document(profile.uid).set(values, SetOptions.merge()).await()
+        firestore.runTransaction { transaction ->
+            val reference = users.document(profile.uid)
+            if (!transaction.get(reference).exists()) transaction.set(reference, values)
+        }.await()
         ensureProfile(profile.uid, profile.firstName + " " + profile.lastName, profile.email)
     }
 

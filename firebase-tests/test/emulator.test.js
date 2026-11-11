@@ -18,6 +18,7 @@ const {
 
 const PROJECT_ID = "drivealert-lhordkent";
 let appCounter = 0;
+const { verifyEmail } = require("./verify-email");
 const FIRESTORE_ADDRESS = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
 const AUTH_ADDRESS = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
 
@@ -34,6 +35,7 @@ async function createClient(name, code) {
   connectFirestoreEmulator(firestore, FIRESTORE_ADDRESS.split(":")[0], Number(FIRESTORE_ADDRESS.split(":")[1]));
   const email = `${name.toLowerCase()}@example.com`;
   const credential = await createUserWithEmailAndPassword(auth, email, "Password123!");
+  await verifyEmail(auth, credential.user);
   await setDoc(doc(firestore, "users", credential.user.uid), {
     uid: credential.user.uid,
     firstName: name,

@@ -1,5 +1,8 @@
 package com.lhordkent.drivealert.monitoring
 
+import com.lhordkent.drivealert.detection.face.DriverTrackingState
+import com.lhordkent.drivealert.detection.model.RegionalVisibility
+
 enum class LightingQuality { UNKNOWN, USABLE, INSUFFICIENT }
 
 data class FaceLightingSample(val timestampMs: Long, val luminance: Double, val contrast: Double)
@@ -11,6 +14,13 @@ data class FaceLightingAssessment(
     val contrast: Double? = null,
     val recovering: Boolean = false,
 ) {
+    val statusLabel: String get() = when {
+        recovering -> "Checking lighting"
+        quality == LightingQuality.USABLE -> "Usable"
+        quality == LightingQuality.INSUFFICIENT -> "Insufficient lighting"
+        else -> "Waiting for lighting sample"
+    }
+
     fun allowsAssessment(nowMs: Long): Boolean = quality == LightingQuality.USABLE &&
         timestampMs?.let { nowMs - it in 0L..FRESHNESS_MS } == true
 
@@ -23,10 +33,9 @@ data class FaceLightingAssessment(
 class FaceLightingTracker(
     private val severeDarkThreshold: Double = 25.0,
     private val darkThreshold: Double = 45.0,
-    private val poorContrastThreshold: Double = 30.0,
-    private val brightThreshold: Double = 55.0,
-    private val usableDarkThreshold: Double = 35.0,
-    private val usableContrastThreshold: Double = 40.0,
+    // One binary threshold: all fresh samples not classified poor can establish
+    // usability. Separate admission/release thresholds previously left a dead zone.
+    private val poorContrastThreshold: Double = 20.0,
     private val recoveryMs: Long = 2_000L,
     private val resumeWindowMs: Long = 2_000L,
 ) {
@@ -51,8 +60,7 @@ class FaceLightingTracker(
 
         val poor = sample.luminance < severeDarkThreshold ||
             sample.luminance < darkThreshold && sample.contrast < poorContrastThreshold
-        val usable = sample.luminance >= brightThreshold ||
-            sample.luminance >= usableDarkThreshold && sample.contrast >= usableContrastThreshold
+        val usable = !poor
         val gap = previousTimestamp?.let { sample.timestampMs - it }
         if (interrupted || gap != null && gap > FaceLightingAssessment.FRESHNESS_MS) {
             val canResume = latest.quality == LightingQuality.USABLE && usable && gap != null && gap <= resumeWindowMs
@@ -70,7 +78,6 @@ class FaceLightingTracker(
                 val since = usableSinceMs ?: sample.timestampMs.also { usableSinceMs = it }
                 if (sample.timestampMs - since >= recoveryMs) quality = LightingQuality.USABLE
             }
-            else -> usableSinceMs = null // Borderline pixels retain the decision but cannot establish recovery.
         }
         latest = FaceLightingAssessment(
             sample.timestampMs, quality, sample.luminance, sample.contrast,
@@ -91,9 +98,34 @@ fun lightingVisibilityIssue(
     faceDetected: Boolean,
     lighting: FaceLightingAssessment,
     sceneDark: Boolean,
+    detectedFaceCount: Int = if (faceDetected) 1 else 0,
 ): VisibilityIssue? = when {
-    !faceDetected && sceneDark -> VisibilityIssue.INSUFFICIENT_LIGHTING
+    !faceDetected && detectedFaceCount == 0 && sceneDark -> VisibilityIssue.INSUFFICIENT_LIGHTING
     !faceDetected -> VisibilityIssue.FACE_UNAVAILABLE
     lighting.quality == LightingQuality.INSUFFICIENT && !lighting.recovering -> VisibilityIssue.INSUFFICIENT_LIGHTING
     else -> null
+}
+
+/** Resolve one issue for a frame; darkness can explain a missing driver, but a
+ * passenger/out-of-area face must not turn association loss into a light claim. */
+fun monitoringVisibilityIssue(
+    faceDetected: Boolean,
+    lighting: FaceLightingAssessment,
+    sceneDark: Boolean,
+    tracking: DriverTrackingState,
+    alignmentConfirmed: Boolean,
+    regionalVisibility: RegionalVisibility,
+): VisibilityIssue? {
+    val lightingIssue = lightingVisibilityIssue(faceDetected, lighting, sceneDark, tracking.detectedFaceCount)
+    return when {
+        !alignmentConfirmed -> VisibilityIssue.FACE_UNAVAILABLE
+        lightingIssue == VisibilityIssue.INSUFFICIENT_LIGHTING -> lightingIssue
+        !tracking.locked -> VisibilityIssue.FACE_UNAVAILABLE
+        lightingIssue != null -> lightingIssue
+        lighting.quality != LightingQuality.USABLE -> null
+        regionalVisibility.lowerFaceObstructed && regionalVisibility.eyeRegionObstructed -> VisibilityIssue.BOTH_REGIONS_OBSTRUCTED
+        regionalVisibility.eyeRegionObstructed -> VisibilityIssue.EYE_REGION_OBSTRUCTED
+        regionalVisibility.lowerFaceObstructed -> VisibilityIssue.LOWER_FACE_OBSTRUCTED
+        else -> null
+    }
 }

@@ -36,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -176,6 +177,9 @@ fun DriveAlertApp() {
         factory = AuthViewModelFactory(
             application.container.userProfileRepository,
             application.container.trustedContactDeviceRegistrar,
+            com.lhordkent.drivealert.auth.PendingRegistrationStore(
+                application.getSharedPreferences("pending_registration", android.content.Context.MODE_PRIVATE),
+            ),
         ),
     )
     val postAuthViewModel: PostAuthViewModel = viewModel(
@@ -411,10 +415,17 @@ fun DriveAlertApp(
         return
     }
 
+    if (sessionState.verificationEmail != null) {
+        com.lhordkent.drivealert.ui.auth.VerifyEmailScreen(sessionState.verificationEmail, callbacks, operationState)
+        return
+    }
     val navController = rememberNavController()
     val user = sessionState.user
+    var accountCreationNavigationHandled by rememberSaveable(user?.uid, sessionState.entry) { mutableStateOf(false) }
 
     LaunchedEffect(user?.uid, sessionState.entry, postAuthState.userRole, postAuthState.isProfileLoading, postAuthState.driverSetupComplete) {
+        // Profile/setup updates must not reopen role choice after the new account has entered the app.
+        if (sessionState.entry == AuthenticationEntry.ACCOUNT_CREATED && accountCreationNavigationHandled) return@LaunchedEffect
         if (user == null) {
             navController.navigate(AuthRoutes.STARTER) {
                 popUpTo(navController.graph.id) { inclusive = true }
@@ -428,10 +439,13 @@ fun DriveAlertApp(
                 AuthenticationEntry.FRESH, AuthenticationEntry.RESTORED, AuthenticationEntry.NONE ->
                     if (postAuthState.isProfileLoading) null else restoredRoleDestination(postAuthState.userRole, postAuthState.driverSetupComplete)
             }
-            destination?.let { navController.navigate(it) {
-                popUpTo(navController.graph.id) { inclusive = true }
-                launchSingleTop = true
-            } }
+            destination?.let {
+                navController.navigate(it) {
+                    popUpTo(navController.graph.id) { inclusive = true }
+                    launchSingleTop = true
+                }
+                if (sessionState.entry == AuthenticationEntry.ACCOUNT_CREATED) accountCreationNavigationHandled = true
+            }
         }
     }
 

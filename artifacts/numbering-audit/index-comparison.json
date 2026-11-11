@@ -1,0 +1,778 @@
+[
+  [
+    "Table",
+    "1",
+    "Comparative Matrix",
+    "33",
+    33,
+    41
+  ],
+  [
+    "Table",
+    "2",
+    "Comparative Matrix Summary",
+    "36",
+    36,
+    44
+  ],
+  [
+    "Table",
+    "3",
+    "Agile Sprint Plan",
+    "40",
+    40,
+    48
+  ],
+  [
+    "Table",
+    "4",
+    "Business Model Canvas",
+    "45",
+    45,
+    53
+  ],
+  [
+    "Table",
+    "5",
+    "Validation Board",
+    "50",
+    50,
+    58
+  ],
+  [
+    "Table",
+    "6",
+    "Gantt Chart",
+    "53",
+    53,
+    61
+  ],
+  [
+    "Table",
+    "7",
+    "User",
+    "112",
+    112,
+    120
+  ],
+  [
+    "Table",
+    "8",
+    "ConnectionCode",
+    "113",
+    113,
+    121
+  ],
+  [
+    "Table",
+    "9",
+    "TrustedContactConnection",
+    "113",
+    113,
+    121
+  ],
+  [
+    "Table",
+    "10",
+    "DriverCalibration",
+    "115",
+    115,
+    123
+  ],
+  [
+    "Table",
+    "11",
+    "ProvisionedDevice",
+    "116",
+    116,
+    124
+  ],
+  [
+    "Table",
+    "12",
+    "DriverPreference",
+    "117",
+    117,
+    125
+  ],
+  [
+    "Table",
+    "13",
+    "MonitoringLogPreference",
+    "118",
+    118,
+    126
+  ],
+  [
+    "Table",
+    "14",
+    "MonitoringSession",
+    "118",
+    118,
+    126
+  ],
+  [
+    "Table",
+    "15",
+    "Alert",
+    "119",
+    119,
+    127
+  ],
+  [
+    "Table",
+    "16",
+    "AlertSign",
+    "120",
+    120,
+    128
+  ],
+  [
+    "Table",
+    "17",
+    "StageSyncRecord",
+    "120",
+    120,
+    128
+  ],
+  [
+    "Table",
+    "18",
+    "StageSyncRecordSign",
+    "122",
+    122,
+    130
+  ],
+  [
+    "Table",
+    "19",
+    "MonitoringLog",
+    "122",
+    122,
+    130
+  ],
+  [
+    "Table",
+    "20",
+    "MonitoringLogEvent",
+    "123",
+    123,
+    131
+  ],
+  [
+    "Table",
+    "21",
+    "SharedStage3Record",
+    "125",
+    125,
+    133
+  ],
+  [
+    "Table",
+    "22",
+    "Device",
+    "126",
+    126,
+    134
+  ],
+  [
+    "Table",
+    "23",
+    "DeviceOwnership",
+    "127",
+    127,
+    135
+  ],
+  [
+    "Table",
+    "24",
+    "DeviceDriverAccess",
+    "128",
+    128,
+    136
+  ],
+  [
+    "Table",
+    "25",
+    "DeviceSubscriptionEvent",
+    "130",
+    130,
+    138
+  ],
+  [
+    "Table",
+    "26",
+    "DeviceCredential",
+    "131",
+    131,
+    139
+  ],
+  [
+    "Table",
+    "27",
+    "DeviceAccessGrant",
+    "132",
+    132,
+    140
+  ],
+  [
+    "Table",
+    "28",
+    "DeviceIdentityMapping",
+    "133",
+    133,
+    141
+  ],
+  [
+    "Table",
+    "29",
+    "Technology Stack",
+    "136",
+    136,
+    144
+  ],
+  [
+    "Table",
+    "30",
+    "Software Specification",
+    "137",
+    137,
+    145
+  ],
+  [
+    "Table",
+    "31",
+    "Hardware Specification",
+    "138",
+    138,
+    146
+  ],
+  [
+    "Table",
+    "32",
+    "List Of Modules",
+    "140",
+    140,
+    148
+  ],
+  [
+    "Figure",
+    "1",
+    "Flow of the Study",
+    "11",
+    11,
+    19
+  ],
+  [
+    "Figure",
+    "2",
+    "Agile Methodology",
+    "38",
+    38,
+    46
+  ],
+  [
+    "Figure",
+    "3",
+    "Program Workflow (Drivers)",
+    "47",
+    47,
+    55
+  ],
+  [
+    "Figure",
+    "4",
+    "Program Workflow (Monitoring Session)",
+    "48",
+    48,
+    56
+  ],
+  [
+    "Figure",
+    "5",
+    "Program Workflow (Trusted Contact)",
+    "49",
+    49,
+    57
+  ],
+  [
+    "Figure",
+    "6.1",
+    "Functional Decomposition Diagram",
+    "58",
+    57,
+    65
+  ],
+  [
+    "Figure",
+    "6.2",
+    "Functional Decomposition Diagram cont\u2019d",
+    "58",
+    58,
+    66
+  ],
+  [
+    "Figure",
+    "6.3",
+    "Functional Decomposition Diagram cont\u2019d",
+    "59",
+    59,
+    67
+  ],
+  [
+    "Figure",
+    "7.1",
+    "Use Case Diagram",
+    "61",
+    61,
+    69
+  ],
+  [
+    "Figure",
+    "7.2",
+    "Use Case Diagram cont\u2019d",
+    "62",
+    62,
+    70
+  ],
+  [
+    "Figure",
+    "8",
+    "Starter Screen (Driver and Trusted Contact)",
+    "64",
+    64,
+    72
+  ],
+  [
+    "Figure",
+    "9",
+    "Sign In Screen (Driver and Trusted Contact)",
+    "65",
+    65,
+    73
+  ],
+  [
+    "Figure",
+    "10",
+    "Create Account Screen (Driver and Trusted Contact)",
+    "66",
+    66,
+    74
+  ],
+  [
+    "Figure",
+    "11",
+    "Forgot Password Screen (Driver and Trusted Contact)",
+    "67",
+    67,
+    75
+  ],
+  [
+    "Figure",
+    "12",
+    "Setup and Device Screen (Driver)",
+    "68",
+    68,
+    76
+  ],
+  [
+    "Figure",
+    "13",
+    "Device Connection Screen (Driver)",
+    "69",
+    69,
+    77
+  ],
+  [
+    "Figure",
+    "14",
+    "Camera Alignment Screen (Driver)",
+    "70",
+    70,
+    78
+  ],
+  [
+    "Figure",
+    "15",
+    "Driver Calibration Screen (Driver)",
+    "71",
+    71,
+    79
+  ],
+  [
+    "Figure",
+    "16",
+    "Driver Home Screen (Driver)",
+    "72",
+    72,
+    80
+  ],
+  [
+    "Figure",
+    "17",
+    "Camera Preview Screen (Driver)",
+    "73",
+    73,
+    81
+  ],
+  [
+    "Figure",
+    "18",
+    "Before Monitoring Dialog (Driver)",
+    "74",
+    74,
+    82
+  ],
+  [
+    "Figure",
+    "19",
+    "Monitoring Activity Screen (Driver)",
+    "75",
+    75,
+    83
+  ],
+  [
+    "Figure",
+    "20",
+    "Alert History Screen (Driver)",
+    "76",
+    76,
+    84
+  ],
+  [
+    "Figure",
+    "21",
+    "Alert Detail Screen (Driver)",
+    "77",
+    77,
+    85
+  ],
+  [
+    "Figure",
+    "22",
+    "Trusted Contacts Screen (Driver)",
+    "78",
+    78,
+    86
+  ],
+  [
+    "Figure",
+    "23",
+    "Invite a Trusted Contact Screen (Driver)",
+    "79",
+    79,
+    87
+  ],
+  [
+    "Figure",
+    "24",
+    "Shared Alerts Screen (Trusted Contact)",
+    "80",
+    80,
+    88
+  ],
+  [
+    "Figure",
+    "25",
+    "Invite a Driver Screen (Trusted Contact)",
+    "81",
+    81,
+    89
+  ],
+  [
+    "Figure",
+    "26",
+    "Requests Screen (Trusted Contact)",
+    "82",
+    82,
+    90
+  ],
+  [
+    "Figure",
+    "27",
+    "Driver Settings Screen (Driver)",
+    "83",
+    83,
+    91
+  ],
+  [
+    "Figure",
+    "28",
+    "Subscriptions and Drivers Screen (Driver)",
+    "84",
+    84,
+    92
+  ],
+  [
+    "Figure",
+    "29",
+    "Invite an Additional Driver Screen (Driver)",
+    "85",
+    85,
+    93
+  ],
+  [
+    "Figure",
+    "30",
+    "Demo Subscription Activation Dialog (Driver)",
+    "86",
+    86,
+    94
+  ],
+  [
+    "Figure",
+    "31",
+    "Device Invitation Screen (Driver)",
+    "87",
+    87,
+    95
+  ],
+  [
+    "Figure",
+    "32",
+    "Active Additional Driver Access Screen (Driver)",
+    "88",
+    88,
+    96
+  ],
+  [
+    "Figure",
+    "33",
+    "Trusted Contact Settings Screen (Trusted Contact)",
+    "89",
+    89,
+    97
+  ],
+  [
+    "Figure",
+    "34",
+    "Account Screen (Driver and Trusted Contact)",
+    "90",
+    90,
+    98
+  ],
+  [
+    "Figure",
+    "35",
+    "History and Storage Screen (Driver and Trusted Contact)",
+    "91",
+    91,
+    99
+  ],
+  [
+    "Figure",
+    "36",
+    "Monitoring Logs Screen (Driver)",
+    "92",
+    92,
+    100
+  ],
+  [
+    "Figure",
+    "37",
+    "Session Log Screen (Driver)",
+    "93",
+    93,
+    101
+  ],
+  [
+    "Figure",
+    "38",
+    "Log Deletion Screen (Driver)",
+    "94",
+    94,
+    102
+  ],
+  [
+    "Figure",
+    "39",
+    "Driver Notifications Screen (Driver)",
+    "95",
+    95,
+    103
+  ],
+  [
+    "Figure",
+    "40",
+    "Trusted Contact Notifications Screen (Trusted Contact)",
+    "96",
+    96,
+    104
+  ],
+  [
+    "Figure",
+    "41",
+    "Warning Sound Screen (Driver)",
+    "97",
+    97,
+    105
+  ],
+  [
+    "Figure",
+    "42",
+    "About DriveAlert Screen (Driver and Trusted Contact)",
+    "98",
+    98,
+    106
+  ],
+  [
+    "Figure",
+    "43",
+    "Log Out Confirmation Dialog (Driver and Trusted Contact)",
+    "99",
+    99,
+    107
+  ],
+  [
+    "Figure",
+    "44",
+    "Sign In Screen (Web)",
+    "100",
+    100,
+    108
+  ],
+  [
+    "Figure",
+    "45",
+    "Create Account Screen (Web)",
+    "100",
+    100,
+    108
+  ],
+  [
+    "Figure",
+    "46",
+    "Dashboard Screen (Web)",
+    "101",
+    101,
+    109
+  ],
+  [
+    "Figure",
+    "47",
+    "Connected Drivers Screen (Web)",
+    "101",
+    101,
+    109
+  ],
+  [
+    "Figure",
+    "48",
+    "Shared Alert History Screen (Web)",
+    "102",
+    102,
+    110
+  ],
+  [
+    "Figure",
+    "49",
+    "Shared Alert Detail Screen (Web)",
+    "102",
+    102,
+    110
+  ],
+  [
+    "Figure",
+    "50",
+    "Requests Screen (Web)",
+    "103",
+    103,
+    111
+  ],
+  [
+    "Figure",
+    "51",
+    "Invite a Driver Screen (Web)",
+    "103",
+    103,
+    111
+  ],
+  [
+    "Figure",
+    "52",
+    "Account Screen (Web)",
+    "104",
+    104,
+    112
+  ],
+  [
+    "Figure",
+    "53",
+    "Settings Screen (Web)",
+    "104",
+    104,
+    112
+  ],
+  [
+    "Figure",
+    "54",
+    "History and Storage Screen (Web)",
+    "105",
+    105,
+    113
+  ],
+  [
+    "Figure",
+    "55",
+    "About DriveAlert Screen (Web)",
+    "105",
+    105,
+    113
+  ],
+  [
+    "Figure",
+    "56",
+    "Driver Storyboard",
+    "106",
+    106,
+    114
+  ],
+  [
+    "Figure",
+    "57",
+    "Trusted Contact Storyboard",
+    "107",
+    107,
+    115
+  ],
+  [
+    "Figure",
+    "58",
+    "Trusted Contact Storyboard (Web)",
+    "108",
+    108,
+    116
+  ],
+  [
+    "Figure",
+    "59",
+    "Entity Relationship Diagram",
+    "109",
+    109,
+    117
+  ],
+  [
+    "Figure",
+    "60",
+    "DriveAlert Network Model",
+    "134",
+    134,
+    142
+  ],
+  [
+    "Figure",
+    "61",
+    "DriveAlert Network Topology",
+    "135",
+    135,
+    143
+  ],
+  [
+    "Figure",
+    "62",
+    "DriveAlert IoT Hardware Architecture",
+    "139",
+    139,
+    147
+  ]
+]

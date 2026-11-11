@@ -1,0 +1,1731 @@
+0: DRIVEALERT: AN IOT-BASED DRIVER DROWSINESS
+1: MONITORING AND ALERT SYSTEM
+2: USING COMPUTER VISION
+3: 
+4: 
+5: A Capstone Proposal
+6: Presented to the Faculty of the
+7: College of Computer Studies, University of Cebu
+8: 
+9: 
+10: In Partial Fulfillment of the Requirement
+11: for the degree of Bachelor of Science in Information Technology
+12: 
+13: 
+14: 
+15: By
+16: Gabriel A. Borces
+17: John Adrian C. CatarigLhord Kent R. BasubasPrincess Marie Denise F. Isagunde
+18: 
+19: 
+20: 
+21: Mr. Roche A. Plando
+22: Adviser
+23: 
+24: 
+25: 
+26: July 2026
+27: ACKNOWLEDGEMENT
+28: This research would not have been possible without the help of the many people who walked with us throughout this journey. Despite the challenges and roadblocks, we encountered, their guidance, encouragement, and support helped us persevere and complete this study.
+29: First and foremost, we offer the fruits of our labor to God and our parents, who gave us the strength, inspiration, and determination to continue and give our best efforts throughout the research process.
+30: To Ms. Moma D. Ortega, our dean, we are sincerely grateful for your patience, support, and invaluable guidance. Your leadership and encouragement helped us navigate and complete this research. To our chairperson, Mr. Eric Ortega, we also express our gratitude for leading us and paving the way toward the completion of this study.
+31: To Mr. Roche A. Plando, our capstone adviser, we extend our deepest and most sincere appreciation for your exceptional guidance, patience, and unwavering support. Your extensive knowledge, thoughtful recommendations, and careful evaluation helped us refine every important aspect of this research. Your dedication to guiding us through our challenges greatly strengthened the foundation and overall quality of this study. We are truly grateful for the time, effort, and confidence you continuously gave us throughout this journey.
+32: To Mr. Joemarie C. Amparo and Ms. Omega Delfin, we sincerely thank you for sharing your insightful ideas, valuable perspectives, and constructive suggestions. Your contributions helped us clarify, improve, and strengthen the concepts behind this research.
+33: To our research respondents, we are grateful for your valuable input and willingness to participate in this study. Your responses played a significant role in the completion of this research.
+34: To our classmates and friends, thank you for the camaraderie, encouragement, and moral support you shared with us throughout this journey. Finally, to everyone who contributed to this project, we express our heartfelt gratitude. Your collective efforts and support were essential to the successful completion of this research. We truly appreciate each one of you.
+35: 
+36: DEDICATION
+37: This study is dedicated to all drivers who continue to face the risks and challenges brought by drowsiness while driving. May this work serve as a meaningful step toward promoting safer driving practices through technology, real-time monitoring, and alert systems that can help address drowsiness-related driving risks.
+38: This study is also dedicated to the researchers’ parents for their constant encouragement, support, and guidance, and to God for the wisdom, strength, and perseverance that guided every step of this endeavor.
+39: Furthermore, this work is dedicated to all professors, advisers, and deans who contributed to the completion of this project through their feedback, assistance, and knowledge. Their guidance helped the researchers improve and strengthen the foundation of this study.
+40: The researchers also dedicate this study to the research respondents, whose participation and honest responses provided valuable insights that motivated the completion of this work. Their contribution played an important role in supporting the development of DriveAlert.
+41: Additionally, this study is dedicated to future researchers and innovators who will continue to explore technological solutions for road-safety support and driver monitoring.
+42: This dedication extends to all individuals and organizations working to promote safer roads and protect lives through research, innovation, and responsible use of technology. To everyone who believes in the power of technology to create meaningful change and improve safety, this study is for you.
+43: 
+44: 
+45: 
+46: 
+47: 
+48: 
+49: 
+50: 
+51: 
+52: 
+53: 
+54: 
+55: 
+56: 
+57: 
+58: LIST OF TABLES
+59: 
+60: 
+61: 
+62: 
+63: 
+64: LIST OF FIGURES
+65: 
+66: 
+67: 
+68: 
+69: 
+70: 
+71: 
+72: 
+73: CHAPTER I
+74: INTRODUCTION
+75: Safe driving depends not only on road conditions, traffic regulations, and vehicle performance but also on the driver’s ability to remain alert while operating a vehicle. Driver drowsiness is a serious road-safety concern because reduced alertness can impair attention, reaction time, judgment, and decision-making while driving. In the Philippine setting, the Land Transportation Office, as reported by the Philippine Information Agency, emphasized that drivers should pull over and rest when they feel tired. Similarly, Fonseca and Ferreira identified driver drowsiness as a significant road-safety issue associated with impaired attentional control, slower reaction time, reduced decision-making ability, and an increased risk of crashes and severe injuries (Philippine Information Agency, 2025; Fonseca & Ferreira, 2025). When drivers continue operating a vehicle despite visible signs of drowsiness, their ability to maintain the sustained attention required for safe driving may become compromised.
+76: In the Philippines, road traffic crashes remain a major public-safety issue. The World Health Organization Philippines and the Department of Transportation reported that road traffic deaths in the country increased by 39%, from 7,938 deaths in 2011 to 11,096 deaths in 2021. The same source reported that road traffic injuries are the leading cause of death among Filipinos aged 15 to 29 years old and cost approximately 2.6% of the country’s gross domestic product. In response to this concern, the Philippine Road Safety Action Plan 2023–2028 was launched as the country’s blueprint for road-safety initiatives, with the goal of reducing road traffic deaths by 35% by 2028 (World Health Organization Philippines & Department of Transportation, 2023). The Philippine Statistics Authority also reported that deaths due to land transport accidents reached 13,125 in 2023, accounting for 1.9% of all deaths in the country. Meanwhile, the Asian Transport Observatory reported that road crashes and serious injuries cost the Philippines approximately USD 11 billion in 2021, equivalent to about 3% of the country’s gross domestic product (Philippine Statistics Authority, 2025; Asian Transport Observatory, 2025). Although Philippine statistics do not separately identify the number of crashes associated with driver drowsiness, Reyes (2025) reported that international estimates attribute up to 30% of road accidents to driver fatigue. The same report explained that sleepiness associated with drowsy driving slows reaction time, decreases awareness, impairs judgment, and increases the risk of crashes. These conditions demonstrate the need for preventive and technology-supported road-safety systems that can assist drivers before dangerous situations become more serious.
+77: Human behavior and driver condition are also important considerations in road safety. Segun et al. (2024) identified human behavior, public awareness, infrastructure, technological interventions, and enforcement as factors associated with road-crash incidents in Metro Manila. Road safety therefore involves not only road and vehicle conditions but also the driver’s physical and mental condition. Because drowsiness may reduce alertness and responsiveness, technologies that monitor visible signs of drowsiness may help drivers recognize possible declines in attentiveness while driving.
+78: Emerging technologies in intelligent transportation provide new methods for detecting possible driver drowsiness before it develops into a more serious safety risk. Computer vision and artificial intelligence have been widely explored in driver-drowsiness detection systems because they can analyze visible indicators such as eye closure, yawning, mouth movement, and changes in head posture. Albadawi et al. (2022) explained that advances in computing technology and artificial intelligence have contributed to the development of more capable driver-drowsiness detection systems. However, the practical implementation of these systems may still be affected by lighting conditions, device capability, detection reliability, and system accessibility. These limitations highlight the need for a driver-monitoring system designed to operate under practical in-vehicle conditions.
+79: The background of this study is grounded in the integration of computer vision, artificial intelligence, the Internet of Things, and mobile-based driver monitoring. Camera-based systems can observe selected visible signs of drowsiness without requiring wearable sensors or direct vehicle integration. Lighting conditions remain an important consideration because camera-based facial measurements depend on usable image quality. DriveAlert uses an infrared-capable camera, and its performance under different available-light conditions will be evaluated using the final hardware configuration. Local processing is also important because warning systems should respond promptly even when internet access or mobile data is unavailable. Edge and localized processing can reduce latency and support privacy-sensitive Internet of Things applications, while ESP32 documentation supports Wi-Fi capability and local communication between the IoT device and the smartphone (Andriulo et al., 2024; Espressif Systems, 2025; Espressif Systems, 2026). When combined with Android-based processing and local offline Wi-Fi communication, these technologies can support a more accessible driver-drowsiness monitoring system.
+80: This study proposes DriveAlert, an Internet of Things-based driver drowsiness monitoring and alert system that uses computer vision and artificial intelligence. The system is designed to monitor selected visible signs of drowsiness, specifically prolonged eye closure, yawning, and head nodding. When a selected behavior satisfies its established duration, repetition, or temporal-confirmation condition, DriveAlert activates a warning alert. Threshold-based alerting is appropriate because driver-drowsiness detection systems should not rely on a single uncertain video frame and should instead evaluate whether a visible behavior is sustained or repeated before activating a warning (Albadawi et al., 2023; Essel et al., 2025). DriveAlert also stores distinct confirmed warning events for Driver review and applies staged intervention when qualifying warning activity recurs or persists. Warning Stage 1 provides the initial selected warning sound, and Warning Stage 2 retains that sound as an intermediate warning state. Warning Stage 3 combines the selected sound with a prerecorded spoken rest advisory and introduces Trusted Contact synchronization eligibility. These Warning Stages represent levels of system intervention and do not represent medical or physiological drowsiness severity.
+81: Rationale of the Study
+82: Driver drowsiness may not always be recognized immediately while a person is operating a vehicle. Although drivers may stop and rest once they become aware that they are sleepy, observable changes associated with reduced alertness may appear before they respond to their condition. Rajkumarsingh and Totah (2021) explained that drowsiness can affect judgment and decision-making, while Ayas et al. (2024) found that driver-state monitoring systems commonly combine detection with warning interventions. This creates a need for a supplementary system that can monitor selected visible signs of drowsiness and provide a timely warning without replacing the driver’s responsibility to stop and rest.
+83: Visible changes involving the eyes, mouth, and head are commonly examined in driver-drowsiness monitoring because they can be observed without attaching physiological sensors to the driver. Rajkumarsingh and Totah (2021) considered blinking duration, yawning frequency, and head position, while Albadawi et al. (2023) examined eye condition, mouth opening, and head pose as visual features associated with drowsiness. These findings are relevant to the selected indicators monitored by DriveAlert: prolonged eye closure, yawning, and head nodding. Monitoring these behaviors provides a non-contact method of identifying observable changes that may be associated with reduced alertness.
+84: However, ordinary driver behavior may resemble a visible sign of drowsiness. Brief eye closure may represent normal blinking, mouth opening may occur while speaking, and downward head movement may result from briefly looking at another area inside the vehicle. Responding to every isolated movement may therefore produce unnecessary warnings. Albadawi et al. (2023) evaluated visual indicators across a temporal window, while Quiles-Cucarella et al. (2024) and Essel et al. (2025) applied time-based or consecutive-frame conditions before activating warnings. These approaches demonstrate the importance of confirming that a behavior is sustained or repeated rather than relying on a single uncertain observation.
+85: Warning reliability is also important because detection has limited value when the resulting alert is unclear, easily ignored, or repeatedly activated by incorrect detections. Ayas et al. (2024) found that driver-drowsiness mitigation systems commonly use auditory warnings and may apply different levels of intervention. Weibull et al. (2024) also showed that false alarms can influence how drivers respond to later warnings. A drowsiness-warning system must therefore balance responsiveness and consistency so that the driver is alerted when the established detection conditions are satisfied without producing excessive interruptions during ordinary movements.
+86: DriveAlert applies three Warning Stages to manage recurrent or persistent qualifying warning activity. The first distinct confirmed warning event occurring while no Warning Stage is active immediately activates Stage 1 and begins a 60-second evaluation period. If another distinct confirmed warning event occurs while Stage 1 is active, the system immediately progresses to Stage 2 and begins a new 60-second evaluation period. A subsequent distinct confirmed warning event during Stage 2 immediately activates Stage 3. When no new distinct event occurs, the system evaluates whether a qualifying behavior remains persistently active at the 60-second boundary. Persistent qualifying activity causes progression from Stage 1 to Stage 2 or from Stage 2 to Stage 3. If no qualifying behavior remains active, Stage 1 returns to the normal state, while Stage 2 de-escalates to Stage 1. Stage 3 is the maximum intervention level. Recurrent events during Stage 3 may reactivate its warning without restarting the current evaluation period. At the Stage 3 boundary, recurrent or persistent qualifying activity maintains Stage 3; otherwise, the system de-escalates to Stage 2. Stages 1 and 2 use the selected warning sound, while Stage 3 adds a spoken rest advisory and Trusted Contact synchronization eligibility. These stages describe system intervention rather than medical or physiological drowsiness severity.
+87: An immediate warning addresses a detected condition at a particular moment, but the warning alone provides little information after it has ended. Without an organized record, the driver may be unable to review when an alert occurred, which visible sign was detected, or whether alerts appeared repeatedly during a monitoring session. Hidayat and Ibnugraha (2025) developed a system described as a driver-fatigue monitoring system that displayed detection results through a web-based dashboard, while Kashyap et al. (2025) stored driver-status information, detection timestamps, and historical records for later review. These studies show that recorded events can remain useful beyond the immediate warning by providing structured information for later review.
+88: Stored drowsiness-alert events may also be summarized to make the recorded information easier to interpret. Retained alerts may be organized into alert counts, detected-sign summaries, the highest Warning Stage associated with their stored warning events, alert trends, and Stage 3 synchronization status. Monitoring-session summaries separately identify the highest intervention stage reached during each session. These summaries allow users to review patterns in the available records without examining every alert individually. Their purpose is descriptive and should not be interpreted as medical analysis, accident prediction, confirmation of drowsiness, or proof that a driver is safe or unsafe to continue driving.
+89: Drowsiness-alert records may also support secondary awareness through an approved Trusted Contact. DriveAlert stores all distinct confirmed warning events for Driver review but limits external synchronization according to its Warning Stage 3 rule. When DriveAlert first enters Warning Stage 3, one Stage 3 transition record becomes eligible for Trusted Contact synchronization. Individual confirmed warning events occurring during the active Stage 3 period remain in the Driver’s alert history and do not each independently create synchronization records. When a 60-second Stage 3 evaluation period ends, DriveAlert creates one synchronization-eligible persistence update if at least one additional distinct confirmed warning event occurred during that period or a qualifying behavior remains persistently active at its boundary. Either condition maintains Stage 3 and begins another 60-second evaluation period. If neither condition is present, the system de-escalates to Stage 2 without creating a persistence update for the completed period.
+90: The reviewed approaches provide visible-sign monitoring, warning delivery, event storage, dashboard viewing, physical alarm output, offline operation, and authorized record access in different combinations. Some systems concentrate mainly on detecting a visible sign and producing an immediate warning, while others emphasize historical records, dashboards, or remote monitoring. The need addressed by this study is therefore not the absence of driver-drowsiness technology but the opportunity to combine selected functions that support the driver during monitoring and preserve relevant information after a warning has been issued.
+91: DriveAlert addresses these connected needs by monitoring prolonged eye closure, yawning, and head nodding and providing an audio warning when a selected behavior satisfies its established detection condition. It also stores distinct confirmed alert episodes locally, presents descriptive summaries of retained records for Driver review, and synchronizes only eligible Stage 3 transition records and Stage 3 persistence updates for access by an approved Trusted Contact when internet connectivity becomes available. Through this integration, DriveAlert connects visible-sign monitoring, warning delivery, event recording, record review, and authorized information sharing within one driver-focused system. It is intended as a supplementary driver-support tool and does not medically or physiologically confirm drowsiness, determine whether a driver is fit to continue driving, replace adequate rest, or control the vehicle.
+92: 
+93: 
+94: Objectives of the Study
+95: This study aims to develop DriveAlert, an Internet of Things-based system designed to assist drivers by monitoring selected visible signs of drowsiness, providing warning alerts, storing drowsiness-alert records, and synchronizing these records with a connected Trusted Contact when internet connectivity becomes available.
+96: Specifically, this study pursues the following objectives:
+97: To gather data on the occurrence of drowsiness and observable signs associated with it among drivers while driving.
+98: To design and implement a computer-vision algorithm capable of detecting prolonged eye closure, yawning, and head nodding using driver-specific detection thresholds and temporal-confirmation conditions for triggering warning alerts.
+99: To design and implement a local Wi-Fi communication architecture between the IoT device and the driver’s smartphone that enables real-time drowsiness-sign monitoring without requiring internet or mobile data connectivity.
+100: To implement an alarm system in which the IoT device receives wireless warning commands from the smartphone and produces predefined audio warning alerts through an onboard speaker.
+101: To develop a dashboard that records and displays drowsiness-alert events and synchronizes drowsiness-alert records with a connected Trusted Contact when internet connectivity becomes available.
+102: Scope and Limitations
+103: This study focuses on the development and pilot evaluation of DriveAlert, an IoT-based driver drowsiness monitoring and alert system using computer vision. The system monitors prolonged eye closure, yawning, and head nodding through an IoT device equipped with an infrared-capable camera and an onboard speaker. Dedicated infrared LEDs and external infrared illuminators are excluded from the final prototype.
+104: An Android mobile application processes the captured video locally using calibrated EAR and MAR thresholds, a fixed 15° downward head-pitch deviation relative to the Driver’s calibrated neutral position, and sign-specific temporal-confirmation conditions. After a selected visible sign satisfies its complete confirmation condition, DriveAlert creates a confirmed warning event, applies the appropriate Warning Stage, requests the corresponding warning output, and stores the event locally for Driver review. Separate Stage 3 transition records and qualifying Stage 3 persistence updates become eligible for synchronization with an approved Trusted Contact when internet connectivity becomes available.
+105: DriveAlert is intended for drivers of four-wheeled and larger vehicles. Motorcycles and other two-wheeled vehicles are excluded because of differences in driver position, camera placement, weather exposure, and operating conditions. The system will be evaluated only under controlled or simulated driving conditions and will not be tested for long-term use during actual road travel, heavy traffic, severe weather, uneven roads, or other unpredictable conditions.
+106: DriveAlert is limited to monitoring three selected visible signs associated with drowsiness: prolonged eye closure, yawning, and head nodding. The system does not medically or physiologically confirm that a driver is drowsy. These behaviors may occur for reasons unrelated to drowsiness, while a drowsy driver may not always display them clearly. The system may therefore generate false alerts or miss relevant events. It does not detect sleep disorders, stress, illness, medication effects, alcohol influence, or other causes of reduced alertness, and it does not use physiological or wearable sensors.
+107: Detection performance may be affected by camera placement, Driver position, head orientation, facial obstruction, eyeglasses, sunglasses, masks, glare, lighting conditions, sudden movement, reflections, and image quality. Although dedicated infrared illumination was included in the initial design, it was excluded from the final prototype due to limitations encountered during hardware development. The available infrared LED configuration did not provide sufficient facial illumination at the intended camera-to-Driver distance. Attempts to improve illumination by increasing the number of infrared LEDs also resulted in unstable operation of the breadboard power supply setup, including intermittent power loss and interruptions affecting connected components. These issues prevented the expanded LED configuration from operating reliably and limited further improvements to infrared illumination using the available hardware. These limitations apply specifically to the configuration tested in this study and do not establish that infrared illumination is unsuitable for driver monitoring in general. The final prototype therefore depends on available light, and its infrared-capable camera does not guarantee reliable assessment under extremely low-light or no-light conditions. DriveAlert pauses drowsiness-sign assessment when facial lighting is insufficient, even if a face remains detected. Assessment also pauses when reliable facial tracking is unavailable or fewer than two monitored signs remain available. Frames rejected because of insufficient lighting do not advance calibration’s required valid measurement time. Assessment resumes when the applicable visibility, lighting-quality, and observation-freshness requirements are restored. These assessment pauses do not by themselves end the monitoring session. DriveAlert also provides operational guidance that is separate from drowsiness-stage warnings. During eligible active monitoring, sustained inactivity may produce a “No movement detected” status after ten seconds and a spoken movement advisory after twenty-five seconds. These timings are provisional engineering settings. The advisory does not create a drowsiness-alert record, advance the Warning Stage, verify Driver identity, or establish that the camera input is from a live person.
+108: DriveAlert uses guided facial-measurement calibration and spatial Driver-area selection rather than facial recognition or automatic Driver identification. Calibration records neutral facial measurements, closed-eye and open-mouth references, and the direction of downward head rotation. The face-processing pipeline may detect multiple face candidates, but drowsiness-sign assessment uses at most one selected Driver face. Selection depends on the configured Driver area and spatial continuity. Ambiguous, competing, or unreliable detections pause assessment. These safeguards do not verify identity or guarantee the exclusion of passengers in every scene. Camera movement, incorrect positioning, other visible faces, or changes in the Driver’s position may affect tracking and detection. When reliable facial tracking is unavailable, assessment pauses and the Driver is prompted to restore the camera view.
+109: The system does not automatically identify individual drivers. In shared vehicles, each driver must use the correct DriveAlert account, connect to the IoT device, and verify camera alignment before monitoring begins. Otherwise, drowsiness-alert records may be stored under the wrong account. Facial recognition and automatic driver identification are outside the scope of the study.
+110: System performance may depend on the Android smartphone’s processing power, memory, battery condition, and temperature. Devices with limited capability may experience slower video processing, delayed warnings, or reduced application stability. The pilot evaluation will use selected compatible Android devices; therefore, the results may not represent all Android devices and hardware configurations.
+111: All distinct confirmed alert episodes are initially stored locally in the Driver’s alert history, subject to user deletion and configured retention. Descriptive alert summaries reflect retained records. Removing a shared record from a Trusted Contact’s personal history view does not delete the source Driver’s cloud record. DriveAlert uses three Warning Stages with 60-second evaluation periods. A new distinct confirmed event immediately advances Stage 1 to Stage 2 or Stage 2 to Stage 3 and begins a new evaluation period. When no new distinct event occurs, persistent qualifying behavior at the evaluation boundary may cause the same progression. The absence of qualifying activity permits incremental de-escalation and eventual return to the normal state. Stages 1 and 2 use the Driver’s selected warning sound, while Stage 3 adds a prerecorded spoken rest advisory and Trusted Contact synchronization eligibility. Each progression from Stage 2 to Stage 3 creates one transition record, including re-entry into Stage 3 after de-escalation. Each completed Stage 3 period creates at most one persistence update when an additional distinct event occurred during the period or a qualifying behavior remains persistently active at its boundary. Individual warning events remain in the Driver’s local history and do not independently create synchronization records. Sharing requires an approved Trusted Contact relationship and internet connectivity. Only eligible records from periods beginning on or after connection approval may be shared, and access depends on the relationship remaining approved. This feature supports secondary awareness and does not operate as an immediate emergency-notification service. Warning Stages do not represent medical or physiological drowsiness severity.
+112: The study does not measure DriveAlert’s effect on accident reduction, injury prevention, driver behavior change, or long-term driving habits. It does not cover commercial deployment, vehicle-manufacturer integration, vehicle-control systems, traffic enforcement, or automotive safety certification. DriveAlert cannot apply the brakes, steer the vehicle, reduce its speed, stop the engine, or determine whether the driver is fit to continue driving.
+113: Local monitoring can operate without internet after the required account and device setup. Starting a monitoring session requires the appropriate Driver account, an active calibration, a configured and connected camera, and confirmed camera alignment. Account registration, cloud relationship management, remote record review, and external synchronization require internet connectivity.
+114: The Android Driver interface supports local monitoring, alert-history review, and descriptive summaries. Trusted Contact interfaces provide access to eligible shared Stage 3 records rather than the Driver’s complete local alert history or camera stream. Record synchronization and notification delivery are separate processes; successful synchronization does not establish that a Trusted Contact has received or viewed a notification.
+115: DriveAlert is not intended to replace adequate rest, responsible driving practices, professional medical evaluation, or certified vehicle-safety systems. The study is limited to evaluating whether drowsiness-sign monitoring, warning activation, drowsiness-alert record management, dashboard functions, and Trusted Contact synchronization can operate together under controlled or simulated testing conditions.
+116: Significance of the Study
+117: The study brings benefits to various stakeholders involved in or affected by the development and implementation of DriveAlert.
+118: Drivers. Drivers are the primary beneficiaries of DriveAlert. They may benefit from real-time monitoring of selected visible signs of drowsiness, predefined audio warning alerts with adjustable volume and an enforced minimum level, and a dashboard that records and summarizes drowsiness-alert events. Through the dashboard, Drivers can review alert counts, detected-sign summaries, the highest Warning Stage associated with their stored warning events, alert trends, and Stage 3 synchronization status. Session summaries separately identify the highest intervention stage reached during an individual monitoring session.
+119: Trusted Contacts. Trusted Contacts may benefit from accessing synchronization-eligible Stage 3 transition records and Stage 3 persistence updates when internet connectivity becomes available. These records provide secondary awareness when qualifying warning activity reaches or continues at DriveAlert’s maximum intervention stage. The feature supports synchronized record review and does not function as live Driver monitoring or an emergency-response service.
+120: Passengers. Passengers may indirectly benefit from DriveAlert because the system provides a warning when a selected visible sign of drowsiness satisfies its established detection condition. The warning may prompt the driver to reassess their condition and take appropriate action, such as stopping and resting.
+121: Researchers. The researchers will gain practical experience in Internet of Things development, mobile application design, computer vision-based drowsiness-sign detection, local wireless communication, alert-system implementation, and system evaluation. The study will also strengthen their technical, analytical, problem-solving, documentation, and research skills.
+122: Future Researchers. Future researchers may use this study as a reference for related projects involving driver drowsiness monitoring, computer vision, IoT-based safety systems, mobile processing, offline-capable warning systems, alert-record management, and driver-assistance technologies.
+123: Flow of the Study
+124: The procedure involves identifying prolonged eye closure, yawning, and head nodding as selected visible signs associated with drowsiness, processing the observed behaviors through the proposed system, and generating alerts and records when the established alert conditions are satisfied.
+125: 
+126: 
+127: 
+128: 
+129: 
+130: 
+131: 
+132: 
+133: 
+134: Agile Methodology• Planning• Requirement Analysis• Designing• Development• Testing• Deployment• MaintenanceAgile Methodology• Planning• Requirement Analysis• Designing• Development• Testing• Deployment• Maintenance      INPUT        PROCESS                      OUTPUT
+135: • Gathered and collected data on observable signs of driver drowsiness, such as prolonged eye closure, yawning, and head nodding.• A computer vision algorithm capable of detecting selected visible drowsiness-related signs, specifically prolonged eye closure, yawning, and head nodding, with established detection thresholds for triggering warning alerts.• A local Wi-Fi communication architecture between the IoT device and the driver's smartphone for real-time drowsiness-sign detection without requiring internet or mobile data connectivity.• An alarm system where the IoT device receives wireless signals from the smartphone and provides alarm or warning output through an onboard speaker using predefined audio warning alerts.• A dashboard that records and displays drowsiness-related events and synchronizes drowsiness-alert records with an approved Trusted Contact when internet connectivity becomes available.• Gathered and collected data on observable signs of driver drowsiness, such as prolonged eye closure, yawning, and head nodding.• A computer vision algorithm capable of detecting selected visible drowsiness-related signs, specifically prolonged eye closure, yawning, and head nodding, with established detection thresholds for triggering warning alerts.• A local Wi-Fi communication architecture between the IoT device and the driver's smartphone for real-time drowsiness-sign detection without requiring internet or mobile data connectivity.• An alarm system where the IoT device receives wireless signals from the smartphone and provides alarm or warning output through an onboard speaker using predefined audio warning alerts.• A dashboard that records and displays drowsiness-related events and synchronizes drowsiness-alert records with an approved Trusted Contact when internet connectivity becomes available.DriveAlert: An IoT-Based Driver Drowsiness Monitoring and Alert System Using Computer VisionDriveAlert: An IoT-Based Driver Drowsiness Monitoring and Alert System Using Computer Vision
+136: 
+137: 
+138: 
+139: 
+140: 
+141: 
+142: 
+143: 
+144: 
+145: 
+146: 
+147: 
+148: 
+149: 
+150: 
+151: 
+152: 
+153: 
+154: 
+155: 
+156: 
+157: 
+158: Figure 1: Flow of the Study
+159: Figure 1 shows the flow of the “DriveAlert” study. The process begins with gathering and collecting data on observable signs of driver drowsiness, such as prolonged eye closure, yawning, and head nodding.
+160: The next phase involves determining an algorithm that can monitor live video and detect selected visible signs of driver drowsiness, specifically prolonged eye closure, yawning, and head nodding. This phase also includes applying Driver-specific detection thresholds together with sign-specific temporal-confirmation conditions to determine when a confirmed warning event is created.
+161: Following this, a direct and offline wireless connection will be designed between the IoT device and the smartphone of the driver. This connection allows the video to be processed instantly through the mobile application without depending on internet or mobile data.
+162: To complete the alerting process, an alarm system will be implemented where the IoT device receives wireless signals from the smartphone and triggers an onboard speaker. The onboard speaker will play predefined audio warning alerts using an adjustable warning volume that cannot be muted or reduced below the enforced minimum level during active monitoring.
+163: The study also includes the implementation of a mobile dashboard that allows the driver to review drowsiness alert history and basic drowsiness insights. The dashboard displays today’s drowsiness alerts, weekly alert count, synchronization status, most frequently detected sign, highest Warning Stage reached, alert trend, and synchronization summary. A background synchronization system will also be developed to automatically synchronize eligible Warning Stage 3 transition records and Stage 3 persistence updates with an approved Trusted Contact when internet connectivity becomes available.
+164: The study follows the Agile Methodology, progressing through iterative stages of planning, requirement analysis, system design, development, testing, deployment, and maintenance. This flexible approach supports continuous improvement and refinement based on feedback from users and testing environments.
+165: Ultimately, the output of this study is “DriveAlert,” an Internet of Things safety system designed to assist drivers through drowsiness-sign detection, warning alerts, drowsiness alert history recording, basic drowsiness insights, and Trusted Contact synchronization.
+166: Definition of Terms
+167: This section contains the specific meaning of the following terms concerning the context used to clarify the study.
+168: Alert Trend. It refers to the basic insight showing whether the number of recorded drowsiness alerts is higher, lower, or unchanged compared with the previous period.
+169: Artificial Intelligence. It refers to the system capability used by DriveAlert to assist in analyzing driver video and identifying possible drowsiness-related signs.
+170: Computer Vision. It refers to the technology used by DriveAlert to process live video and examine visible movements of the driver’s eyes, mouth, face, and head.
+171: Driver. It refers to the primary user of DriveAlert who operates a four-wheeled or larger vehicle and uses the IoT device and mobile application to start monitoring sessions, receive drowsiness warnings, review drowsiness-alert records and summaries, and manage Trusted Contact access.
+172: Drowsiness Alert. It refers to a confirmed warning event generated after one or more selected visible signs satisfy DriveAlert’s complete Driver-specific measurement and sign-specific temporal-confirmation conditions
+173: False Alert. It refers to a warning generated when ordinary or non-target driver behavior incorrectly satisfies the system’s alert condition.
+174: Fleet Manager. It refers to a person responsible for supervising a group of organizational or commercial vehicles and their drivers. In the current DriveAlert design, Fleet Manager is identified only as a potential customer segment and not as a separate system actor.
+175: Highest Warning Stage. It refers to the highest Warning Stage within the context being summarized. A monitoring-session summary reports the highest intervention stage reached during that session, while an alert-history summary reports the highest stage associated with the stored warning events included in that summary. Neither value represents the Driver’s medical or physiological level of drowsiness.
+176: Internet of Things. It refers to the connected hardware and software components of DriveAlert that allow the IoT device and mobile application to exchange video data, connection information, and warning commands.
+177: IoT Device. It refers to the DriveAlert hardware unit containing the infrared-capable camera, wireless communication components, and onboard speaker used during driver monitoring.
+178: Local Offline Wi-Fi Connection. It refers to the direct local network between the DriveAlert IoT device and the driver’s Android smartphone that does not require internet access or mobile data.
+179: Local Processing. It refers to the processing of the transmitted driver video through the Android smartphone instead of sending the video to an internet-based cloud service for drowsiness-sign detection.
+180: Missed Detection. It refers to a situation in which the system fails to identify a selected drowsiness-related sign that is visibly demonstrated by the driver.
+181: Monitoring Session. It refers to the period beginning when the driver starts drowsiness monitoring and ending when monitoring is stopped. Drowsiness alerts detected during this period are associated with the same session.
+182: Onboard Speaker. It refers to the physical speaker installed in the DriveAlert IoT device that produces the selected audio warning after receiving an alert command from the smartphone.
+183: Prolonged Eye Closure. It refers to the driver’s eyes remaining closed long enough to satisfy the established duration condition, distinguishing it from an ordinary brief blink.
+184: Temporal Confirmation. It refers to the requirement that an observed behavior continue or repeat over a defined period or across consecutive video frames before the system treats the behavior as meeting its established alert threshold.
+185: Threshold. It refers to the predefined duration, repetition, movement, or other condition that a detected drowsiness-related sign must satisfy before DriveAlert generates a warning.
+186: Trusted Contact. It refers to a user connected to a Driver through an approved relationship who may review eligible shared Stage 3 transition records and Stage 3 persistence updates. The role does not provide access to the Driver’s complete local alert history or full Driver-facing insights. Access depends on the relationship remaining approved. A Trusted Contact does not control monitoring or function as an emergency-response service.
+187: Trusted Contact Synchronization. It refers to the automatic upload of eligible Stage 3 transition records and Stage 3 persistence updates for access by an approved Trusted Contact when internet connectivity becomes available. Sharing is limited to eligible records from periods beginning on or after connection approval and does not release the Driver’s earlier complete alert history. Removing the approved relationship revokes the Trusted Contact’s access.
+188: Warning Stage Progression. It refers to the process through which DriveAlert changes its active intervention stage. A new distinct confirmed warning event immediately advances Stage 1 to Stage 2 or Stage 2 to Stage 3 and begins a new 60-second evaluation period. Persistent qualifying behavior may also cause escalation at an evaluation boundary. At Stage 3, recurrent or persistent qualifying activity maintains the maximum stage, while the absence of qualifying activity permits incremental de-escalation. Stage progression does not represent increasing medical or physiological drowsiness severity.
+189: Warning Trigger. It refers to the system action that activates or reissues the warning associated with the applicable Warning Stage. A warning may be triggered by a new distinct confirmed warning event or by persistent qualifying behavior evaluated at a warning-stage boundary. Recurrent qualifying events during Stage 3 may also reactivate its warning without creating an additional stage.
+190: Warning Stage. It refers to the current state of DriveAlert’s warning intervention. Stage 1 provides the initial selected warning sound. Stage 2 retains the same sound as an intermediate warning state. Stage 3 represents the maximum intervention level, combines the selected sound with a prerecorded spoken rest advisory, and introduces Trusted Contact synchronization eligibility. Each stage uses a 60-second evaluation period, although new distinct confirmed events may cause earlier progression. Warning Stages do not represent medical or physiological levels of drowsiness.
+191: 
+192: 
+193: 
+194: 
+195: 
+196: 
+197: 
+198: 
+199: 
+200: 
+201: 
+202: 
+203: 
+204: 
+205: 
+206: 
+207: 
+208: 
+209: 
+210: 
+211: 
+212: 
+213: 
+214: 
+215: 
+216: 
+217: 
+218: 
+219: 
+220: 
+221: CHAPTER II
+222: REVIEW OF RELATED LITERATURE AND STUDIES
+223: This chapter presents the related literature and studies gathered through the researchers’ careful review and analysis. It provides the theoretical and technical foundation for the development of DriveAlert: An IoT-Based Driver Drowsiness Monitoring and Alert System Using Computer Vision. The review discusses concepts and studies related to driver fatigue and drowsiness, vigilance, human-centered warning systems, computer vision, Internet of Things, mobile-based detection, offline communication, alert mechanisms, drowsiness alert history recording, and Trusted Contact synchronization. This chapter also establishes how the proposed system relates to existing approaches and how DriveAlert contributes to the development of driver drowsiness monitoring and alert systems.
+224: Theoretical Background
+225: This study is anchored primarily in Vigilance Theory, which explains how sustained attention and alertness may decline during prolonged monitoring tasks. Mackworth (1948) introduced the concept of vigilance decrement through research showing that a person’s ability to detect important signals may decrease over time. In driving, this theory is relevant because drivers must maintain attention for extended periods, particularly during nighttime travel, long-distance driving, and monotonous road conditions. McWilliams and Ward (2021) explained that low-demand and monotonous driving conditions may place drivers in a state of cognitive underload, contributing to vigilance decrement and reduced responsiveness to safety-critical events. For DriveAlert, Vigilance Theory provides a conceptual basis for understanding why maintaining alertness is important during prolonged or monotonous driving. The system itself is limited to monitoring prolonged eye closure, yawning, and head nodding as selected visible signs associated with drowsiness.
+226: The study is further guided by Human Factors Engineering and Human-Centered Design principles. Human factors focus on designing systems according to human capabilities, limitations, behaviors, and possible errors. The Federal Highway Administration (n.d.) explained that human factors address the relationship between people and the systems they use, with consideration for human abilities and limitations. This is relevant to driver monitoring because warnings should be clear, timely, noticeable, and understandable without requiring complex interaction from the driver. Ayas et al. (2024) found that driver-drowsiness mitigation systems commonly use auditory warnings and may employ multistage interventions. These principles support DriveAlert’s use of predefined audio warnings, warning escalation, clear monitoring status, and an interface designed to minimize driver interaction during active monitoring while allowing drowsiness-alert records to be reviewed afterward.
+227: Together, Vigilance Theory and human-centered design principles provide the theoretical and design foundation of DriveAlert. Vigilance Theory explains the importance of maintaining sustained attention during prolonged or monotonous driving, while Human Factors Engineering and Human-Centered Design guide how the system should communicate warnings and present information according to human capabilities and limitations. These foundations support DriveAlert’s development as a driver-centered drowsiness monitoring and alert system that combines visible-sign monitoring, warning output, drowsiness-alert record review, basic drowsiness insights, and Trusted Contact synchronization.
+228: Related Literature
+229: Driver sleepiness, sleep deprivation, and prolonged working hours are associated with increased road-traffic risk. Saleem (2022) identified sleepiness and sleep deprivation as contributors to road traffic accidents, while the National Highway Traffic Safety Administration (2023) documented crashes and fatalities involving drowsy drivers. In the Philippine setting, Lu (2022) reported that prolonged working hours among bus and truck drivers may contribute to fatigue and sleepiness, thereby increasing road-accident risk. Segun et al. (2024) further identified human behavior and technology-supported interventions among the factors relevant to road safety. Together, these studies establish driver drowsiness as a road-safety concern and support the development of systems that monitor Driver behavior and provide timely warnings.
+230: Driver fatigue and drowsiness are related but distinct concepts. Fatigue broadly refers to mental or physical exhaustion, whereas drowsiness describes a sleep-like reduction in alertness that may precede sleep onset. Although some literature uses fatigue as a broader term when discussing reduced alertness, DriveAlert is specifically limited to selected visible signs associated with drowsiness and does not claim to detect fatigue as a whole. Hassan et al. (2026) identified prolonged or slow eyelid closure, yawning, and head nodding as behavioral manifestations of drowsiness. Albadawi et al. (2022) and Jan et al. (2023) likewise identified eye closure, yawning, and head nodding among observable behaviors used in non-intrusive Driver-drowsiness detection. These findings support the selection of prolonged eye closure, yawning, and head nodding as the three visible signs monitored by DriveAlert.
+231: Because these signs are externally observable, computer vision provides a non-invasive means of monitoring them without requiring physiological sensors. Albadawi et al. (2023) extracted Eye Aspect Ratio (EAR), Mouth Aspect Ratio (MAR), and head-pose features from facial landmarks using MediaPipe Face Mesh. Essel et al. (2025) similarly examined eye closure and mouth aperture, while Kim et al. (2023) used infrared video and facial landmarks to evaluate eye closure and head orientation. These studies demonstrate that facial landmarks can support a common visual method for examining eye-, mouth-, and head-related behavior. However, facial measurements may still be affected by lighting, camera placement, face orientation, eyeglasses, facial obstruction, and individual facial characteristics.
+232: Eye Aspect Ratio represents the degree of eye openness using the relationship among selected eye landmarks and generally decreases as the upper and lower eyelids move closer together. Mouth Aspect Ratio similarly represents the degree of mouth opening and generally increases as the mouth opens wider (Albadawi et al., 2023). Head-pose estimation uses facial reference points to estimate changes in head orientation, while pitch represents upward or downward head rotation and may therefore support head-nodding analysis (Albadawi et al., 2023; Kim et al., 2023). Since ordinary blinking, speaking, and brief downward glances can temporarily produce similar measurements, a single threshold-crossing frame is insufficient to confirm a selected visible sign.
+233: Previous studies provide numerical values that can serve as initial references for DriveAlert, but these values should not automatically be applied to every Driver. Albadawi et al. (2023) selected an EAR threshold of 0.20 after evaluating different candidate values and eye characteristics. Higher values increased the possibility of normally open but smaller eyes being classified as closed, while lower values reduced the number of detected closed-eye frames. The same study selected a MAR threshold of 0.50 after considering differences in mouth characteristics; values that were too high could miss wide-mouth events among subjects with smaller mouths, while values that were too low increased the likelihood of ordinary talking or laughing being classified as mouth opening. These findings support 0.20 for EAR and 0.50 for MAR as literature-supported reference values rather than universal operational thresholds.
+234: Individual differences support the use of Driver-specific thresholds because fixed facial measurements may not generalize across users with different facial characteristics and normal head orientations. DriveAlert therefore uses four guided calibration phases, each requiring five seconds of valid measurements. During the neutral phase, the Driver faces forward with the eyes open to establish baseline EAR, MAR, and neutral head pitch. During the eyes-closed phase, closed-eye EAR is recorded as a calibration reference, although the operational EAR threshold remains 75% of the neutral open-eye baseline following Ersoy et al. (2026). During the mouth-open phase, the Driver keeps the mouth as open as possible, and the operational MAR threshold is set at 50% of the average open-mouth MAR following the personalized initialization approach of Quiles-Cucarella et al. (2024), expressed as MARThreshold = OpenMouthMAR × 0.50. During the head-down phase, pitch measurements determine the direction of downward rotation relative to the neutral position. DriveAlert then applies a 15° downward deviation from the calibrated neutral head pitch as its operational head-pitch threshold. Xu et al. (2025) similarly used normal forward orientation as a reference, while Shang et al. (2023) reported drowsy head-pitch changes of approximately 12° to 20°, placing the selected 15° deviation within the reported range. These Driver-specific calibration values are stored and used during monitoring.
+235: For prolonged eye closure, DriveAlert will use 2.0 seconds as its initial operational confirmation duration. Dong et al. (2026) analyzed distributions of normal and fatigue-related continuous eye-closure events and reported that separation between them became stable at approximately two seconds. Their system therefore used sustained eye closure exceeding two seconds as a fatigue-related criterion. Albadawi et al. (2023) also reported that ordinary blinking occurs on a substantially shorter timescale. DriveAlert consequently adopts 2.0 seconds only to determine whether an observed eye closure qualifies as prolonged eye closure and does not interpret the duration as medical confirmation that the Driver is drowsy. Prolonged eye closure will therefore be confirmed when the Driver's EAR remains below the Driver-specific EAR threshold continuously for at least 2.0 seconds. If the EAR reaches or rises above the threshold before the required duration is completed, the temporal counter resets and no prolonged-eye-closure event is confirmed.
+236: Yawning requires a different duration because mouth opening associated with yawning is naturally a longer behavior. Dong et al. (2026) analyzed sustained mouth-opening duration and reported that separation between ordinary mouth movements and fatigue-related yawning became stable at approximately three seconds. Their system consequently used sustained mouth opening exceeding three seconds as its yawning criterion. Quiles-Cucarella et al. (2024) likewise used a personalized MAR threshold together with a three-second mouth-opening condition. DriveAlert will therefore confirm yawning when the Driver’s MAR remains above the Driver-specific MAR threshold continuously for at least 3.0 seconds. If the MAR reaches or falls below the threshold before the required duration is completed, the temporal counter resets and no yawning event is confirmed.
+237: Head nodding requires a different confirmation approach because downward head movement is more ambiguous than sustained eye closure or mouth opening. A Driver may naturally look toward the dashboard, vehicle controls, or another location below the normal forward-facing position without being drowsy. Kholerdi et al. (2016) addressed this ambiguity by evaluating the persistence of downward or away-from-road head position rather than treating every downward movement as an immediate warning condition.
+238: Kholerdi et al. (2016) considered a prolonged head position significant when the Driver’s head remained dropped or turned away during at least 80% of the preceding three seconds. The authors explained that even when such a prolonged position was not caused by drowsiness, maintaining the head away from the normal forward-facing position for a substantial portion of the observation period could still warrant warning.
+239: DriveAlert will therefore initially treat downward head rotation exceeding a fixed 15° deviation from the Driver’s calibrated neutral head position as a candidate head-nodding event rather than immediately confirming the behavior. Calibration establishes the Driver’s neutral head pitch and the direction of downward rotation; it does not determine a different angular deviation threshold for each Driver. The candidate will be confirmed when downward rotation exceeds this threshold in at least 80% of valid observations within a rolling three-second period. If this persistence condition is not satisfied, no head-nodding event is confirmed. The persistence condition is adapted from Kholerdi et al. (2016), while the fixed 15° deviation is a DriveAlert operational choice informed by the approximately 12° to 20° head-pitch changes reported by Shang et al. (2023).
+240: The three selected signs are therefore not given identical confirmation procedures because they present different sources of false detection. Sustained EAR measurements help distinguish prolonged eye closure from ordinary blinking, while sustained MAR measurements help distinguish yawning from shorter mouth movements. Head movement is more ambiguous because normal Driver behavior can also involve downward pitch changes, making temporal persistence appropriate. DriveAlert consequently evaluates each selected sign according to its own characteristics rather than requiring prolonged eye closure, yawning, and head nodding to occur simultaneously.
+241: During uninterrupted valid observation, DriveAlert groups additional confirmed signs into the current alert episode while a previously active episode sign remains currently confirmed. These additional signs do not independently create another alert episode or advance the Warning Stage. A continuously confirmed sign does not repeatedly create distinct events merely because its measurement remains beyond its threshold. Its detector must be re-armed before the same sign can produce another confirmation. Tracking loss, stale observations, or assessment interruptions may break episode continuity; the system does not assume that a physical behavior remained continuously observable during an unavailable interval.
+242: The adopted detection thresholds and confirmation conditions will be evaluated during controlled testing using the actual DriveAlert IoT camera and Android processing environment. Testing will examine false alerts, missed detections, Driver-specific differences, landmark stability, camera placement, performance under different available-light conditions, and processing performance. The purpose of this testing is to verify or refine literature-supported initial conditions under DriveAlert's intended implementation environment rather than assuming that numerical values obtained from another system will transfer perfectly.
+243: Computer vision also supports local and non-invasive system implementation. In the Philippine setting, Macalisang et al. (2021) developed Drive-Awake using machine vision to examine eye closure associated with drowsy driving. Fonseca and Ferreira (2025) reviewed behavioral, physiological, and multimodal Driver-monitoring approaches and emphasized that system performance may vary according to datasets, camera conditions, and implementation environments. These considerations support evaluating DriveAlert under its actual deployment conditions.
+244: Local mobile processing can reduce dependence on cloud infrastructure by processing data close to its source. Andriulo et al. (2024) discussed edge processing for connected devices, while Martinez-Alpiste et al. (2022) demonstrated the relevance of optimized real-time computer-vision processing for resource-constrained platforms. Li et al. (2024) and Tan and Cao (2024) further indicated that mobile inference may be affected by hardware capability, processing workload, battery condition, and temperature. These findings support DriveAlert's Android-based local processing while recognizing that smartphone capability may influence detection responsiveness.
+245: Fourie and Myburgh (2022) demonstrated communication between ESP32-CAM devices and an Android smartphone through a local wireless network for real-time computer-vision functions. Their implementation transmitted camera frames through local Wi-Fi while the smartphone performed processing, demonstrating the technical feasibility of ESP32-based camera hardware communicating with Android without relying on cloud inference. Espressif Systems documentation likewise establishes ESP32 Wi-Fi capability, supporting DriveAlert's local IoT-to-mobile communication architecture.
+246: Low-light monitoring is relevant because drowsiness may occur during nighttime, early-morning travel, or in dim vehicle environments. Facial measurements obtained through computer vision may be affected by lighting, camera placement, facial orientation, and image quality. DriveAlert uses an infrared-capable camera without dedicated infrared illumination. Its infrared capability does not itself provide light or guarantee usable facial measurements under extremely low-light or no-light conditions. DriveAlert therefore evaluates facial brightness and contrast before allowing calibration measurements or drowsiness-sign assessment. When lighting is insufficient, assessment pauses even if a face remains detected, and affected frames do not contribute to calibration’s required valid measurement time The system prompts the Driver to restore adequate visibility and resumes assessment when the applicable lighting-quality, recovery, and observation-freshness requirements are met. These checks are image-quality safeguards rather than measures of Driver drowsiness. Their suitability will be evaluated under different available-light conditions using the final hardware configuration.
+247: Drowsiness-stage warning intervention begins only after a selected sign satisfies its applicable measurement threshold and temporal-confirmation condition. Separate operational guidance may be issued when facial visibility or lighting is inadequate or when the movement-advisory condition is satisfied. Such guidance does not itself constitute a confirmed drowsiness-sign event, create an additional alert-history episode, or advance the Warning Stage. Detection of a qualifying visible behavior and selection of the corresponding intervention are therefore treated as separate processes. Ayas et al. (2024), in a scoping review of Driver-state-monitoring intervention studies, found that multistage interventions were commonly used and that auditory warnings were among the most frequently employed warning modalities. The reviewed systems generally progressed from an initial caution toward stronger warnings, requested Driver actions, or additional interventions. These findings support progressive warning intervention rather than requiring every confirmed event to produce an identical response.
+248: Schwarz et al. (2015) provide a direct basis for DriveAlert’s warning-stage transition architecture. Their drowsiness-mitigation system used a three-stage audio-visual warning in which the same drowsiness threshold was used to trigger each stage. Detection of drowsiness while no mitigation was active initiated Stage 1. During Stage 1, the detection algorithm could either continue classifying the Driver as drowsy or return to an awake state. If the Driver returned to an awake classification, the mitigation was allowed to abate after a fixed delay. However, if another drowsy episode was detected before the current mitigation abated, or if the drowsy state persisted for 60 seconds, the system escalated to Stage 2. Schwarz et al. applied the same logic during Stage 2, allowing the mitigation to either abate to Stage 1 or escalate to Stage 3. Stage 3 represented the maximum intervention level; further escalation was not permitted, although the Stage 3 warning could be reissued when drowsiness persisted or recurred soon afterward. The system permitted only incremental escalation and abatement between adjacent stages.
+249: Gaspar et al. (2017) later experimentally evaluated a related staged drowsiness-countermeasure architecture using 72 participants in a high-fidelity driving simulator. Their Driver-state algorithm issued awake or drowsy assessments every six seconds, and the staged interface consisted of three increasingly urgent warning levels. In the evaluated implementation, each countermeasure state expired after 60 seconds. If the Driver was classified as awake when the state expired, the system returned to the previous stage; if drowsiness continued, the system progressed to the next stage. When already at Stage 3, continued drowsiness caused the Stage 3 warning to be triggered again rather than creating an additional stage. Gaspar et al. found that the multistage condition reduced drowsy lane departures relative to the single-stage condition, particularly during the early-morning drives in which participants were expected to be drowsier. These findings provide experimental support for progressive multistage intervention while Schwarz et al. (2015) provides the more detailed basis for the transition mechanics adopted by DriveAlert.
+250: DriveAlert will adapt the three-stage transition principles described by Schwarz et al. (2015) to its discrete computer-vision warning events. Because DriveAlert does not repeatedly classify the Driver simply as awake or drowsy, a new distinct confirmed warning event will represent a newly occurring qualifying episode for warning-stage progression. A distinct confirmed warning event is created only after prolonged eye closure, yawning, or head nodding satisfies its complete Driver-specific measurement and temporal-confirmation condition. A single continuous qualifying behavior does not repeatedly generate new events, and qualifying signs occurring during the same overlapping behavioral episode may remain associated with one alert record. These event-management rules prevent a continuous or overlapping episode from causing artificial stage escalation.
+251: The first distinct confirmed warning event occurring while no Warning Stage is active will immediately activate Warning Stage 1 and begin a 60-second Stage 1 evaluation period. If another distinct confirmed warning event occurs before the Stage 1 period ends, DriveAlert will interpret the new event as recurrence of qualifying warning activity and will immediately progress to Warning Stage 2. Progression to Stage 2 begins a new 60-second Stage 2 evaluation period. The system therefore does not require the complete Stage 1 period to expire when a new distinct qualifying episode has already occurred. This adapts Schwarz et al.’s (2015) rule in which another drowsy episode detected before the current mitigation abated could cause progression to the next stage.
+252: If no additional distinct confirmed warning event occurs during the Stage 1 evaluation period, the system will evaluate the state of the qualifying behavior when the 60-second boundary is reached. If qualifying warning activity remains continuously active at the boundary, DriveAlert will progress to Warning Stage 2 and begin a new 60-second Stage 2 period. If the previously confirmed behavior has ended, no new distinct warning event has occurred, and no qualifying behavior remains active, the system will return to the normal state with no active Warning Stage. This persistence pathway adapts Schwarz et al.’s use of 60 seconds of persistent drowsiness as an alternative reason for escalation while retaining Gaspar et al.’s use of 60-second countermeasure-state boundaries for reevaluation.
+253: Warning Stage 2 will follow the same transition principle. If another distinct confirmed warning event occurs while Stage 2 is active, DriveAlert will immediately progress to Warning Stage 3 and begin a new 60-second Stage 3 evaluation period. The new event must represent a genuinely distinct qualifying episode rather than the continuation of the event that previously caused Stage 2. If no new distinct warning event occurs during Stage 2 but qualifying warning activity remains continuously active when the 60-second Stage 2 period expires, the system will likewise progress to Stage 3. If no additional distinct event occurs and the qualifying behavior has ended by the Stage 2 boundary, the system will de-escalate to Warning Stage 1 and begin a new 60-second Stage 1 evaluation period. This preserves incremental progression and de-escalation between adjacent intervention stages.
+254: Warning Stage 3 is the maximum DriveAlert intervention stage. Additional distinct confirmed warning events occurring while Stage 3 is active cannot produce a Stage 4. Instead, a new distinct event may reactivate the Stage 3 Driver-directed warning and will be recorded as recurrent qualifying warning activity during the current Stage 3 period. The 60-second Stage 3 evaluation period will not be converted into an additional intervention level. When the Stage 3 period expires, DriveAlert will evaluate whether recurrent qualifying warning activity occurred during the completed period or whether a qualifying behavior remains persistently active at the boundary. If either condition is present, DriveAlert will remain at Stage 3, begin another 60-second Stage 3 evaluation period, and may reissue the Stage 3 intervention. If neither recurrent nor persistent qualifying warning activity is present, the system will de-escalate to Warning Stage 2. Continued absence of qualifying warning activity subsequently permits incremental de-escalation from Stage 2 to Stage 1 and from Stage 1 to the normal state. This maximum-stage behavior follows the principle described by Schwarz et al. (2015), in which Stage 3 could not escalate further but its warning could be reissued when drowsiness persisted or soon recurred.
+255: The 60-second value is not used as a confirmation threshold for prolonged eye closure, yawning, or head nodding. Those visible signs retain their independent Driver-specific measurement and temporal-confirmation conditions. Instead, 60 seconds represents the warning-stage evaluation interval used to determine whether persistent warning activity requires escalation or whether the absence of renewed qualifying activity permits de-escalation. A new distinct confirmed warning event may therefore cause earlier progression from Stage 1 to Stage 2 or from Stage 2 to Stage 3 without waiting for the corresponding 60-second period to expire. Conversely, when no new distinct event occurs, the 60-second boundary provides a defined point for evaluating persistent activity or recovery. Schwarz et al. (2015) directly described progression when another drowsy episode occurred before mitigation abated or when the drowsy state persisted for 60 seconds, while Gaspar et al. (2017) experimentally evaluated three-stage warnings using 60-second countermeasure states.
+256: Because Schwarz et al. (2015) and Gaspar et al. (2017) used a Driver-state algorithm that classified the Driver as awake or drowsy rather than DriveAlert’s separate EAR-, MAR-, and head-pose-based events, DriveAlert’s mapping of a new distinct confirmed warning event to a newly occurring qualifying episode is an adaptation rather than a direct replication of their detection algorithm. Similarly, DriveAlert interprets continued satisfaction of a selected sign’s confirmed condition at a stage boundary as evidence of persistent qualifying warning activity rather than claiming that the Driver has been continuously and medically confirmed as drowsy. The suitability of this mapping and the 60-second evaluation interval will therefore be examined during controlled testing using the actual DriveAlert implementation.
+257: For example, if a Driver first produces a confirmed prolonged-eye-closure event while no stage is active, DriveAlert immediately activates Stage 1. If the eye closure ends and the Driver later produces a distinct confirmed yawning event while Stage 1 remains active, the new event immediately progresses the system to Stage 2 and begins a new Stage 2 evaluation period. If a subsequent distinct head-nodding event occurs while Stage 2 is active, the system immediately progresses to Stage 3. In contrast, when additional signs become confirmed while an existing alert episode remains active under the episode-continuity rule, their signs are merged into that episode and do not independently advance the Warning Stage. Likewise, during uninterrupted valid observation, keeping the eyes continuously closed after one prolonged-eye-closure confirmation does not repeatedly create new distinct alert episodes. Current-stage warning reminders may still be requested, while continued qualifying activity is separately evaluated at the applicable warning-stage boundary.
+258: Warning Stage 1 will activate the Driver’s selected predefined warning sound through the IoT device. This represents the initial Driver-directed intervention following a confirmed warning event. Auditory warnings are widely represented in the Driver-state-monitoring literature reviewed by Ayas et al. (2024), while Chandana and Sangeetha (2023) similarly used a sound warning at the first level of their three-level system.
+259: Warning Stage 2 will retain the Driver’s selected predefined warning sound without adding a spoken advisory. It serves as an intermediate warning state when qualifying warning activity recurs during Stage 1 or remains persistently active at the Stage 1 evaluation boundary. Although Stages 1 and 2 use the same audio output, they represent different positions within the warning-stage transition process. Ayas et al. (2024) support the broader use of staged interventions, while Chandana and Sangeetha (2023) provide precedent for introducing human-voice warnings after initial sound alerts. DriveAlert adapts these principles by reserving the spoken rest advisory for Warning Stage 3, where it is intended to distinguish the maximum intervention stage from the preceding sound-only warnings. The placement of speech at Stage 3 is a DriveAlert design decision rather than an arrangement directly prescribed by these sources.
+260: Chandana and Sangeetha (2023) provide a more direct precedent for reserving external communication for a final intervention level. Their three-level system initially provided a sound warning, progressed to a human-voice warning following repeated warning activity, and used its third level as an alert-notification stage in which information including GPS data was transmitted to the vehicle owner or another concerned person. Their implementation therefore demonstrates an intervention structure progressing from an initial Driver-directed warning, to a stronger Driver-directed warning, and finally to external awareness.
+261: Multi-feature Driver-monitoring approaches can reduce dependence on a single facial indicator when visual information is partially obstructed. Jia et al. (2021, 2022) demonstrated that monitoring could continue using the remaining observable facial features when the eyes or mouth were affected by sunglasses or face masks. DriveAlert applies this principle to supported mask and sunglasses detection and to facial measurements reported as unavailable by its processing pipeline. It does not claim to recognize every possible obstruction, such as all hands, phones, hair, scarves, or other objects. When one of the three monitored signs becomes unavailable while two remain reliable, DriveAlert continues in a degraded monitoring state and informs the Driver which capability is unavailable. If any two signs become unavailable, DriveAlert pauses drowsiness-sign monitoring rather than relying on a single behavioral indicator and instructs the Driver to restore sufficient facial visibility before monitoring resumes.
+262: Awasekar et al. (2018) provide additional precedent for placing external communication at a highest warning stage. Their Driver Fatigue Detection and Alert System used three fatigue stages based on its own eye-closure and yawning conditions. At Stage 3, the system combined its highest local intervention with communication to predefined contacts through an Android smartphone. DriveAlert does not adopt the fatigue-stage classifications used by Awasekar et al. because DriveAlert’s Warning Stages represent levels of system intervention rather than physiological or medical levels of Driver drowsiness. Their work nevertheless provides additional precedent for associating external communication with a final or highest intervention stage.
+263: Fitzharris et al. (2017) further demonstrated the value of supplementing Driver-directed warnings with external awareness in an operational Driver-monitoring environment. Their study examined a camera-based Driver-monitoring system that generated in-cab warnings and was subsequently combined with external monitoring and management feedback when fatigue events were identified. The external feedback condition produced a larger reduction in fatigue-event occurrence than the in-cab-warning condition alone under the study conditions. Although DriveAlert’s Trusted Contact function differs from fleet-management intervention, the study supports the broader principle that external awareness can supplement immediate Driver-directed warnings when monitored warning activity persists.
+264: Warning Stage 3 will combine the Driver’s selected predefined warning sound with a fixed prerecorded spoken advisory recommending that the Driver stop in a safe place and take a rest. It will also introduce Trusted Contact synchronization eligibility. When DriveAlert progresses from Stage 2 to Stage 3, one Stage 3 transition record becomes eligible for synchronization with the Driver’s approved Trusted Contact, subject to internet availability. The introduction of speech following earlier sound warnings adapts the progression described by Chandana and Sangeetha (2023), although DriveAlert places speech at Stage 3 rather than at their second intervention level. The exact advisory wording and its placement at Stage 3 are DriveAlert design decisions. Stage 3 represents the maximum system intervention level following recurrent or persistent qualifying warning activity; it does not establish a medically severe level of Driver drowsiness.
+265: The three Warning Stages must therefore be interpreted as levels of system intervention rather than measurements of drowsiness severity. Warning Stage 1 represents the initial Driver-directed intervention following the first distinct confirmed warning event. Warning Stage 2 represents an intermediate warning state that retains the selected warning sound when another distinct qualifying episode occurs while Stage 1 remains active or when qualifying warning activity persists through the Stage 1 evaluation boundary. Warning Stage 3 represents the maximum intervention level when qualifying activity again recurs during Stage 2 or persists through the Stage 2 evaluation boundary. DriveAlert does not infer that a Driver at Stage 3 has reached a medically established severity of drowsiness or is physiologically drowsier simply because the highest Warning Stage has been reached.
+266: Continued qualifying warning activity while Stage 3 remains active also requires an external-awareness rule that does not generate a separate Trusted Contact synchronization record for every confirmed event. Schwarz et al. (2015) retained Stage 3 as the maximum mitigation stage and allowed the Stage 3 warning to be reissued when drowsiness persisted or recurred. Gaspar et al. (2017) similarly retained Stage 3 as the maximum countermeasure state and retriggered the Stage 3 intervention when continued drowsiness required another escalation. DriveAlert adapts this repeated maximum-stage principle to its Trusted Contact synchronization management.
+267: When DriveAlert initially enters Stage 3, one Stage 3 transition record becomes eligible for Trusted Contact synchronization. Individual distinct confirmed warning events occurring during the subsequent 60-second Stage 3 evaluation period continue to be stored in the Driver’s alert history and may reactivate the Stage 3 Driver-directed warning, but they do not each independently create a Trusted Contact synchronization record. Instead, they indicate that recurrent qualifying warning activity occurred during the active Stage 3 period.
+268: When the 60-second Stage 3 period expires, DriveAlert evaluates both recurrent and persistent qualifying activity. If at least one additional distinct confirmed warning event occurred during the completed Stage 3 period, or if a qualifying behavior remains persistently active at the Stage 3 boundary, DriveAlert remains at Stage 3, begins another 60-second Stage 3 evaluation period, and creates one Stage 3 persistence update that becomes eligible for Trusted Contact synchronization. If neither condition is present, DriveAlert de-escalates to Stage 2 and no Stage 3 persistence update is created for that completed period.
+269: If qualifying warning activity continues across several consecutive Stage 3 periods, at most one persistence update becomes eligible for synchronization for each completed Stage 3 period in which recurrent or persistent qualifying warning activity is established. Individual warning events remain available in the Driver’s detailed alert history but do not independently produce external synchronization records. This separates detailed event recording from the frequency of Trusted Contact updates.
+270: The exact rule of generating one Trusted Contact persistence update per completed qualifying Stage 3 period is not a notification frequency directly prescribed by Schwarz et al. (2015), Gaspar et al. (2017), Chandana and Sangeetha (2023), Fitzharris et al. (2017), or the other reviewed studies. Schwarz et al. directly support maintaining Stage 3 as the maximum intervention level and reissuing its warning when drowsiness persists or recurs, while Gaspar et al. directly support repeated Stage 3 intervention following continued drowsiness at a 60-second countermeasure boundary. Chandana and Sangeetha provide precedent for external communication at the final intervention level, and Fitzharris et al. support supplementing Driver-directed warnings with external monitoring or feedback. DriveAlert combines these principles by aligning Trusted Contact persistence updates with its Stage 3 evaluation boundaries. The resulting persistence-update rule is therefore a literature-informed DriveAlert information-management adaptation and will be evaluated during controlled testing for usefulness, unnecessary repetition, and synchronization behavior.
+271: For example, several distinct confirmed warning events occurring during one Stage 3 evaluation period do not generate an equal number of Trusted Contact synchronization records. The events remain individually available in the Driver’s alert history, subject to the existing overlap and deduplication rules, while the completed Stage 3 period may produce one persistence update indicating that qualifying warning activity continued. This separates detailed event storage from external-awareness frequency.
+272: Trusted Contact synchronization remains subject to Driver approval and internet availability. Only eligible records from periods beginning on or after approval of the Driver–Trusted Contact relationship may be shared. Approval does not release the Driver’s earlier complete alert history, and continued access depends on the relationship remaining approved. If internet connectivity is unavailable when a Stage 3 transition or persistence update becomes synchronization-eligible, the corresponding record is retained in the synchronization queue until connectivity becomes available. Kashyap et al. (2025) demonstrated the use of Firebase and a web dashboard for remote review of Driver-status information, while Kumar et al. (2022) used SMS or email to provide drowsiness-related information to authorized persons or family members. These studies support the broader technical feasibility of making selected Driver information available to an authorized external person. DriveAlert limits this feature to secondary awareness and record review and does not operate as an emergency-response service, guarantee immediate assistance, determine whether the Driver is fit to continue driving, or permit the Trusted Contact to control the Driver’s monitoring session.
+273: The Driver’s drowsiness-alert history and basic Drowsiness Insights feature are supported by literature on recorded-event visualization and dashboard-based review. Murphy et al. (2021) and Moens et al. (2021) demonstrated that dashboards can support review of recorded safety-related events and trends. DriveAlert therefore allows Drivers to review confirmed warning events and basic descriptive summaries of stored records. These records and summaries are not intended as medical analysis, accident prediction, confirmation of drowsiness, or determination of the Driver’s fitness to continue driving.
+274: Overall, the reviewed literature supports the principal components of DriveAlert while showing that its three selected visible signs require different confirmation procedures. EAR, MAR, and head-pose measurements provide a basis for examining prolonged eye closure, yawning, and head nodding, while Driver calibration addresses individual differences in facial measurements and neutral head orientation. Temporal evidence supports sustained confirmation of prolonged eye closure and yawning, while temporal persistence provides a stronger basis for interpreting ambiguous downward head movement. Driver-monitoring literature further supports progressive multistage warning intervention. Schwarz et al. (2015) provide the primary basis for DriveAlert’s three-stage transition mechanics by describing incremental escalation when another drowsy episode occurs before the current mitigation abates or when drowsiness persists for 60 seconds, together with incremental abatement and Stage 3 as the maximum intervention level. Gaspar et al. (2017) later experimentally evaluated a related three-stage architecture using 60-second countermeasure states and found that staged warnings reduced drowsy lane departures relative to single-stage warnings under the study conditions. Chandana and Sangeetha (2023) provide precedent for introducing human-voice warnings after initial sound alerts and external communication at a final intervention level. DriveAlert adapts these principles by retaining the selected warning sound during Stages 1 and 2 and introducing both a spoken rest advisory and Trusted Contact synchronization eligibility at Stage 3. Fitzharris et al. (2017) provide evidence that external awareness or feedback can supplement immediate Driver-directed warnings. DriveAlert adapts these principles to distinct confirmed computer-vision warning events and controlled Trusted Contact synchronization while treating its Warning Stages as levels of system intervention rather than medical levels of drowsiness. Mobile-processing and IoT literature further supports DriveAlert’s local Android processing and local wireless communication, while its performance under different lighting conditions will be evaluated using the final camera configuration.
+275: 
+276: Related Studies
+277: Deployed driver-drowsiness, fatigue, and alertness systems use mobile computer vision, wearable sensors, driver-condition assessment, and physical warning devices to help users recognize reduced alertness. Some systems monitor visible indicators such as eye closure and head movement, while others estimate fatigue using personal information, trip conditions, and reaction-time testing. These systems demonstrate that mobile, wearable, and embedded technologies can provide immediate warnings, although they differ in detection methods, hardware requirements, offline capability, record management, and user support.
+278: Drowsy Driving Alert is a deployed mobile application that uses artificial intelligence and the smartphone’s front camera to monitor the driver’s face and eyes. The application distinguishes normal blinking from extended eye closure and provides audio and visual alerts when drowsiness is detected. It can operate alongside Google Maps and Apple Maps, while facial processing is performed locally on the smartphone. However, the phone must be positioned where the camera can clearly view the driver. Lighting, camera obstruction, device performance, and background-operation restrictions may also delay or interrupt warnings.
+279: WingDriver is a smartphone-based driver-monitoring system that uses computer vision and artificial intelligence to detect drowsiness, fatigue, distraction, and inattention. It provides immediate audible or visual warnings to help the driver regain attention. The provider also offers related business solutions for fleets, ride-sharing services, insurers, and vehicle manufacturers. However, monitoring depends on the smartphone camera maintaining a usable view of the driver and on the mobile device having sufficient processing capability. Broader business deployment also requires coordination with the provider.
+280: Fatigue Alert – Stay Awake is a deployed application that uses supported AirPods or Beats headphones to monitor the user’s head posture. When downward head movement indicates possible drowsiness, the application provides warnings through sound, vibration, system notifications, or Apple Watch haptic feedback. It can continue operating in the background or while the device screen is locked. However, the system requires compatible Apple devices and supported headphones and focuses mainly on head-posture monitoring rather than facial indicators. It is also presented as a general stay-awake application rather than a system exclusively intended for driving.
+281: Anti Sleep Pilot is a dashboard-mounted device and mobile application that continuously calculates a driver’s fatigue level. Its calculation considers the driver’s personal risk profile, fatigue condition before the trip, and driving information registered through built-in sensors. It also administers periodic reaction-time tests and provides audible and visual recommendations when the driver should take a break. However, the system requires initial profile configuration and periodic interaction from the driver. Its documentation also notes that low-speed traffic, GPS conditions, and some driving situations may affect trip-state interpretation or cause distraction.
+282: The alertme Drowsy Driver Device is a commercially deployed wearable warning device developed by resqme, Inc. It is worn behind the ear and detects downward head nodding associated with possible dozing. When the user’s head tilts forward by approximately 15 to 20 degrees, the battery-powered device produces a 90-decibel audible alarm. The device does not require a smartphone, mobile application, or internet connection. However, it must be worn correctly, detects only head-nodding movement, and provides only a direct audible warning.
+283: The reviewed systems demonstrate different approaches to driver-state monitoring and warning. Drowsy Driving Alert and WingDriver use smartphone cameras and artificial intelligence to monitor visible driver behaviors. Fatigue Alert – Stay Awake uses wearable motion information to monitor head posture. Anti Sleep Pilot estimates fatigue through driver profiles, sensor information, and reaction-time testing. Meanwhile, alertme uses a simple wearable mechanism to detect downward head movement and produce an immediate alarm.
+284: The systems collectively show the progress and remaining integration gaps in driver-drowsiness and alertness monitoring. Smartphone-based applications provide accessible camera monitoring but depend on phone placement, facial visibility, and device performance. Wearable applications require compatible accessories, while fatigue-estimation systems require profile configuration and periodic driver interaction. Simple physical alarms can operate without internet access but generally monitor only one behavior and do not provide organized records.
+285: Overall, DriveAlert combines selected driver-monitoring and record-management functions in an external-camera and Android-based prototype. Its configuration includes an external IoT camera with an infrared-capable sensor, Android-based local processing, offline IoT-to-mobile communication, monitoring of prolonged eye closure, yawning, and head nodding, and onboard speaker warning output. Confirmed warning events are stored locally for Driver review and descriptive summaries, while separate eligible Stage 3 transition records and persistence updates support approved Trusted Contact sharing. DriveAlert investigates whether these functions can operate together under controlled testing conditions.
+286: Comparative Matrix
+287: This section presents a comparative matrix developed to organize and assess relevant deployed systems in relation to DriveAlert: An IoT-Based Driver Drowsiness Monitoring and Alert System Using Computer Vision. It compares Drowsy Driving Alert, WingDriver, Fatigue Alert – Stay Awake, Anti Sleep Pilot, and the alertme Drowsy Driver Device according to their features, limitations, platform details, support mechanisms, and monetization schemes. The comparison identifies the different mobile, wearable, and embedded approaches used for driver-state monitoring and warning and supports the positioning of DriveAlert as an integrated driver-focused system.
+288: 
+289: 
+290: 
+291: 
+292: 
+293: 
+294: 
+295: 
+296: 
+297: 
+298: 
+299: 
+300: 
+301: 
+302: 
+303: 
+304: 
+305: Table 1.1
+306: COMPARATIVE MATRIX
+307: 
+308: 
+309: 
+310: Table 1.2
+311: COMPARATIVE MATRIX
+312: Table 1.3
+313: COMPARATIVE MATRIX
+314: 
+315: The comparative matrix presents five driver-drowsiness, fatigue, and alertness monitoring and warning systems. Drowsy Driving Alert and WingDriver use smartphone-based computer vision to monitor visible driver behavior and provide immediate alerts. Fatigue Alert – Stay Awake uses compatible wearable accessories to monitor head posture. Anti Sleep Pilot evaluates fatigue through driver information, trip conditions, sensor data, and reaction-time testing. The alertme device uses a simpler wearable mechanism to recognize downward head movement and activate a loud alarm.
+316: Clear distinctions exist among the systems. Drowsy Driving Alert focuses on facial and eye monitoring through the smartphone camera. WingDriver expands mobile monitoring to include drowsiness, fatigue, distraction, and business driver-safety applications. Fatigue Alert – Stay Awake depends on supported Apple accessories and monitors head posture. Anti Sleep Pilot does not primarily use computer vision but provides personalized fatigue calculation and break recommendations. The alertme device operates independently of mobile and internet connectivity but detects only head-nodding movement.
+317: DriveAlert combines external camera monitoring, Android-based detection, physical warning output, local record review, and controlled Trusted Contact sharing. It uses an external IoT camera with an infrared-capable sensor. The Android application receives the camera stream through a local Wi-Fi connection, evaluates prolonged eye closure, yawning, and downward head posture using the applicable measurement and temporal-confirmation conditions, and sends warning commands to the IoT device. Confirmed warning events are stored locally and summarized for Driver review. Separate eligible Stage 3 transition records and persistence updates are synchronized for access by an approved Trusted Contact when internet connectivity becomes available.
+318: Table 2
+319: COMPARATIVE MATRIX SUMMARY
+320: 
+321: Table 2 presents a comparative evaluation of DriveAlert alongside existing driver-drowsiness, fatigue, and alertness monitoring and warning systems: Drowsy Driving Alert, WingDriver, Fatigue Alert – Stay Awake, Anti Sleep Pilot, and the alertme Drowsy Driver Device. While each system addresses specific aspects of driver alertness, such as camera-based monitoring, head-posture detection, fatigue estimation, or audible warning, DriveAlert consolidates several of these functions into one driver-focused system. Specifically, DriveAlert combines an external infrared-supported IoT camera, Android-based local processing, offline IoT-to-mobile communication, monitoring of prolonged eye closure, yawning, and head nodding, onboard speaker warning output, drowsiness-alert records, basic drowsiness insights, and Trusted Contact synchronization. Drowsy Driving Alert uses smartphone-based facial and eye monitoring and provides immediate alerts, but its publicly documented functions primarily focus on mobile detection and warning. WingDriver provides mobile computer-vision monitoring for drowsiness, fatigue, and distraction and supports driving-related information, but its documented individual-user platform relies mainly on the smartphone camera. Fatigue Alert – Stay Awake monitors head posture through compatible wearable accessories and provides sound, vibration, and smartwatch warnings, but it focuses primarily on head movement. Anti Sleep Pilot estimates fatigue through personal information, trip conditions, sensor data, and reaction-time testing rather than camera-based facial monitoring. The alertme Drowsy Driver Device provides a simple offline audible warning when downward head nodding is detected, but its documented monitoring function is limited to that movement. In contrast, DriveAlert integrates external camera monitoring, offline mobile processing, multiple visible signs associated with drowsiness, physical warning output, drowsiness-alert record review, and approved Trusted Contact access within one cohesive system.
+322: 
+323: 
+324: 
+325: 
+326: 
+327: 
+328: 
+329: 
+330: 
+331: 
+332: 
+333: 
+334: 
+335: CHAPTER III
+336: RESEARCH METHODOLOGY
+337: This chapter outlines the software engineering methodology used in the development of “DriveAlert.” It includes the planning and initiation phase, program workflow, validation board, and Gantt chart. It also covers the analysis and design phase, including the use case diagram, user interface design, storyboard, database design, and network design for the connection between the IoT camera device, mobile application, drowsiness-sign detection process, alert mechanism, basic drowsiness insights, and Trusted Contact synchronization. The chapter further discusses the development and construction phase by presenting the technology stack diagram, software and hardware specifications, program specifications, and list of modules used in developing the system.
+338: Software Engineering Methodology
+339: The development process for “DriveAlert: An IoT-Based Driver Drowsiness Monitoring and Alert System Using Computer Vision” will be based on the Agile methodology due to its iterative and flexible approach, which supports continuous improvement and frequent testing of system features. In the case of DriveAlert, where the system involves driver drowsiness monitoring, alert triggering, drowsiness alert history recording, basic drowsiness insights, and Trusted Contact synchronization, Agile supports a development cycle that allows the researchers to improve the system based on testing results and user feedback. Agile’s emphasis on collaboration, feedback, and incremental progress provides a structured yet adaptable roadmap for the development process, helping the researchers manage system changes and ensure that the system requirements are addressed systematically.
+340: 
+341: 
+342: 
+343: 
+344: 
+345: 
+346: 
+347: 
+348: 
+349: 
+350: 
+351: 
+352: Figure 2: Agile Methodology
+353: The team will use the iterative approach of Agile methodology to guide the development of DriveAlert and monitor the progress of activities throughout the project timeline. The project will be divided into ten two-week sprints, with each sprint following the Plan, Design, Develop, Test, Deploy, and Review activities. This approach is suitable because DriveAlert consists of several connected components, including the IoT device, mobile application, web portal, drowsiness-monitoring functions, warning system, drowsiness-alert record dashboard, and synchronization feature. Each sprint will produce a working system component that can be tested, reviewed, and improved before the next sprint begins.
+354: Planning Phase. The team will identify and organize the requirements for each sprint using the survey results, validation board, related studies, project objectives, scope, and approved system design. The team will define the expected outputs, required resources, task assignments, and testing activities. Early sprints will focus on research, documentation, requirements, and system planning, while later sprints will focus on development, integration, testing, deployment, and evaluation.
+355: Design Phase. The team will prepare and refine the designs needed for each system component. This phase includes the system architecture, diagrams, workflows, user interfaces, database design, network design, and testing procedures. The designs will show how the IoT device, mobile application, web portal, warning system, record-management functions, and synchronization feature will work together.
+356: Development Phase. The team will convert the approved designs into functional system components. Development will include setting up the required development environments, configuring the database and account services, assembling and programming the IoT device, developing the mobile application and web portal, implementing drowsiness-monitoring and warning functions, and creating the drowsiness-alert record and synchronization features. Each component will be developed gradually according to the assigned sprint.
+357: Testing Phase. Testing will be conducted during every sprint rather than only after the entire system has been completed. The team will test the functionality, accuracy, reliability, responsiveness, usability, and compatibility of each completed component. Testing will also cover device connection, video transmission, warning response, record storage, dashboard display, synchronization, low-light operation, and system performance. Identified errors, delays, incorrect detections, communication problems, and missing functions will be documented for correction.
+358: Deployment Phase. At the end of each development sprint, the completed component will be placed in the DriveAlert prototype environment for integration and verification. Early deployments will include the project foundation, database, account functions, IoT connection, and monitoring features. Later deployments will include the warning system, records, dashboard, synchronization, integrated application, web portal, and final IoT configuration.
+359: Review Phase. After each sprint, the team will review the completed work based on testing results, documented issues, and feedback. The review will determine whether the system requirements were achieved and whether revisions are needed. Identified improvements will be added to the project backlog and addressed in the succeeding sprint. The final review will verify that DriveAlert satisfies the study objectives, scope, system requirements, and evaluation criteria.
+360: Table 3.1
+361: AGILE SPRINT PLAN
+362: 
+363: Table 3.2
+364: AGILE SPRINT PLAN
+365: 
+366: Table 3.3
+367: AGILE SPRINT PLAN
+368: 
+369: Table 3.4
+370: AGILE SPRINT PLAN
+371: 
+372: Table 3.5
+373: AGILE SPRINT PLAN
+374: 
+375: Planning-Initiation Phase
+376: During this phase, the project's goals, scope, and requirements will be defined and clarified. This involves creating a Business Model Canvas to evaluate the business concept, a program workflow to illustrate user interactions with the DriveAlert application, and a validation board to identify the core problem and define a solution that addresses the needs of the intended users. Additionally, a Gantt chart will be used to outline tasks and their associated timeframes, and a functional decomposition diagram will break down complex processes into more minor, more manageable activities.
+377: Business Model Canvas
+378: The Business Model Canvas allows the researchers to visualize and adequately assess the business concept of the study. By diving into the Key Partners, Key Activities, Value Proposition, Customer Relationships, Customer Segments, Key Resources, Channels, Revenue Streams, and Cost Structure, the researchers will be able to gain comprehensive insights into the study's potential, uncovering the factors that aid to its success and areas that need improvement, making room for more informed decisions
+379: Table 4
+380: BUSINESS MODEL CANVAS
+381: 
+382: Table 4 presents the Business Model Canvas for the DriveAlert system. The system serves drivers of four-wheeled vehicles and larger vehicles, and Trusted Contacts. Its key activities include developing the mobile and web applications, integrating the MediaPipe Face Landmarker model, calibrating drowsiness-sign detection thresholds, setting up and testing the IoT device, managing Alert records, and continuously improving the system. DriveAlert provides real-time drowsiness monitoring, offline local Wi-Fi operation, onboard speaker warnings, alert history and insight summaries, and Trusted Contact synchronization. Its key resources include the MediaPipe Face Landmarker model, cloud infrastructure, development tools, the DriveAlert IoT device, and synchronized alert records. The system’s possible revenue streams include the one-time purchase of the DriveAlert IoT device and a paid subscription for additional user of DriveAlert device.
+383: Program Workflow
+384: This section highlights the program workflow for the "DriveAlert’s" app. It will present the structured sequence of steps or activities that outline the process flow within the application. This will serve as a visual representation or a detailed description of how tasks, operations, or processes are carried out from start to finish. It helps in understanding the logical progression of activities, identifying dependencies, and ensuring efficient execution of tasks which are essential for planning, managing, and optimizing processes in various domains such as software development, business operations, and project management.
+385: 
+386: 
+387: 
+388: 
+389: 
+390: 
+391: 
+392: 
+393: 
+394: 
+395: 
+396: 
+397: 
+398: 
+399: 
+400: 
+401: 
+402: Figure 3: Program Workflow (Drivers)
+403: Figure 3 presents the program workflow for the Driver view of the DriveAlert mobile application. The process begins with account creation or login, followed by access to the Driver view and DriveAlert setup, which includes device connection, camera alignment, and Driver calibration. From the Home screen, the Driver may start monitoring, review Alert History and basic insights, manage Trusted Contacts, or access Settings. When starting monitoring, the system checks whether the required setup is complete. If further setup is needed, the Driver returns to the setup section; otherwise, the workflow continues through connector A, which leads to the separate monitoring workflow. In Alert History, the Driver may review recorded alerts and their details. The Trusted Contacts section allows the Driver to add a contact using a connection code and accept or decline incoming connection requests. Through Settings, the Driver may manage preferences, switch to the Trusted Contact view through connector B, or log out to end the workflow.
+404: 
+405: 
+406: 
+407: 
+408: 
+409: 
+410: 
+411: 
+412: 
+413: 
+414: 
+415: 
+416: 
+417: 
+418: 
+419: 
+420: 
+421: 
+422: 
+423: 
+424: 
+425: 
+426: 
+427: 
+428: 
+429: 
+430: 
+431: Figure 4: Program Workflow (Monitoring Session)
+432: Figure 4 presents the continuation of the Driver monitoring workflow from connector A. The Driver selects the facial visibility condition and starts a monitoring session. The system receives camera frames and checks whether the Driver can be assessed reliably. If assessment is unavailable, it displays connection or visibility guidance. Otherwise, it checks the available drowsiness signs and updates the warning stage. When required, the system activates or repeats the onboard speaker warning. Confirmed Alerts are saved or updated in local history, while separate Stage 3 sharing records are saved for synchronization with eligible approved Trusted Contacts when internet access is available. Monitoring continues until the Driver chooses to stop, after which the session is ended and saved. Connector C returns the Driver to the Home screen.
+433: 
+434: 
+435: 
+436: 
+437: 
+438: 
+439: 
+440: 
+441: 
+442: 
+443: 
+444: 
+445: 
+446: 
+447: 
+448: 
+449: 
+450: 
+451: 
+452: 
+453: 
+454: 
+455: 
+456: 
+457: Figure 5: Program Workflow (Trusted Contact)
+458: Figure 5 presents the program workflow for the Trusted Contact view of the DriveAlert mobile application. The user accesses this view after account creation and login or through connector B from the Driver workflow. The Trusted Contact may view Connected Drivers, manage Requests, or access Settings. Under Connected Drivers, the system checks whether shared records are available. If records exist, the Trusted Contact may review shared Stage 3 records and basic insights; otherwise, the system displays that no shared records are available. The Trusted Contact may also invite a Driver by entering the Driver’s connection code and sending a request. In Requests, incoming connection requests may be accepted or declined. Settings allows the user to manage account information, notifications, and history settings, switch to the Driver view through connector C, or log out to end the workflow.
+459: Validation Board (Stages 1 and 2)
+460: This section presents the validation board which is a strategic tool used in the development process to systematically test and validate assumptions about a product or service. It helps teams identify the riskiest assumptions, design experiments to test these assumptions, and gather data to inform decision-making.
+461: Table 5.1
+462: VALIDATION BOARD
+463: Table 5.2
+464: VALIDATION BOARD cont’d
+465: 
+466: Experiment 1. Drivers may experience drowsiness or sleepiness while driving and display observable signs such as heavy eyelids, frequent yawning, and head nodding. DriveAlert is proposed as an IoT-based driver-support system that uses computer vision to monitor prolonged eye closure, yawning, and head nodding, provide warning alerts, and store drowsiness-alert records. A survey was conducted among drivers to determine whether drowsiness or sleepiness occurs while driving and whether respondents are interested in an affordable and easy-to-use monitoring system. Success was defined as at least 70% of respondents reporting drowsiness or sleepiness while driving and at least 70% expressing willingness to use the proposed system. The results will guide the continued development and refinement of DriveAlert’s monitoring, warning, usability, and alert-record functions.
+467: Experiment 2. Potential Trusted Contacts may need a practical way to remain informed about drowsiness-alert information shared by an approved Driver. DriveAlert therefore includes a Trusted Contact feature that allows authorized users to review synchronized drowsiness-alert records and related information when internet connectivity becomes available. A survey was conducted among potential Trusted Contacts to assess their willingness to review shared records, perceived usefulness of the information, acceptance of Driver-approved access and delayed synchronization, and willingness to use the feature. Success was defined as at least 70% positive acceptance of the Trusted Contact feature. The results will guide the continued refinement of DriveAlert’s Trusted Contact, access-control, record-sharing, and synchronization functions.
+468: Gantt Chart/PERT Chart
+469: This section presents the researchers’ Gantt chart for the project. It will visually represent the project timeline, showing the start and finish dates of various tasks and activities. It consists of horizontal bars, with each bar representing a task, positioned along a timeline. Tasks are organized sequentially, with dependencies between them clearly marked, making it easy to see which tasks need to be completed before others can begin. The chart helps project managers track progress, allocate resources, and ensure timely completion of the project.
+470: 
+471: 
+472: 
+473: 
+474: 
+475: Table 6.1
+476: GANTT CHART
+477: Table 6.2
+478: GANTT CHART
+479: 
+480: Table 6.2
+481: GANTT CHART
+482: 
+483: Table 6.2
+484: GANTT CHART
+485: Table 6.2
+486: GANTT CHART
+487: 
+488: 
+489: 
+490: This section displays tasks and their associated timeframes in a horizontal bar format, enabling researchers to organize, track, and coordinate activities efficiently. It provides a comprehensive overview of the project's progress, improves communication, and ensures that project requirements are completed on schedule. Using the Agile Methodology, the Gantt chart is helpful due to the methodology's iterative nature, allowing each phase to be clearly represented and tracked
+491: 
+492: Functional Decomposition Diagram
+493: This section presents the functional decomposition diagram, which illustrates the breakdown of various application processes into their respective components for a comprehensive understanding of the application
+494: 
+495: 
+496: 
+497: 
+498: 
+499: 
+500: 
+501: Figure 5.1: Functional Decomposition Diagram
+502: Figure 5.1 illustrates that the “DriveAlert” system is composed of several key modules: Account Management, Device Setup & Connection Management, Driver Drowsiness Monitoring Management, Alert & Warning Management, and Drowsiness-Alert Records & Trusted Contact Management. These modules work together to provide a driver-focused drowsiness monitoring and alert system. Account Management handles user registration, login, and profile information. Device Setup & Connection Management supports the required app permissions and the local offline Wi-Fi connection between the IoT device and the driver’s smartphone. Driver Drowsiness Monitoring Management handles the live camera feed and detection of selected visible signs associated with drowsiness, such as prolonged eye closure, yawning, and head nodding. Alert & Warning Management manages threshold-based alerting, mobile notifications, warning-volume settings, and the activation of the onboard speaker using predefined warning sounds. The warning volume can be adjusted but cannot be muted or reduced below the enforced minimum level during active monitoring. Drowsiness-Alert Records & Trusted Contact Management stores drowsiness-alert history and supports the automatic synchronization of approved drowsiness-alert records to a Trusted Contact once an internet connection becomes available.
+503: 
+504: 
+505: 
+506: 
+507: 
+508: 
+509: 
+510: 
+511: 
+512: 
+513: 
+514: 
+515: 
+516: 
+517: 
+518: 
+519: Figure 5.2: Functional Decomposition Diagram cont’d
+520: Figure 5.2 presents two main modules of the “DriveAlert” system: Account Management and Device Setup & Connection Management. In the Account Management module, Drivers and Trusted Contacts can register, log in, view their profiles, update their account information, and log out of the application. This module allows each user to access the system based on their role, where Drivers can use monitoring-related features while Trusted Contacts can access synchronized drowsiness-alert records after approval. The Device Setup & Connection Management module enables the Driver to view setup requirements, allow the required app permissions, enable the mobile hotspot, connect the IoT device, view the device connection status, and reconnect the device when needed. This supports the proper setup of the IoT camera device and the driver’s smartphone before starting the drowsiness-monitoring process. Through these modules, DriveAlert ensures that users can securely access the application and that the device connection is prepared for real-time driver drowsiness monitoring.
+521: 
+522: 
+523: 
+524: 
+525: 
+526: 
+527: 
+528: 
+529: 
+530: 
+531: 
+532: 
+533: 
+534: 
+535: 
+536: Figure 5.3: Functional Decomposition Diagram cont’d
+537: Figure 5.3 presents the remaining main modules of the “DriveAlert” system: Driver Drowsiness Monitoring Management, Alert & Warning Management, and Drowsiness-Alert Records & Trusted Contact Management. The Driver Drowsiness Monitoring Management module allows the Driver to calibrate the system, start and stop a monitoring session, preview the camera alignment, run drowsiness-sign detection, evaluate the selected visible signs associated with drowsiness, and view the current monitoring status. The system evaluates prolonged eye closure, yawning, and head nodding using Driver-specific thresholds together with the corresponding temporal or contextual confirmation conditions. The Alert & Warning Management module handles the warning process after a selected visible sign satisfies its complete confirmation condition. It allows the Driver to receive a confirmed warning event, determines the applicable Warning Stage, and provides the corresponding warning output through the onboard speaker. A threshold crossing alone does not immediately create a confirmed warning event. The Drowsiness-Alert Records & Trusted Contact Management module allows the Driver to view drowsiness-alert history, view alert details, view basic drowsiness insights, synchronize eligible alerts, and manage Trusted Contacts. The basic drowsiness insights include information derived from stored drowsiness-alert records, such as alert counts, detected-sign summaries, the highest Warning Stage reached, alert trends, and synchronization status. On the other hand, the Trusted Contact can view pending requests, accept or decline requests, view connected Drivers, and view synchronized drowsiness-alert records. Through these modules, DriveAlert supports Driver drowsiness monitoring, confirmed warning-event processing, Warning Stage management, warning output, drowsiness-alert record review, basic drowsiness insights, and synchronization of eligible drowsiness-alert records with approved Trusted Contacts when internet connectivity is available.
+538: Use Case Diagram
+539: This section presents the use case diagram, which provides a visual representation of the system’s functional requirements and user interactions. For “DriveAlert,” the diagram outlines the main scenarios where the Driver and Trusted Contact interact with the system to perform key functions related to account access, device setup, drowsiness monitoring, alert viewing, alert record management, and Trusted Contact sharing.
+540: 
+541: 
+542: 
+543: 
+544: 
+545: 
+546: 
+547: 
+548: 
+549: 
+550: 
+551: 
+552: 
+553: 
+554: 
+555: 
+556: 
+557: 
+558: 
+559: 
+560: 
+561: 
+562: 
+563: 
+564: 
+565: 
+566: 
+567: 
+568: 
+569: Figure 6.1: Use Case Diagram
+570: 
+571: 
+572: 
+573: 
+574: 
+575: 
+576: 
+577: 
+578: 
+579: 
+580: 
+581: 
+582: 
+583: 
+584: 
+585: 
+586: 
+587: 
+588: 
+589: 
+590: 
+591: 
+592: 
+593: 
+594: 
+595: 
+596: 
+597: 
+598: 
+599: 
+600: 
+601: 
+602: Figure 6.2: Use Case Diagram cont’d
+603: Figure 6 presents the use case diagram of the “DriveAlert” system. The diagram shows two main actors: the Driver and the Trusted Contact. Both actors can register, log in, view their profile, update their profile, and log out of the application. The Driver can view setup requirements, allow the required app permissions, enable the mobile hotspot, connect the IoT device, view the device connection status, and reconnect the device when needed. The Driver can also start a monitoring session, preview camera alignment, run drowsiness-sign detection, detect selected visible signs associated with drowsiness, view monitoring status, and stop the monitoring session. For alert-related functions, the Driver can receive drowsiness alerts, receive onboard speaker warning output, view alert status, view drowsiness alert history, view alert details, and view basic drowsiness insights. The Driver can also add Trusted Contacts and send Trusted Contact requests. The Trusted Contact can view pending requests, accept or decline requests, view connected drivers, view shared drowsiness-alert records, view shared alert history, view shared alert details, and view shared basic drowsiness insights. These use cases show that the Driver controls the device setup, monitoring process, drowsiness-sign detection, alert viewing, drowsiness alert summary review, and Trusted Contact request process. On the other hand, the Trusted Contact is limited to accepting or declining requests and reviewing shared drowsiness-alert records and related basic drowsiness insights from connected drivers. Unlike the Driver, the Trusted Contact does not control monitoring, device connection, drowsiness-sign detection, or warning output.
+604: User Interface Design
+605: The following figures presented here are the User Interface Design of "DriveAlert”, showing the initial design on how the application would look and its functionalities. The User Interface’s layout, color scheme and experience are made to tailor the best user experience
+606: 
+607: 
+608: 
+609: 
+610: 
+611: 
+612: 
+613: 
+614: 
+615: 
+616: 
+617: 
+618: 
+619: 
+620: 
+621: 
+622: 
+623: 
+624: 
+625: 
+626: 
+627: 
+628: 
+629: Figure 7: Starter Screen (Driver and Trusted Contact)
+630: The Starter Screen is the first screen users see when they open DriveAlert. It introduces the application as a drowsiness-monitoring companion and provides two options: Sign In for existing users and Create Account for new users.
+631: 
+632: 
+633: Figure 8: Sign In Screen (Driver and Trusted Contact)
+634: The Sign In Screen allows existing users to access their DriveAlert accounts using their email address and password. Users may show or hide the password, recover a forgotten password, or proceed to the Create Account Screen to register.
+635: 
+636: 
+637: Figure 9: Create Account Screen (Driver and Trusted Contact)
+638: The Create Account Screen allows new users to register for DriveAlert. It includes fields for first name, optional middle name, last name, optional phone number, email address, password, and password confirmation. Users can select Create Account to register or Sign in to return to the login screen.
+639: 
+640: 
+641: Figure 10: Forgot Password Screen (Driver and Trusted Contact)
+642: The Forgot Password Screen helps users recover access to their DriveAlert accounts. Users enter the email address associated with their account and select Send Reset Link to request password-reset instructions. The Back to Sign In button returns users to the login screen.
+643: 
+644: 
+645: Figure 11: Setup and Device Screen (Driver)
+646: The Setup and Device Screen guides the driver through the preparations needed before monitoring. It shows the status of the device connection, camera alignment, and driver calibration. The driver can open each setup item to complete the required checks or select Continue to Home to access the Driver Home Screen.
+647: 
+648: 
+649: Figure 12: Device Connection Screen (Driver)
+650: The Device Connection Screen allows the driver to find and connect the DriveAlert camera through secure Bluetooth provisioning. The driver can scan for a nearby device and provide hotspot or local Wi-Fi details during setup. Manage device access opens the Subscriptions and Drivers Screen for registration-related access, additional drivers, and invitations.
+651: 
+652: 
+653: Figure 13: Camera Alignment Screen (Driver)
+654: The Camera Alignment Screen helps the driver position the camera and define the driver area before monitoring. It displays the live camera preview with a blue selection box and controls for adjusting the area. The driver follows the positioning instructions and confirms the alignment while parked.
+655: 
+656: 
+657: Figure 14: Driver Calibration Screen (Driver)
+658: The Driver Calibration Screen guides the driver through personalized calibration while parked. It displays the live camera preview, driver visibility, facial lighting, and calibration status. The driver follows the guided eye, mouth, and head-position steps after confirming camera alignment.
+659: 
+660: 
+661: Figure 15: Driver Home Screen (Driver)
+662: The Driver Home Screen summarizes monitoring readiness and recent activity. Before a session, it provides controls to start monitoring, preview the camera, and open Setup and Device. During a session, it shows the active monitoring status and Stop Monitoring control. Recent activity includes alert counts, the latest alert and session, and approved Trusted Contacts.
+663: 
+664: 
+665: Figure 16: Camera Preview Screen (Driver)
+666: The Camera Preview Screen displays the live video received from the connected DriveAlert camera. The driver can use the preview to check the camera view before returning to Driver Home. The back button returns the driver to the previous screen.
+667: 
+668: 
+669: Figure 17: Before Monitoring Dialog (Driver)
+670: The Before Monitoring dialog allows the driver to identify conditions that may affect facial visibility for the current session. The available options include no obstruction, ordinary eyeglasses, a face mask, sunglasses, or a mask with sunglasses. Each option explains its effect on monitoring availability. The driver can start monitoring or cancel.
+671: 
+672: 
+673: Figure 18: Monitoring Activity Screen (Driver)
+674: The Monitoring Activity Screen displays the monitoring status and live camera preview. It shows driver tracking, session duration, the current warning, confirmed events, the latest event, and camera visibility. When monitoring is inactive, the screen directs the driver to start a session from Driver Home.
+675: 
+676: 
+677: Figure 19: Alert History Screen (Driver)
+678: The Alert History Screen presents saved confirmed warning events and a summary of recent alert activity. It shows alert counts for today and the past seven days, the highest recorded Warning Stage, and related insights. The driver can filter records by Warning Stage. When no records are available, the screen displays the No alert history message.
+679: 
+680: 
+681: Figure 20: Alert Detail Screen (Driver)
+682: The Alert Detail Screen displays a saved confirmed warning event. It shows the date and time, detected visible sign, monitoring session, warning output, and Warning Stage at detection. The screen also explains the record visibility and Trusted Contact synchronization eligibility. The driver can return to the alert list or delete the record.
+683: 
+684: 
+685: Figure 21: Trusted Contacts Screen (Driver)
+686: The Trusted Contacts Screen allows the driver to review approved Trusted Contacts, incoming connection requests, and sent requests. Incoming requests display the account name and email address, together with Accept and Decline buttons. The driver can approve a connection, remove an approved contact, or select Invite a Trusted Contact to add another person.
+687: 
+688: 
+689: Figure 22: Invite a Trusted Contact Screen (Driver)
+690: The Invite a Trusted Contact Screen allows the driver to find another DriveAlert account using its connection code. The driver enters the code displayed on the other person's Account Screen and selects Find account. After the connection is approved, future eligible Stage 3 records can be shared with that Trusted Contact.
+691: 
+692: 
+693: Figure 23: Shared Alerts Screen (Trusted Contact)
+694: The Shared Alerts Screen allows a Trusted Contact to review eligible Stage 3 records shared by a connected driver. It displays the driver's name, received and unread record counts, and the latest received date and time. The Stage 3 synchronization timeline shows when a warning started, when the record was received, its sharing status, the number of events counted in the period, and the detected visible signs.
+695: 
+696: 
+697: Figure 24: Invite a Driver Screen (Trusted Contact)
+698: The Invite a Driver Screen allows a Trusted Contact to find a driver's account using its connection code. After an account is found, the screen displays the account name for verification. The user can select Send connection request to invite the driver or Cancel to return. The driver must approve the connection before future eligible Stage 3 records can be shared.
+699: 
+700: 
+701: Figure 25: Requests Screen (Trusted Contact)
+702: The Requests Screen allows a Trusted Contact to review incoming and sent connection requests. It explains that accepting a driver connects the accounts and allows future eligible Stage 3 transition or persistence records to be shared. When no requests are available, the screen displays separate empty states for incoming and sent requests.
+703: 
+704: 
+705: Figure 26: Driver Settings Screen (Driver)
+706: The Driver Settings Screen provides access to the driver’s account, device setup, monitoring activity, history, monitoring logs, notifications, and warning sound. Subscriptions and Drivers opens device-access management and invitations for additional drivers. The driver can also switch to Trusted Contact view, read information about DriveAlert, or log out.
+707: 
+708: 
+709: Figure 27: Subscriptions and Drivers Screen (Driver)
+710: The Subscriptions and Drivers Screen shows the driver’s device access and identifies the primary driver whose access is included with the device. The primary driver can invite additional drivers using their connection codes and refresh access online. The screen explains that subscriptions are simulated, no payment is collected, and each driver’s calibration and alert history remain separate.
+711: 
+712: 
+713: Figure 28: Invite an Additional Driver Screen (Driver)
+714: The Invite an Additional Driver section allows the primary driver to enter another user’s DriveAlert connection code. Selecting Find Driver looks up the intended account before the primary driver confirms the simulated subscription. The invited driver must accept the invitation before using the device.
+715: 
+716: 
+717: Figure 29: Demo Subscription Activation Dialog (Driver)
+718: The Demo Subscription Activation dialog displays the selected account and asks the primary driver to confirm additional-driver access for the device. It clearly states that the subscription is simulated and no payment will be collected. Confirm Activation sends the device invitation, while Cancel returns without confirming it.
+719: 
+720: 
+721: Figure 30: Device Invitation Screen (Driver)
+722: The Device Invitation Screen shows a pending invitation received by an additional driver. It identifies the device and the primary driver who sent the invitation. The recipient may accept or decline while online. Accepted access can be saved for later offline device use, while calibration and alert history remain specific to the driver’s account.
+723: 
+724: 
+725: Figure 31: Active Additional Driver Access Screen (Driver)
+726: The Active Additional Driver Access Screen shows an accepted account under the primary driver’s additional-driver list with an Active demo subscription status. The primary driver can remove access or invite another driver. Removal preserves saved history; the primary driver must reconnect to the device through Bluetooth to synchronize the removal to the device.
+727: 
+728: 
+729: Figure 32: Trusted Contact Settings Screen (Trusted Contact)
+730: The Trusted Contact Settings Screen provides access to account and application preferences for Trusted Contact users. It includes options to switch to Driver view, open the account profile, manage history and storage, adjust notifications, and view information about DriveAlert. The user can also log out from this screen.
+731: 
+732: 
+733: Figure 33: Account Screen (Driver and Trusted Contact)
+734: The Account Screen displays the signed-in user's name, email address, and phone information. Users can select Edit profile to update their details. It also shows the account connection code and provides Copy code and Share code options. Connections still require approval before they become active.
+735: 
+736: 
+737: Figure 34: History and Storage Screen (Driver and Trusted Contact)
+738: The History and Storage Screen allows users to choose how long Driver Alert History and Trusted Contact shared history remain on the phone. The available options include one day, three days, seven days, a custom period, or keeping history until it is deleted manually. The screen explains the effect of deletion and provides a Save button for applying changes.
+739: 
+740: 
+741: Figure 35: Monitoring Logs Screen (Driver)
+742: The Monitoring Logs Screen lists monitoring sessions recorded for the signed-in Driver on the phone. Sessions are grouped by date and show their time and completion status. The driver can open a session to review its timeline, choose automatic deletion settings, or clear completed logs.
+743: 
+744: 
+745: Figure 36: Session Log Screen (Driver)
+746: The Session Log Screen displays the timeline of a selected monitoring session. It shows the session date, start and end times, detected signs, recorded measurements, and alarm requests. Each alarm entry indicates the response from the ESP32 device. The driver can review the recorded events or delete a completed session log.
+747: 
+748: 
+749: Figure 37: Log Deletion Screen (Driver)
+750: The Log Deletion Screen controls how long completed monitoring-session logs remain on the phone. The driver can choose one day, three days, seven days, a custom period, or manual deletion. The screen explains that this setting is separate from Alert History and that current sessions are kept. Changes can be applied using Save.
+751: 
+752: 
+753: Figure 38: Driver Notifications Screen (Driver)
+754: The Driver Notifications Screen allows the driver to choose which DriveAlert updates can appear as Android notifications. It provides separate switches for confirmed warning alerts, setup and device reminders, and contact request updates. Each setting includes a short explanation of the information it controls.
+755: 
+756: 
+757: Figure 39: Trusted Contact Notifications Screen (Trusted Contact)
+758: The Trusted Contact Notifications Screen allows the user to manage Android notifications related to shared records and connections. It provides switches for connection requests and new shared Stage 3 records. These options control updates about driver connection requests and eligible records received from connected drivers.
+759: 
+760: 
+761: Figure 40: Warning Sound Screen (Driver)
+762: The Warning Sound Screen allows the driver to choose a predefined warning sound and the preferred device volume. Available sounds include Digital Beep, Rooster Call, Alarm Clock, Digital Beep 2, and Bell Chime. The volume options are Minimum, Medium, and High. Each selection is played through the connected DriveAlert speaker for an immediate preview.
+763: 
+764: 
+765: Figure 41: About DriveAlert Screen (Driver and Trusted Contact)
+766: The About DriveAlert Screen explains the application's purpose, monitored visible signs, Warning Stages, privacy, and limitations. It identifies prolonged eye closure, yawning, and head nodding as the selected signs. The screen also explains that Warning Stages represent increasing system intervention and that approved Trusted Contacts receive only eligible Stage 3 record details.
+767: 
+768: 
+769: Figure 42: Log Out Confirmation Dialog (Driver and Trusted Contact)
+770: The Log Out Confirmation dialog appears when a user selects Log out from Settings. It asks the user to confirm leaving the signed-in session and explains that session-only changes will be cleared. The user can select Log out to continue or Cancel to remain signed in.
+771: 
+772: 
+773: Figure 38: Sign In Screen (Web)
+774: The Sign In Screen allows existing users to access the DriveAlert web portal using their email address and password. Users can select Forgot password to recover account access or create a Trusted Contact account through the registration link. After signing in, users can review approved drivers and shared alert records.
+775: 
+776: Figure 39: Create Account Screen (Web)
+777: The Create Account Screen allows new users to register as Trusted Contacts. It includes fields for first name, optional middle name, last name, optional phone number, email address, password, and password confirmation. Users can select Create account to register or Sign in to access an existing account.
+778: 
+779: Figure 40: Dashboard Screen (Web)
+780: The Dashboard Screen summarizes connected drivers, pending requests, shared alerts, and the latest shared activity. It lists recent shared records with their warning and received times, event counts, and detected signs. Users can review requests or invite a driver. The displayed activity represents shared historical records rather than live monitoring.
+781: 
+782: Figure 41: Connected Drivers Screen (Web)
+783: The Connected Drivers Screen lists drivers whose connections have been approved. Each entry displays the driver's name, approval status, connection date, and shared-record activity. Users can select View records to open a driver's shared history, Disconnect to end a connection, or Invite a Driver to begin another connection.
+784: 
+785: Figure 42: Shared Alert History Screen (Web)
+786: The Shared Alert History Screen displays records received from a selected driver. It shows the driver's name, approval status, connection date, and shared-record count. Each history entry includes the warning time, received time, sharing status, event count, and detected signs. Users can open a record, clear the history, or return to Drivers.
+787: 
+788: Figure 43: Shared Alert Detail Screen (Web)
+789: The Shared Alert Detail Screen presents a selected shared record. It includes the driver, record type, period start and end, detected signs, event count, session identifier, and synchronization information. It explains that the event count covers the warning period. Users can delete the record or return to the driver's shared history.
+790: 
+791: Figure 44: Requests Screen (Web)
+792: The Requests Screen separates incoming and outgoing driver connection requests. It explains that accepting a driver allows future shared alerts to be viewed. Empty panels indicate when no requests are available. Users can select Invite a Driver to begin a new connection request.
+793: 
+794: Figure 45: Invite a Driver Screen (Web)
+795: The Invite a Driver Screen allows users to find a driver using the connection code displayed on the driver's Account Screen. Users enter the code and select Find Driver to look up the account. The driver must approve the connection before future shared alerts can be viewed. The Back link returns to the previous screen.
+796: 
+797: Figure 46: Account Screen (Web)
+798: The Account Screen displays the user's full name, email address, phone number, role, and account status. Users can select Edit profile to update their information. The connection-code panel displays the active account code and a Copy code button for use when connecting with a driver.
+799: 
+800: Figure 47: Settings Screen (Web)
+801: The Settings Screen provides access to History and Storage, Account, and About DriveAlert. It also includes a Log out button. The notification area explains that remote notifications are currently unavailable, allowing users to distinguish the portal's supported settings from features that are not available.
+802: 
+803: Figure 48: History and Storage Screen (Web)
+804: The History and Storage Screen lets users choose how long shared history remains visible in the current browser. Options include one day, three days, seven days, a custom period, or manual deletion. Users can save their choice. The screen explains that removals affect only their browser view and do not restore deleted history.
+805: 
+806: Figure 49: About DriveAlert Screen (Web)
+807: The About DriveAlert Screen explains the web portal's purpose, approved access, privacy, and limitations. It describes the sharing of eligible Stage 3 transition or persistence records and the limited information available to Trusted Contacts. It also clarifies that the portal does not provide live camera monitoring, vehicle location, or medical diagnosis.
+808: 
+809: Figure 50: Driver Storyboard
+810: Figure 50 illustrates the DriveAlert Driver workflow. Users sign in or register, then prepare the camera connection, alignment, and calibration before opening Driver Home. The Driver can preview the camera, select a facial-visibility condition, and start or stop monitoring. Alert History presents recorded warnings, while Alert Detail displays the selected event and sharing eligibility. Trusted Contacts allows the Driver to invite contacts and manage connection requests. Driver Settings provides access to Account, Monitoring Activity, History and Storage, Monitoring Logs, Notifications, Warning Sound, and About DriveAlert. Session Log displays recorded session events, while Log Deletion controls completed-log retention. Approved contacts may receive eligible Stage 3 records. The workflow ends with Log Out confirmation and a return to the Starter screen.
+811: 
+812: 
+813: Figure 51: Trusted Contact Storyboard
+814: Figure 51 illustrates the DriveAlert Trusted Contact mobile workflow. Users sign in or register and enter Trusted Contact view. Connected Drivers displays approved connections or an empty state when no Drivers are connected. Invite a Driver allows account lookup through a connection code, while Requests separates incoming and sent requests. Approval is required before future eligible Stage 3 records can be shared. Selecting an approved Driver opens Shared Alerts, which displays the received warning record, timing, event count, and detected signs. Trusted Contact Settings provides access to Account, History and Storage, Notifications, and About DriveAlert. Users may manage retention and notification preferences, review their connection code, or confirm Log Out to return to the Starter screen.
+815: 
+816: 
+817: 
+818: 
+819: 
+820: 
+821: Figure 52: Trusted Contact Storyboard (Web)
+822: Figure 52 illustrates the DriveAlert Trusted Contact web workflow. Users sign in or create an account, then open the Dashboard to review connection and shared-activity summaries. Connected Drivers lists approved Drivers, and View records opens a Driver's shared alert history. Selecting a record displays its warning period, detected signs, event count, and synchronization details. Requests and Invite a Driver support connection management using a Driver's connection code and approval. Settings provides access to Account, History and Storage, and About DriveAlert. Users can review their connection code, choose browser history retention, and read the portal's purpose and limitations. Shared records provide historical awareness. Selecting Log out ends the session and returns the user to Sign In.
+823: Database Design
+824: This section refers to the process of creating a detailed data structure for storing, managing, and organizing data in a database management system (DBMS). It involves designing the layout, relationships, and rules that govern how data is stored and accessed within the database.
+825: 
+826: Figure 58: Entity Relationship Diagram
+827: FK denotes logical references across Room and Firestore. Repeated account references remain in the attributes; only declared Room foreign keys are enforced by SQL.
+828: 
+829: Figure 53 presents the Entity Relationship Diagram (ERD) of DriveAlert, showing the relationships among entities for user accounts, connection codes, Driver calibration, provisioned IoT devices, monitoring sessions, confirmed warning events, Trusted Contact connections, shared Stage 3 records, preferences, and monitoring logs. The diagram combines Room’s local data structures with Cloud Firestore’s cloud records. Its FK labels represent logical references; relationships explicitly declared as Room foreign keys are enforced within the local database.
+830: The User entity stores profile information, including the user’s name, email address, phone number, role, account status, registration date, and connection code. The role identifies whether the user operates as a Driver, Trusted Contact, or both. ConnectionCode associates a unique connection code with its owner and stores the account’s display name, code creation date, and active status. These codes allow users to find another account when requesting a connection.
+831: DriverPreference stores the selected warning sound, preferred volume, notification preferences, history-retention setting, and update time. MonitoringLogPreference separately stores the Driver’s retention setting for completed monitoring logs.
+832: DriverCalibration stores personalized EAR, MAR, and head-pitch thresholds, calibration measurements, detector schema version, calibration date, and active status. A Driver may have several calibration records over time. Each MonitoringSession references the calibration record used during that session, preserving the association between the monitoring activity and its detection thresholds.
+833: ProvisionedDevice stores the Driver’s saved camera connection, including the device identifier, hostname, last known IP address, stream port, stream path, last connection time, and active status. Its composite primary key consists of driverUserId and deviceId. MonitoringSession identifies the Driver, camera device, calibration record, session start and end times, session status, and highest recorded Warning Stage.
+834: TrustedContactConnection manages relationships between Drivers and Trusted Contacts. It records the participants, requesting user, target connection code, connection status, and request, approval, decline, and revocation times. A Driver may connect with multiple Trusted Contacts, while a Trusted Contact may connect with multiple Drivers. Approval is required before future eligible Stage 3 records can be shared.
+835: Alert stores confirmed warning events recorded during a monitoring session. Its attributes include the detection time, Warning Stage at detection, onboard alarm status, and alarm-trigger time. AlertSign associates each alert with its recorded visible signs, including prolonged eye closure, yawning, and head nodding. Warning Stages describe increasing system intervention and do not represent medical drowsiness severity.
+836: StageSyncRecord stores local Stage 3 synchronization records, including the source session, record type, warning-period boundaries, event count, sharing eligibility, synchronization status, upload attempts, and cloud document identifier. StageSyncRecordSign associates each synchronization record with its detected signs. Eligible records are published to SharedStage3Record in Cloud Firestore, where approved Trusted Contacts can review the shared warning period, signs, event count, and synchronization information. Shared records provide historical awareness rather than live monitoring.
+837: MonitoringLog stores a session’s diagnostic log, including its start and end times, status, and recording-gap indicator. MonitoringLogEvent stores individual timeline entries, such as detected signs, measured values, thresholds, durations, calibration references, Warning Stages, and alarm-response results. Overall, the ERD supports personalized monitoring, confirmed warning history, approved Trusted Contact sharing, account connections, configurable preferences, and review of recorded monitoring activity.
+838: Data Dictionary
+839: This section presents the data dictionary for the "DriveAlert" application that would document all the data elements used within the system, providing detailed descriptions of each element, its attributes, and other relevant information.
+840: 
+841: 
+842: 
+843: 
+844: 
+845: 
+846: 
+847: 
+848: 
+849: 
+850: 
+851: 
+852: 
+853: 
+854: 
+855: 
+856: 
+857: Table 7
+858: User
+859: 
+860: Table 7 stores account profiles in Cloud Firestore. Each profile is identified by the Firebase Authentication UID and includes identity, contact, role, and account-status information. The connection code links the account to its lookup record.
+861: 
+862: 
+863: 
+864: 
+865: Table 8
+866: ConnectionCode
+867: 
+868: Table 8 stores account lookup codes in Cloud Firestore. The normalized code is the document identifier rather than a stored body field. Each code identifies its owner and provides the display name, creation timestamp, and active status used during connection requests.
+869: Table 9
+870: TrustedContactConnection
+871: 
+872: Table 9.1
+873: TrustedContactConnection cont’d
+874: 
+875: Table 9 stores Driver and Trusted Contact relationships in Cloud Firestore. It identifies both participants, the requester, and the target connection code, and records the request status and approval, decline, or revocation timestamps. Approved relationships permit access to eligible shared records.
+876: 
+877: 
+878: Table 10
+879: DriverCalibration
+880: 
+881: Table 10 stores personalized calibration records locally in Room. Each record contains eye, mouth, and head-pitch thresholds, baseline measurements, detector version, completion time, and active status. Monitoring sessions retain the identifier of the calibration used during detection.
+882: Table 11
+883: ProvisionedDevice
+884: 
+885: Table 11 stores Driver-specific camera connection details in Room. The composite primary key combines driverUserId and deviceId. Canonical device identifiers logically reference the Device registry, while legacy identifiers can be resolved through DeviceIdentityMapping. Device ownership and additional-driver access are managed separately from these connection details.
+886: 
+887: 
+888: 
+889: 
+890: 
+891: 
+892: 
+893: 
+894: Table 12
+895: DriverPreference
+896: 
+897: Table 12 stores account-specific warning, notification, and history preferences in Room. One record contains the selected sound, volume, notification choices, and retention period for a Driver account. Boolean choices are persisted as SQLite integer values.
+898: 
+899: 
+900: 
+901: 
+902: 
+903: Table 13
+904: MonitoringLogPreference
+905: 
+906: Table 13 stores the Driver’s monitoring-log retention setting in Room. The Driver identifier is the primary key, and the nullable retention period determines how long local diagnostic logs remain available. This setting is separate from alert-history retention.
+907: Table 14
+908: MonitoringSession
+909: 
+910: Table 14.1
+911: MonitoringSession cont’d
+912: 
+913: Table 14 stores monitoring sessions in Room. Each session identifies the Driver, provisioned device, and calibration used, together with its timing, status, and highest warning stage. The calibration relationship is enforced locally; the account and device references are maintained by the application.
+914: Table 15
+915: Alert
+916: 
+917: Table 15 stores confirmed alert events in Room. Each alert belongs to a monitoring session and records the Driver, detection time, warning stage, and onboard alarm information. Warning stages describe system intervention and do not represent medical drowsiness severity.
+918: Table 16
+919: AlertSign
+920: 
+921: Table 16 associates an alert with its detected visible signs in Room. The alert identifier and sign type form a composite primary key, preventing duplicate sign entries for the same alert. Deleting an alert also removes its associated sign rows.
+922: Table 17
+923: StageSyncRecord
+924: 
+925: Table 17.1
+926: StageSyncRecord
+927: 
+928: Table 17 stores local Stage 3 transition and persistence records in Room. Each record summarizes a warning period and maintains sharing eligibility, synchronization attempts, status, and errors. The Firestore document identifier connects the local record to its cloud representation.
+929: 
+930: 
+931: 
+932: 
+933: 
+934: 
+935: 
+936: Table 18
+937: StageSyncRecordSign
+938: 
+939: Table 18 associates a local Stage 3 synchronization record with its detected visible signs in Room. The record identifier and sign type form a composite primary key. Deleting the synchronization record also deletes its associated sign rows.
+940: 
+941: Table 19
+942: MonitoringLog
+943: 
+944: Table 15 stores confirmed alert events in Room. Each alert belongs to a monitoring session and records the Driver, detection time, warning stage, and onboard alarm information. Warning stages describe system intervention and do not represent medical drowsiness severity.
+945: Table 20
+946: MonitoringLogEvent
+947: Table 20.1
+948: MonitoringLogEvent cont’d
+949: 
+950: Table 20 stores individual diagnostic events in Room. Events belong to a monitoring log and may include detection measurements, thresholds, timing, warning stages, and outcomes. The generated sequence provides row identity, while the unique event identifier prevents duplicate events.
+951: Table 21
+952: SharedStage3Record
+953: 
+954: Table 21 stores synchronized Stage 3 records in the Driver’s Cloud Firestore subcollection. The Driver identifier and record identifier identify the document path. Approved Trusted Contacts can review the shared warning period, visible signs, event count, and synchronization timestamps without receiving camera media.
+955: Table 22
+956: Device
+957: 
+958: Table 22 stores the public device-claim marker in Cloud Firestore. Each canonical Bluetooth identifier has one registration record. The marker contains no owner identity or credentials and is created atomically with the private ownership and owner-credential records
+959: 
+960: Table 23
+961: DeviceOwnership
+962: 
+963: Table 23 stores the device’s single primary Driver in Cloud Firestore. Primary access is included with the device, and the primary Driver may invite additional accounts. Ownership remains separate from Driver-specific camera connection records and cannot be transferred through the current prototype.
+964: Table 24
+965: DeviceDriverAccess
+966: Table 24.1
+967: DeviceDriverAccess cont’d
+968: 
+969: Table 24 stores invitations and additional-driver memberships in Cloud Firestore. The device and invited Driver identify one membership. Status and revision track acceptance, cancellation, removal, leaving, and reinvitation. The current activation reference connects the membership to its simulated subscription event; no real payment is collected.
+970: Table 25
+971: DeviceSubscriptionEvent
+972: 
+973: Table 25 stores immutable simulated-activation events under the primary Driver’s User document. Each event identifies the device and invited account. Stable activation identifiers prevent duplicate events when a confirmation is retried. The event is an access audit record rather than a payment receipt or recurring billing transaction.
+974: Table 26
+975: DeviceCredential
+976: 
+977: Table 26 stores private account-specific authorization credentials in Cloud Firestore. Device and account identifiers form the document key. The primary Driver issues delegated credentials, and an additional Driver can download their own credential only after acceptance. Android caches credentials in encrypted storage for later offline authorization.
+978: Table 27
+979: DeviceAccessGrant
+980: 
+981: Table 27 stores server-verified device access locally in Room for each account and device. Only OWNER and ACTIVE grant access, together with a saved credential. Revision values preserve newer removals against stale data. Local access allows later offline use without combining different Drivers’ calibration or history.
+982: 
+983: Table 28
+984: DeviceIdentityMapping
+985: 
+986: Table 28 stores account-specific mappings from older local camera identifiers to the canonical device ID in Room. It supports migration of existing device connections while retaining historical identifiers. Its references are maintained by the application and are not declared Room foreign-key constraints.
+987: Network Design
+988: This section includes the planning and implementation of “DriveAlert’s” computer network infrastructure. It involves evaluating, analyzing, and sizing the network to ensure it meets the needs of the application and its users. A well-structured network diagram representing the overall network architecture serves as a roadmap for physically assembling the network.
+989: Network Model
+990: A network model is a conceptual framework that describes the architecture, components,
+991: and interactions within a computer network. It outlines how different devices and services communicate with each other to achieve seamless connectivity and efficient data transfer.\
+992: 
+993: 
+994: 
+995: 
+996: 
+997: 
+998: 
+999: 
+1000: Figure 39: DriveAlert Network Model
+1001: The network model for “DriveAlert” consists of a DriveAlert IoT device, a driver smartphone, a cloud database or synchronization service, and Trusted Contact access through mobile and web platforms. The IoT device connects directly to the driver’s Android application through local offline Wi-Fi, allowing real-time monitoring and alerting without requiring internet connectivity during active use. When internet or mobile data becomes available, drowsiness-alert records are automatically synchronized to the cloud database. These records can then be accessed by an approved Trusted Contact through the mobile application or web platform, ensuring efficient data flow for drowsiness-alert record synchronization and review.
+1002: Network Topology
+1003: This section presents a visual illustration of the network topology, which represents how devices and components are integrated into a computer network. The topology diagram shows the different links between network nodes and helps in understanding the data flow, addressing mechanisms, and protocols for efficient data transfer.
+1004: 
+1005: 
+1006: 
+1007: 
+1008: 
+1009: 
+1010: 
+1011: 
+1012: 
+1013: 
+1014: Figure 40: DriveAlert Network Topology
+1015: The network topology of “DriveAlert” centers around a cloud-based database and synchronization service, which supports the storage and synchronization of drowsiness-alert records across the system. The platform operates through two main communication paths: a local offline Wi-Fi connection between the DriveAlert IoT device and the driver’s Android smartphone for real-time monitoring and alerting, and an internet or cellular data connection for synchronizing records to the cloud when connectivity is available. Approved Trusted Contacts may then access the synchronized drowsiness-alert records through either a web platform or a mobile device, allowing flexible monitoring and review from different locations. This topology provides both offline functionality for active monitoring and online accessibility for record synchronization, making the system suitable for DriveAlert’s core functions such as drowsiness-sign detection, warning alerts, drowsiness-alert record storage, and Trusted Contact synchronization.
+1016: Development/Construction/Build Phase
+1017: During the development phase, everything required to implement the project is organized. a timeline is developed, materials and tools are ordered, and instructions are given.
+1018: 
+1019: Technology Stack Diagram
+1020: The table shown below is the technology stack diagram, which is the needed requirements and technology for the proposed system and is categorized as six sections; mobile application, web development, server, AI model, Hardware and future development.
+1021: Table 20
+1022: TECHNOLOGY STACK
+1023: 
+1024: DriveAlert, an IoT-based driver drowsiness monitoring and alert system using computer vision, is developed using a structured technology stack designed for mobile-based monitoring, web access, cloud synchronization, AI detection, and IoT hardware integration. The mobile application is built using Android Studio, with Kotlin and the Android SDK supporting Android application development. The interface follows Android Material Design principles to provide a simple and user-friendly experience for drivers and Trusted Contacts. SQLite is used for local storage, allowing alert records to be saved on the driver’s smartphone even when internet connection is unavailable.
+1025: The web component of DriveAlert is developed using HTML, CSS, JavaScript, and React JS to provide browser-based access for Trusted Contacts. Firebase Hosting is used to deploy the web platform. The server and cloud layer relies on Firebase Authentication for user account access, Cloud Firestore for storing synchronized alert records, Firebase Cloud Functions for backend processes, and a cloud synchronization service for updating alert records once internet connection becomes available.
+1026: Software Specification
+1027: This section presents the software that will be used, like the operating system, programming languages for both the front-end and backend of the application, platforms, and database requirements that will be used to develop the entire system of the DriveAlert. It is similar to creating a blueprint or a set of instructions that researchers must follow to develop the program correctly. Before the construction process can commence, the researchers must create an accurate design that includes the layout of software specifications.
+1028: Table 21
+1029: SOFTWARE SPECIFICATION
+1030: 
+1031: Table 20 outlines the software specification for developing the “DriveAlert” system. The researchers chose Windows and Android OS Version 8 and above to ensure compatibility with the development environment and supported Android devices. Visual Studio Code and Android Studio are used as the main development tools, while Kotlin, JavaScript, and C/C++ serve as the programming languages for the mobile application, web component, IoT firmware, and AI-related processes. Supported web browsers include Microsoft Edge, Opera, and Google Chrome, allowing users to access the web-based features through commonly used browsers. The mobile platform specified is Android, which supports the driver-side monitoring application. Cloud Firestore serves as the cloud database for synchronized alert records and Trusted Contact access, while SQLite is used for local record storage on the driver’s smartphone. ReactJS is used for building the web interface, while Android Material Design supports a clean and user-friendly mobile interface. These specifications ensure that DriveAlert is developed using suitable tools and technologies to support its core features, including driver drowiness monitoring, alert record storage, IoT communication, and Trusted Contact synchronization.
+1032: Hardware Specification
+1033: This section offers a comprehensive and detailed description of the hardware's objectives, specifying the exact requirements and constraints for each component essential to fulfill the specifications.
+1034: Table 22
+1035: HARDWARE SPECIFICATION
+1036: 
+1037: Table 21 outlines the hardware specifications for “DriveAlert,” detailing the minimum requirements for both personal computers (PCs) and Android mobile devices to support system development and operation. For PC development, the specifications include a CPU with 64-bit or 32-bit support and a minimum clock speed of 2.5 GHz, such as Intel i5 10th generation or AMD Ryzen 5 3000 series and above. A minimum of 8 GB RAM and at least 10 GB of available storage are required, along with integrated or dedicated graphics such as Intel UHD Graphics, AMD Graphics, or Nvidia Graphics. For Android smartphones, the requirements include an octa-core processor with a minimum clock speed of 2.0 GHz, at least 4 GB of RAM, and 6 GB of available storage. These specifications are intended to ensure that DriveAlert can be developed, tested, and operated properly, particularly for mobile-based driver drowsiness monitoring, alert record handling, and communication with the IoT device.
+1038: IoT Architecture
+1039: This section presents how DriveAlert’s hardware components and mobile application connect and work together for monitoring and alerting.
+1040: 
+1041: 
+1042: 
+1043: 
+1044: 
+1045: 
+1046: 
+1047: 
+1048: 
+1049: 
+1050: 
+1051: 
+1052: 
+1053: 
+1054: 
+1055: Figure 41: DriveAlert IoT Hardware Architecture
+1056: Figure 41 presents the DriveAlert IoT Hardware Architecture and illustrates how the IoT device, warning components, power source, and Android smartphone work together during drowsiness monitoring. A regulated 5-volt rechargeable power source supplies power to the ESP32-S3 and the components connected through the solderless breadboard. The breadboard serves as the hardware interconnection platform for distributing power and connecting the DFPlayer Mini, MOSFET driver, red status LED, infrared LEDs, and other supporting components.
+1057: The Freenove ESP32-S3 CAM functions as the main controller of the IoT device. It operates the OV2640 NoIR camera, which captures the driver’s face and head movements. Four 850 nm infrared LEDs provide additional illumination in low-light conditions, while the MOSFET driver allows the ESP32-S3 to control the infrared LEDs safely without drawing their operating current directly from a GPIO pin. This supports the system’s monitoring of prolonged eye closure, yawning, and head nodding under dim vehicle conditions.
+1058: The ESP32-S3 transmits the camera video to the Android smartphone through a local Wi-Fi connection. The smartphone processes the video, evaluates the detected drowsiness signs according to the established thresholds, and sends warning commands back to the IoT device. It also sends connection keep-alive messages to confirm that the application remains connected. When the ESP32-S3 stops receiving these messages, the red status LED blinks to indicate that the smartphone application is disconnected.
+1059: When a drowsiness threshold is reached, the smartphone sends a warning command to the ESP32-S3. The controller then instructs the DFPlayer Mini to play a predefined warning sound stored on the microSD card. The sound is produced through the 4-ohm, 3-watt onboard speaker. The warning volume may be adjusted, but it cannot be muted or reduced below the enforced minimum level. The monitoring and warning process operates through local Wi-Fi without requiring internet access, while internet connectivity is only needed for later synchronization of alert records with an approved Trusted Contact.
+1060: Program Specification
+1061: The program specification outlines the expected goals of the system and serves as a guideline for the development phase of the proposed system. It divides the application's functionalities into modules, and team members are assigned to work on these modules accordingly.
+1062: List of Modules
+1063: The modules and features required to run the "DriveAlert" application efficiently are outlined in this section. Different programmers are given the modules to build the different features.
+1064: 
+1065: 
+1066: 
+1067: 
+1068: 
+1069: 
+1070: 
+1071: 
+1072: 
+1073: 
+1074: 
+1075: 
+1076: Table 23.1
+1077: LIST OF MODULES
+1078: 
+1079: Table 24.2
+1080: LIST OF MODULES cont’d
+1081: 
+1082: 
+1083: 
+1084: 
+1085: 
+1086: 
+1087: 
+1088: 
+1089: 
+1090: 
+1091: 
+1092: 
+1093: 
+1094: 
+1095: 
+1096: 
+1097: 
+1098: REFERENCES
+1099: REPORTS
+1100: Asian Transport Observatory. (2025). Philippines road safety profile 2025. https://asiantransportobservatory.org/analytical-outputs/roadsafetyprofiles/philippines-road-safety-profile-2025/
+1101: Singer, J., Lerner, N., Walrath, J., & Gill, M. (2015). Warning and message perception under ambient noise conditions: On-road experiment report under Crash Warning Interface Metrics 3 Program (Report No. DOT HS 812 209). National Highway Traffic Safety Administration.
+1102: JOURNALS/PERIODICALS/MANUALS
+1103: Adão Martins, N. R., Annaheim, S., Spengler, C. M., & Rossi, R. M. (2021). Fatigue monitoring through wearables: A state-of-the-art review. Frontiers in Physiology, 12, Article 790292. https://doi.org/10.3389/fphys.2021.790292
+1104: Ahlstrom, V. (2003). Human factors design standard: Chapter 7, alarms, audio, and voice. Federal Aviation Administration William J. Hughes Technical Center. https://hf.tc.faa.gov/hfds/download-hfds/hfds_pdfs/Ch7_Alarms_audio_and_voice.pdf
+1105: Albadawi, Y., Takruri, M., & Awad, M. (2022). A review of recent developments in driver drowsiness detection systems. Sensors, 22(5), 2069. https://doi.org/10.3390/s22052069
+1106: Albadawi, Y., AlRedhaei, A., & Takruri, M. (2023). Real-time machine learning-based driver drowsiness detection using visual features. Journal of Imaging, 9(5), Article 91. https://doi.org/10.3390/jimaging9050091
+1107: Andriulo, F. C., Fiore, M., Mongiello, M., Traversa, E., & Zizzo, V. (2024). Edge computing and cloud computing for Internet of Things: A review. Informatics, 11(4), 71. https://doi.org/10.3390/informatics11040071
+1108: Ayas, S., Donmez, B., & Tang, X. (2024). Drowsiness mitigation through driver state monitoring systems: A scoping review. Human Factors, 66(9), 2218–2243. https://doi.org/10.1177/00187208231208523
+1109: Espressif Systems. (2025). ESP32 series datasheet (Version 5.2). https://www.espressif.com/sites/default/files/documentation/esp32_datasheet_en.pdf
+1110: Espressif Systems. (2026). Web server AT examples. https://docs.espressif.com/projects/esp-at/en/latest/esp32c3/AT_Command_Examples/Web_server_AT_Examples.html
+1111: Essel, E., Lacy, F., Albalooshi, F., Elmedany, W., & Ismail, Y. (2025). Drowsiness detection in drivers using facial feature analysis. Applied Sciences, 15(1), Article 20. https://doi.org/10.3390/app15010020
+1112: Florez, R., Palomino-Quispe, F., Alvarez, A. B., Coaquira-Castillo, R. J., & Herrera-Levano, J. C. (2024). A real-time embedded system for driver drowsiness detection based on visual analysis of the eyes and mouth using convolutional neural network and mouth aspect ratio. Sensors, 24(19), 6261. https://doi.org/10.3390/s24196261
+1113: Fonseca, T., & Ferreira, S. (2025). Drowsiness detection in drivers: A systematic review of deep learning-based models. Applied Sciences, 15(16), 9018. https://doi.org/10.3390/app15169018
+1114: Fourie, C. M., & Myburgh, H. C. (2022). An intra-vehicular wireless multimedia sensor network for smartphone-based low-cost advanced driver-assistance systems. Sensors, 22(8), Article 3026. https://doi.org/10.3390/s22083026
+1115: Giorgi, A., Borghini, G., Colaiuda, F., Menicocci, S., Ronca, V., Vozzi, A., Rossi, D., Aricò, P., Capotorto, R., Sportiello, S., Petrelli, M., Polidori, C., Varga, R., Van Gasteren, M., Babiloni, F., & Di Flumeri, G. (2024). Driving fatigue onset and visual attention: An electroencephalography-driven analysis of ocular behavior in a driving simulation task. Behavioral Sciences, 14(11), 1090. https://doi.org/10.3390/bs14111090
+1116: Guo, F., Zhou, Y., Wang, X., Li, W., & Cai, J. (2024). Literature review of driving fatigue research based on bibliometric analysis. Journal of Traffic and Transportation Engineering (English Edition), 11(6), 1401–1419. doi: 10.1016/j.jtte.2024.03.005.
+1117: Hassan, O. F., Ibrahim, A. F., Makhlouf, M. A., Hafiz, B., & Gomaa, A. (2026). Intelligent driver monitoring systems: A survey of drowsiness detection technologies for road safety. Artificial Intelligence Review, 59, Article 137. https://doi.org/10.1007/s10462-026-11505-w
+1118: Hidayat, R. N., & Ibnugraha, P. D. (2025). The dashboard of remote monitoring system for driver fatigue. Journal Européen des Systèmes Automatisés, 58(6), 1089–1100. https://doi.org/10.18280/jesa.580601
+1119: Horberry, T., Mulvihill, C., Fitzharris, M., Lawrence, B., Lenné, M., Kuo, J., & Wood, D. (2022). Human-centered design for an in-vehicle truck driver fatigue and distraction warning system. IEEE Transactions on Intelligent Transportation Systems, 23(6), 5350–5359. https://doi.org/10.1109/TITS.2021.3053096
+1120: Jan, M. T., Hashemi, A., Jang, J., Yang, K., Zhai, J., Newman, D., Tappen, R., & Furht, B. (2023). Non-intrusive drowsiness detection techniques and their application in detecting early dementia in older drivers. In K. Arai (Ed.), Proceedings of the Future Technologies Conference (FTC) 2022, Volume 2 (pp. 776–796). Springer. https://doi.org/10.1007/978-3-031-18458-1_53
+1121: Kashyap, A. S., Chowdhury, S. S., & Hegde, A. V. (2025). Preventing road crashes with IoT monitoring of driver fatigue in real-time. Journal of IoT in Social, Mobile, Analytics, and Cloud, 7(3), 233–258. https://irojournals.com/iroismac/article/view/1059
+1122: Kim, D., Park, H., Kim, T., Kim, W., & Paik, J. (2023). Real-time driver monitoring system with facial landmark-based eye closure detection and head pose recognition. Scientific Reports, 13, Article 18264. https://doi.org/10.1038/s41598-023-44955-1
+1123: Kumar, A. J. S., Sanjana, P., Sanjay, N., Sanjay, K. Y., & Kodgi, S. U. (2022). Smart alert system for driver’s drowsiness detection system. International Journal of Computer Applications, 184(24), 21–26. https://www.ijcaonline.org/archives/volume184/number24/kumar-2022-ijca-922282.pdf
+1124: Li, Z., Paolieri, M., & Golubchik, L. (2024). A benchmark for ML inference latency on mobile devices. In Proceedings of the 7th International Workshop on Edge Systems, Analytics and Networking. https://doi.org/10.1145/3642968.3654818
+1125: Lu, S. F. (2022). 88 Work issues of bus and truck drivers on road crash in Philippines. Injury Prevention, 28(Suppl. 2), A11.3–A11. https://doi.org/10.1136/injuryprev-2022-safety2022.34
+1126: Macalisang, J. R., Alon, A. S., Jardiniano, M. F., Evangelista, D. C. P., Castro, J. C., & Tria, M. L. (2021). Drive-Awake: A YOLOv3 machine vision inference approach of eyes closure for drowsy driving detection. In 2021 IEEE International Conference on Artificial Intelligence in Engineering and Technology. https://doi.org/10.1109/IICAIET51634.2021.9573811
+1127: Mackworth, N. H. (1948). The breakdown of vigilance during prolonged visual search. Quarterly Journal of Experimental Psychology, 1(1), 6–21. https://doi.org/10.1080/17470214808416738
+1128: Martinez-Alpiste, I., Golcarenarenji, G., Wang, Q., & Alcaraz-Calero, J. M. (2022). Smartphone-based real-time object recognition architecture for portable and constrained systems. Journal of Real-Time Image Processing, 19(1), 103–115. https://doi.org/10.1007/s11554-021-01164-1
+1129: McWilliams, T., & Ward, N. (2021). Underload on the road: Measuring vigilance decrements during partially automated driving. Frontiers in Psychology, 12, Article 631364. https://doi.org/10.3389/fpsyg.2021.631364
+1130: Moens, P., Vanden Hautte, S., De Paepe, D., Steenwinckel, B., Verstichel, S., Vandekerckhove, S., Ongenae, F., & Van Hoecke, S. (2021). Event-driven dashboarding and feedback for improved event detection in predictive maintenance applications. Applied Sciences, 11(21), 10371. https://doi.org/10.3390/app112110371
+1131: Murphy, D. R., Savoy, A., Satterly, T., Sittig, D. F., & Singh, H. (2021). Dashboards for visual display of patient safety data: A systematic review. BMJ Health & Care Informatics, 28(1), Article e100437. https://doi.org/10.1136/bmjhci-2021-100437
+1132: Nasri, I., Karrouchi, M., Kassmi, K., & Messaoudi, A. (2022). A review of driver drowsiness detection systems: Techniques, advantages and limitations [Preprint]. arXiv. https://doi.org/10.48550/arXiv.2206.07489
+1133: Nomura, A., Yoshida, A., Torii, T., Nagumo, K., Oiwa, K., & Nozawa, A. (2025). Drowsiness classification in young drivers based on facial near-infrared images using a convolutional neural network: A pilot study. Sensors, 25(21), 6755. https://doi.org/10.3390/s25216755
+1134: Quiles-Cucarella, E., Cano-Bernet, J., Santos-Fernández, L., Roldán-Blay, C., & Roldán-Porta, C. (2024). Multi-index driver drowsiness detection method based on driver’s facial recognition using Haar features and histograms of oriented gradients. Sensors, 24(17), 5683. https://doi.org/10.3390/s24175683
+1135: Rajkumarsingh, B., & Totah, D. (2021). Drowsiness detection using Android application and Mobile Vision Face API. R&D Journal, 37, 26–34. https://doi.org/10.17159/2309-8988/2021/v37a4
+1136: Sah, A., Das, M., Sony, A. K., Acharya, B., Deferisha, A. D., & Swetapadma, A. (2026). An approach for identification of driver drowsiness, emotion state, and behavior patterns based on vision transformers, CNN and multi-modal sensor fusion using RAG-based interpretability. Discover Computing, 29, Article 341. https://doi.org/10.1007/s10791-026-10217-7
+1137: Saleem, S. (2022). Risk assessment of road traffic accidents related to sleepiness during driving: A systematic review. Eastern Mediterranean Health Journal, 28(9), 695–700. https://doi.org/10.26719/emhj.22.055
+1138: Segun, W. M., Dela Cruz, F. V., Golla, N. S., & Villa-Buena, E. S. (2024). Factors and challenges in road crash incidents: Basis for enhanced interventions. International Journal of Multidisciplinary: Applied Business and Education Research, 5(7), 2787–2820. https://doi.org/10.11594/ijmaber.05.07.32
+1139: Shang, Y., Yang, M., Cui, J., Cui, L., Huang, Z., and Li, X. (2023). Driver emotion and fatigue state detection based on time series fusion. Electronics, 12(1), 26. DOI: 10.3390/electronics12010026.
+1140: Tan, K. M., Ibalio, J. M., & Escobin, F. D. (2023). Real-time driver drowsiness detection through facial detection using Viola-Jones algorithm. Ani: Letran Calamba Research Report, 19(1). https://ejournals.ph/article.php?id=19640
+1141: Tan, T., & Cao, G. (2024). Thermal-aware scheduling for deep learning on mobile devices with NPU. IEEE Transactions on Mobile Computing, 23(12), 10706–10719. https://doi.org/10.1109/TMC.2024.3379501
+1142: Visconti, P., Rausa, G., Del-Valle-Soto, C., Velázquez, R., Cafagna, D., & De Fazio, R. (2025). Innovative driver monitoring systems and on-board-vehicle devices in a smart-road scenario based on the Internet of Vehicle paradigm: A literature and commercial solutions overview. Sensors, 25(2), 562. https://www.mdpi.com/1424-8220/25/2/562
+1143: Weibull, K., Lidestam, B., & Prytz, E. (2024). False alarm effects in early warnings for emergency vehicles: Exploring drivers’ move-over behavior. Human Factors, 66(11), 2518–2527. https://doi.org/10.1177/00187208231216835
+1144: Zhu, T., Zhang, C., Wu, T., Ouyang, Z., Li, H., Na, X., Liang, J., & Li, W. (2022). Research on a real-time driver fatigue detection algorithm based on facial video sequences. Applied Sciences, 12(4), Article 2224. https://doi.org/10.3390/app12042224
+1145: ONLINE/INTERNET SOURCES
+1146: ASP-Technology ApS. (n.d.). Anti Sleep Pilot. Retrieved July 14, 2026, from https://antisleeppilot.com/en/product
+1147: Drowsy Driving Alert – Drive Safe. (n.d.). Drowsy Driving Alert. Retrieved July 7, 2026, from https://www.drowsydrivingalert.app/
+1148: Drowsy Driving Alert – Drive Safe. (2025). Terms of use. https://www.drowsydrivingalert.app/terms
+1149: Federal Highway Administration. (n.d.). Unit 2: Human behavior and road safety. https://highways.dot.gov/safety/learn-safety/road-safety-fundamentals-html-version/unit-2-human-behavior-and-road-safety
+1150: Google Play. (2025, December 5). Drive Safe – Drowsy Alert. https://play.google.com/store/apps/details?id=com.galaxylab.drowsydriver
+1151: Google Play. (2026, July 2). Driveri. https://play.google.com/store/apps/details?id=com.netradyne.IDMS
+1152: HARMAN. (2025, June 17). HARMAN acquires assets of intelligent sensing solutions leader Cipia. https://news.harman.com/releases/harman-acquires-assets-of-intelligent-sensing-solutions-leader-cipia
+1153: Huynh, T. (2026). Drowsy Driving Alert (Version 1.0) [Mobile application]. App Store. https://apps.apple.com/us/app/drowsy-driving-alert/id1530140693
+1154: Luo, X. (2025). Fatigue Alert—Stay Awake [Mobile application]. Apple App Store. https://apps.apple.com/us/app/fatigue-alert-stay-awake/id6479893638
+1155: National Highway Traffic Safety Administration. (n.d.). Drowsy driving: Avoid falling asleep behind the wheel. Retrieved July 3, 2026, from https://www.nhtsa.gov/risky-driving/drowsy-driving
+1156: Philippine Information Agency. (2025, May 7). Safe driving saves lives: How every motorist can help prevent road accidents. https://pia.gov.ph/news/safe-driving-saves-lives-how-every-motorist-can-help-prevent-road-accidents/
+1157: Philippine Statistics Authority. (2025, May 7). Land transport accidents account 1.9 percent of deaths in the country, highest number of deaths recorded in 2023. https://psa.gov.ph/content/land-transport-accidents-account-19-percent-deaths-country-highest-number-deaths-recorded
+1158: resqme, Inc. (n.d.). alertme® drowsy driver device: 90 dB wake-up alarm. Retrieved July 14, 2026, from https://resqme.com/products/alertme-drowsy-driver-device
+1159: WingDriver, Inc. (n.d.). WingDriver: AI driver assistance solution. Retrieved July 14, 2026, from https://wingdriver.com/
+1160: World Health Organization Philippines, & Department of Transportation. (2023, May 31). Department of Transportation, World Health Organization launch Philippine Road Safety Action Plan 2023–2028. World Health Organization. https://www.who.int/philippines/news/detail/31-05-2023-department-of-transportation--world-health-organization-launch-philippine-road-safety-action-plan-2023-2028
+1161: 
+1162: 
+1163: 
+1164: 
+1165: 
+1166: 
+1167: APPENDICES
+1168: APPENDIX A
+1169: Transmittal Letter - Respondents
+1170: 
+1171: 
+1172: 
+1173: 
+1174: 
+1175: 
+1176: 
+1177: 
+1178: 
+1179: 
+1180: 
+1181: 
+1182: 
+1183: 
+1184: 
+1185: 
+1186: 
+1187: 
+1188: 
+1189: 
+1190: 
+1191: 
+1192: APPENDIX B – Research Instrument
+1193: Survey Questionnaire
+1194: 1. What is your primary role as a driver? (Check all that apply)
+1195: ☐ Private vehicle owner / Everyday driver
+1196: ☐ Taxi driver
+1197: ☐ Grab / TNVS driver
+1198: ☐ Other
+1199: 2. On average, how many hours do you drive per day?
+1200: ○ Less than 2 hours
+1201: ○ 2-4 hours
+1202: ○ 5-8 hours
+1203: ○ More than 8 hours
+1204: 3. When do you typically drive? (Check all that apply)
+1205: ☐ Daytime (6:00 AM – 6:00 PM)
+1206: ☐ Evening (6:00 PM – 12:00 AM)
+1207: ☐ Late night / Early morning (12:00 AM – 6:00 AM)
+1208: 4. Have you ever felt drowsy or sleepy while driving?
+1209: ○ Yes
+1210: ○ No
+1211: 5. Have you experienced any of the following while driving? (Check all that apply)
+1212: ☐ Heavy eyelids or difficulty keeping eyes open
+1213: ☐ Frequent yawning
+1214: ☐ Head nodding or drooping forward
+1215: ☐ Missing a turn or road sign due to inattention
+1216: ☐ None of the above
+1217: 6. Have you ever almost had an accident because you felt drowsy while driving?
+1218: ○ Yes
+1219: ○ No
+1220: 7. I often drive for long periods without taking a proper rest break.
+1221: ○ 1 (Strongly Disagree)
+1222: ○ 2
+1223: ○ 3
+1224: ○ 4
+1225: ○ 5 (Strongly Agree)
+1226: 8. I can manage my own drowsiness while driving without needing any external device or alert.
+1227: ○ 1 (Strongly Disagree)
+1228: ○ 2
+1229: ○ 3
+1230: ○ 4
+1231: ○ 5 (Strongly Agree)
+1232: 9. Are you currently using any device or method to help prevent drowsy driving?
+1233: ○ Yes
+1234: ○ No
+1235: 10. If NO to Question 9, why not? (Check all that apply)
+1236: ☐ I am not aware of any such device
+1237: ☐ They are too expensive for me to afford
+1238: ☐ I rely on coffee or energy drinks instead
+1239: ☐ I do not think I need one
+1240: 11. Most driver fatigue monitoring devices available today are too expensive for an ordinary driver to afford.
+1241: ○ 1 (Strongly Disagree)
+1242: ○ 2
+1243: ○ 3
+1244: ○ 4
+1245: ○ 5 (Strongly Agree)
+1246: 12. I have experienced poor or no mobile data signal in areas where I frequently drive.
+1247: ○ 1 (Strongly Disagree)
+1248: ○ 2
+1249: ○ 3
+1250: ○ 4
+1251: ○ 5 (Strongly Agree)
+1252: 13. I would be willing to add a Trusted Contact in DriveAlert who can receive my fatigue history records
+1253: ○ 1 (Strongly Disagree)
+1254: ○ 2
+1255: ○ 3
+1256: ○ 4
+1257: ○ 5 (Strongly Agree)
+1258: 14. Sharing fatigue-related records with a Trusted Contact would be helpful during long trips or late-night driving.
+1259: ○ 1 (Strongly Disagree)
+1260: ○ 2
+1261: ○ 3
+1262: ○ 4
+1263: ○ 5 (Strongly Agree)
+1264: 15. What fatigue-related information would you be comfortable sharing with your Trusted Contact? Check all that apply.
+1265: ☐ Date and time of fatigue alert
+1266: ☐ Number of fatigue alerts
+1267: ☐ Trip/session fatigue summary
+1268: ☐ I am not comfortable sharing any fatigue record
+1269: ☐ Other: ___________
+1270: 16. Based on my driving experiences, I would benefit from receiving alerts when I begin to feel drowsy while driving.
+1271: ○ 1 (Strongly Disagree)
+1272: ○ 2
+1273: ○ 3
+1274: ○ 4
+1275: ○ 5 (Strongly Agree)
+1276: 17. I would feel more confident driving long distances if a fatigue monitoring device were available in my vehicle.
+1277: ○ 1 (Strongly Disagree)
+1278: ○ 2
+1279: ○ 3
+1280: ○ 4
+1281: ○ 5 (Strongly Agree)
+1282: 18. Receiving alerts when I show signs of fatigue while driving would be helpful to me.
+1283: ○ 1 (Strongly Disagree)
+1284: ○ 2
+1285: ○ 3
+1286: ○ 4
+1287: ○ 5 (Strongly Agree)
+1288: 19. I would consider using a driver fatigue monitoring device if it were affordable and easy to use.
+1289: ○ 1 (Strongly Disagree)
+1290: ○ 2
+1291: ○ 3
+1292: ○ 4
+1293: ○ 5 (Strongly Agree)
+1294: 
+1295: 
+1296: 
+1297: 
+1298: 
+1299: APPENDIX C
+1300: Results & Findings - Driver
+1301: 
+1302: 
+1303: 
+1304: 
+1305: 
+1306: 
+1307: 
+1308: 
+1309: 
+1310: 
+1311: 
+1312: 
+1313: 
+1314: 
+1315: 
+1316: 
+1317: 
+1318: 
+1319: 
+1320: 
+1321: 
+1322: 
+1323: 
+1324: 
+1325: 
+1326: 
+1327: 
+1328: 
+1329: 
+1330: 
+1331: 
+1332: 
+1333: 
+1334: 
+1335: 
+1336: 
+1337: 
+1338: 
+1339: 
+1340: 
+1341: 
+1342: 
+1343: 
+1344: 
+1345: 
+1346: 
+1347: 
+1348: 
+1349: 
+1350: 
+1351: 
+1352: 
+1353: 
+1354: 
+1355: 
+1356: 
+1357: 
+1358: 
+1359: 
+1360: 
+1361: 
+1362: 
+1363: 
+1364: 
+1365: 
+1366: 
+1367: 
+1368: 
+1369: 
+1370: 
+1371: 
+1372: 
+1373: 
+1374: 
+1375: 
+1376: 
+1377: 
+1378: 
+1379: 
+1380: 
+1381: 
+1382: 
+1383: 
+1384: 
+1385: 
+1386: 
+1387: 
+1388: 
+1389: 
+1390: 
+1391: 
+1392: 
+1393: 
+1394: 
+1395: 
+1396: 
+1397: 
+1398: 
+1399: 
+1400: 
+1401: 
+1402: 
+1403: 
+1404: 
+1405: 
+1406: 
+1407: 
+1408: 
+1409: 
+1410: 
+1411: 
+1412: 
+1413: 
+1414: 
+1415: 
+1416: 
+1417: 
+1418: 
+1419: 
+1420: 
+1421: 
+1422: 
+1423: 
+1424: 
+1425: 
+1426: 
+1427: 
+1428: 
+1429: 
+1430: 
+1431: 
+1432: 
+1433: 
+1434: 
+1435: 
+1436: 
+1437: 
+1438: 
+1439: 
+1440: 
+1441: 
+1442: 
+1443: 
+1444: 
+1445: 
+1446: 
+1447: 
+1448: 
+1449: 
+1450: 
+1451: 
+1452: 
+1453: 
+1454: 
+1455: 
+1456: 
+1457: 
+1458: 
+1459: 
+1460: 
+1461: 
+1462: 
+1463: 
+1464: 
+1465: 
+1466: 
+1467: APPENDIX D
+1468: Results & Findings – Potential Trusted Contacts
+1469: 
+1470: 
+1471: 
+1472: 
+1473: 
+1474: 
+1475: 
+1476: 
+1477: 
+1478: 
+1479: 
+1480: 
+1481: 
+1482: 
+1483: 
+1484: 
+1485: 
+1486: 
+1487: 
+1488: 
+1489: 
+1490: 
+1491: 
+1492: 
+1493: 
+1494: 
+1495: 
+1496: 
+1497: 
+1498: 
+1499: 
+1500: 
+1501: 
+1502: 
+1503: 
+1504: 
+1505: 
+1506: 
+1507: 
+1508: 
+1509: 
+1510: 
+1511: 
+1512: 
+1513: 
+1514: 
+1515: 
+1516: 
+1517: 
+1518: 
+1519: 
+1520: 
+1521: 
+1522: 
+1523: 
+1524: 
+1525: 
+1526: 
+1527: 
+1528: 
+1529: 
+1530: 
+1531: 
+1532: 
+1533: 
+1534: 
+1535: 
+1536: 
+1537: 
+1538: 
+1539: 
+1540: APPENDIX E
+1541: Consultation logs - Adviser
+1542: 
+1543: 
+1544: 
+1545: 
+1546: 
+1547: 
+1548: 
+1549: 
+1550: 
+1551: 
+1552: 
+1553: 
+1554: 
+1555: 
+1556: 
+1557: 
+1558: 
+1559: 
+1560: 
+1561: 
+1562: 
+1563: 
+1564: 
+1565: 
+1566: 
+1567: 
+1568: 
+1569: 
+1570: 
+1571: 
+1572: 
+1573: 
+1574: 
+1575: 
+1576: 
+1577: 
+1578: 
+1579: 
+1580: 
+1581: 
+1582: 
+1583: 
+1584: 
+1585: 
+1586: 
+1587: 
+1588: 
+1589: APPENDIX F
+1590: Consultation Logs - Censor
+1591: 
+1592: 
+1593: 
+1594: 
+1595: 
+1596: 
+1597: 
+1598: 
+1599: 
+1600: 
+1601: 
+1602: 
+1603: 
+1604: 
+1605: 
+1606: 
+1607: 
+1608: 
+1609: 
+1610: 
+1611: 
+1612: 
+1613: 
+1614: 
+1615: 
+1616: 
+1617: 
+1618: 
+1619: 
+1620: 
+1621: 
+1622: 
+1623: 
+1624: 
+1625: 
+1626: 
+1627: 
+1628: 
+1629: 
+1630: 
+1631: 
+1632: 
+1633: 
+1634: 
+1635: 
+1636: 
+1637: 
+1638: 
+1639: 
+1640: 
+1641: 
+1642: 
+1643: 
+1644: 
+1645: 
+1646: 
+1647: 
+1648: 
+1649: 
+1650: 
+1651: APPENDIX G
+1652: Ceonsor’s Certificate
+1653: 
+1654: 
+1655: 
+1656: APPENDIX H
+1657: Grammarly Results
+1658: 
+1659: 
+1660: 
+1661: 
+1662: 
+1663: 
+1664: 
+1665: 
+1666: 
+1667: 
+1668: 
+1669: 
+1670: 
+1671: 
+1672: 
+1673: 
+1674: 
+1675: 
+1676: 
+1677: 
+1678: 
+1679: 
+1680: TEAM COMPOSITION
+1681: 
+1682: 
+1683: Personal Information
+1684: Name:Lhord Kent R. BasubasAddress:Cabancalan Mandaue, CebuContact Number:09566304870Email Address:lhordalvic@gmail.comDate of Birth:October 24, 2005Place of Birth:Cebu City, CebuCivil Status:SingleReligion:Roman CatholicName:Lhord Kent R. BasubasAddress:Cabancalan Mandaue, CebuContact Number:09566304870Email Address:lhordalvic@gmail.comDate of Birth:October 24, 2005Place of Birth:Cebu City, CebuCivil Status:SingleReligion:Roman Catholic
+1685: 
+1686: 
+1687: 
+1688: 
+1689: 
+1690: Educational Background
+1691: 
+1692: 
+1693: 
+1694: Personal Information
+1695: 
+1696: Name:Princess Marie Denise F. IsagundeAddress:Pagsabungan Mandaue, CebuContact Number:09915700829Email Address:deniseisagunde45@gmail.comDate of Birth:August 5, 2005Place of Birth:Cebu City, CebuCivil Status:SingleReligion:Roman CatholicName:Princess Marie Denise F. IsagundeAddress:Pagsabungan Mandaue, CebuContact Number:09915700829Email Address:deniseisagunde45@gmail.comDate of Birth:August 5, 2005Place of Birth:Cebu City, CebuCivil Status:SingleReligion:Roman Catholic
+1697: 
+1698: 
+1699: 
+1700: 
+1701: 
+1702: Educational Background
+1703: 
+1704: 
+1705: 
+1706: 
+1707: Personal Information
+1708: 
+1709: Name:Gabriel A. BorcesAddress:Lower Bacayan, Cebu CityContact Number:09942664614Email Address:gabrielborces69@gmail.comDate of Birth:May 16, 2005Place of Birth:Cebu City, CebuCivil Status:SingleReligion:Roman CatholicName:Gabriel A. BorcesAddress:Lower Bacayan, Cebu CityContact Number:09942664614Email Address:gabrielborces69@gmail.comDate of Birth:May 16, 2005Place of Birth:Cebu City, CebuCivil Status:SingleReligion:Roman Catholic
+1710: 
+1711: 
+1712: 
+1713: 
+1714: 
+1715: Educational Background
+1716: 
+1717: 
+1718: 
+1719: 
+1720: Personal Information
+1721: 
+1722: Name:John Adrian C. CatarigAddress:Centro Mandaue, CebuContact Number:09912080909Email Address:Johnadriancatarig@gmail.comDate of Birth:Febuary 9, 2004Place of Birth:Cebu City, CebuCivil Status:SingleReligion:Roman CatholicName:John Adrian C. CatarigAddress:Centro Mandaue, CebuContact Number:09912080909Email Address:Johnadriancatarig@gmail.comDate of Birth:Febuary 9, 2004Place of Birth:Cebu City, CebuCivil Status:SingleReligion:Roman Catholic
+1723: 
+1724: 
+1725: 
+1726: 
+1727: 
+1728: Educational Background
+1729: 
+1730: 

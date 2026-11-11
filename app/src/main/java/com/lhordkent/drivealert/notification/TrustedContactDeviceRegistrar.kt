@@ -25,6 +25,7 @@ class TrustedContactDeviceRegistrar(
     suspend fun registerCurrentDevice(fcmToken: String? = null): Boolean {
         if (baseUrl.isBlank()) return false
         val user = auth.currentUser ?: return false
+        if (!user.isEmailVerified) return false
         val idToken = user.getIdToken(false).await().token ?: return false
         val token = fcmToken ?: FirebaseMessaging.getInstance().token.await()
         val response = request(

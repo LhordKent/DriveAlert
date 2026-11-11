@@ -151,16 +151,17 @@ most five times per second, using roughly 2,500 or fewer pixels. It measures a
 10%-trimmed mean luminance L and percentile contrast C (p90 minus p10), on 0–255
 scales. These are image-quality heuristics, **not MediaPipe confidence scores**.
 
-- Poor: L < 25, or L < 45 and C < 30. Drowsiness assessment pauses immediately.
-- Usable: L >= 55, or L >= 35 and C >= 40. Two continuous seconds establish or
-  restore usability; borderline readings interrupt recovery and otherwise retain
-  the previous decision.
+- Poor: L < 25, or L < 45 and C < 20. Drowsiness assessment pauses immediately.
+- Usable: every fresh reading not classified poor. Two continuous seconds establish
+  or restore usability. There is no borderline class or gap between thresholds.
+  This admits captured locked-face readings including L=35.5, C=24; it is image
+  threshold tuning, not proof of accurate ML measurements in all dim conditions.
 - Unknown, invalid crops, missing samples, or readings older than one second
   cannot enable assessment. Initial usable readings also require two seconds.
 - A temporary sample gap does not reconfigure Android's face selector. A NEW,
   explicitly usable sample within two seconds of a previously usable sample may
   resume assessment immediately. Missing/cached samples never enable it; darkness,
-  borderline pixels after a gap, longer gaps and target changes still require the
+  longer gaps and target changes still require the
   normal recovery. This is Android-only and needs no additional firmware flash.
 - Gated frames preserve actual face-detected status, produce no drowsiness events,
   reset candidate evidence, and do not advance calibration's valid time. Camera
@@ -168,8 +169,12 @@ scales. These are image-quality heuristics, **not MediaPipe confidence scores**.
 - Speech starts three seconds after the first poor reading and repeats every 30
   seconds. Recovery is checked without speaking; a brief poor episode stays silent.
 - A missing face is attributed to lighting only when the separate scene-brightness
-  tracker has fresh, confirmed darkness; otherwise `FACE` remains authoritative.
-  Scene darkness attribution can take longer than a face-area poor reading.
+  tracker has fresh, confirmed darkness and there are no detected faces. This
+  selects `LIGHT` ahead of driver-loss guidance in the UI and active monitoring.
+  Out-of-area or competing faces still use `FACE` rather than claiming darkness.
+  `FACE`/`LIGHT` changes share the same visibility-loss episode, three-second delay
+  and thirty-second reminder clock, preventing duplicate speech when attribution
+  changes. Setup/calibration show the status; speech requires active monitoring.
 
 All lighting thresholds are centralized in `FaceLightingTracker` and require
 testing/tuning on the actual ESP32-CAM stream. Dim-light accuracy is not established

@@ -51,6 +51,7 @@ export async function verifyFirebaseToken(authorization: string | null, env: Env
       payload.iss !== `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}` ||
       typeof payload.exp !== 'number' || payload.exp <= nowSeconds ||
       typeof payload.iat !== 'number' || payload.iat > nowSeconds + 60) throw new Error('AUTH_INVALID')
+  if (payload.email_verified !== true) throw new Error('AUTH_EMAIL_UNVERIFIED')
   return { uid }
 }
 

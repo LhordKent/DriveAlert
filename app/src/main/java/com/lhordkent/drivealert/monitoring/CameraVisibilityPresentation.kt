@@ -42,6 +42,12 @@ fun cameraVisibilityPresentation(
         )
         StreamConnectionState.CONNECTED -> Unit
     }
+    val darkMissingFace = lowLight == true &&
+        (driverTracking?.detectedFaceCount ?: if (scenario == MonitoringScenario.FACE_TRACKING_UNAVAILABLE) 0 else 1) == 0 &&
+        (driverTracking?.locked == false || scenario == MonitoringScenario.FACE_TRACKING_UNAVAILABLE)
+    if (darkMissingFace) return unavailable("Insufficient lighting",
+        "The camera view is too dark or covered. Restore camera visibility when safe. Drowsiness assessment is paused.",
+        CameraVisibilityTone.UNAVAILABLE)
     if (!alignmentConfirmed) return unavailable("Set driver area", "Confirm the driver area in Camera Alignment before monitoring.", CameraVisibilityTone.INFO)
     if (driverTracking != null && !driverTracking.locked) return unavailable(driverTracking.label, driverTracking.guidance, CameraVisibilityTone.UNAVAILABLE)
     if (!hasFreshDetection) return unavailable(

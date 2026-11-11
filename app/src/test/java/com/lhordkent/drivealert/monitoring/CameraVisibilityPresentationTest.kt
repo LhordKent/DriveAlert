@@ -6,6 +6,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class CameraVisibilityPresentationTest {
+    @Test
+    fun `usable dim lighting presents active signs instead of a third lighting classification`() {
+        val view = cameraVisibilityPresentation(StreamConnectionState.CONNECTED, MonitoringScenario.NORMAL,
+            true, true, lighting = FaceLightingAssessment(0, LightingQuality.USABLE, 35.5, 24.0))
+        assertEquals("Monitoring active", view.monitoring.headline)
+        assertTrue(view.monitoring.eyeAvailable && view.monitoring.yawningAvailable && view.monitoring.headAvailable)
+    }
+
     @org.junit.Test fun `ambiguous driver overrides otherwise healthy monitoring`() {
         val result = cameraVisibilityPresentation(
             com.lhordkent.drivealert.detection.frame.StreamConnectionState.CONNECTED,
@@ -48,10 +56,21 @@ class CameraVisibilityPresentationTest {
     }
 
     @Test
-    fun `low light explains missing face as a possibility`() {
+    fun `confirmed dark scene overrides absent face and missing lighting samples`() {
         val view = present(MonitoringScenario.FACE_TRACKING_UNAVAILABLE, lowLight = true)
-        assertTrue(view.detail.contains("Low light may be affecting"))
+        assertEquals("Insufficient lighting", view.label)
+        assertTrue(view.detail.contains("too dark or covered"))
         assertEquals("Monitoring paused", view.monitoring.headline)
+        assertFalse(view.monitoring.eyeAvailable || view.monitoring.yawningAvailable || view.monitoring.headAvailable)
+    }
+
+    @Test
+    fun `covered camera darkness is displayed ahead of driver acquisition`() {
+        val view = cameraVisibilityPresentation(StreamConnectionState.CONNECTED, MonitoringScenario.FACE_TRACKING_UNAVAILABLE,
+            true, true, lighting = FaceLightingAssessment(), alignmentConfirmed = false,
+            driverTracking = com.lhordkent.drivealert.detection.face.DriverTrackingState(
+                com.lhordkent.drivealert.detection.face.DriverTrackingStatus.LOST, detectedFaceCount = 0))
+        assertEquals("Insufficient lighting", view.label)
         assertFalse(view.monitoring.eyeAvailable || view.monitoring.yawningAvailable || view.monitoring.headAvailable)
     }
 
@@ -95,7 +114,7 @@ class CameraVisibilityPresentationTest {
 
     @Test
     fun `clear tracking restores all available signs`() {
-        assertEquals("Face not visible", present(MonitoringScenario.FACE_TRACKING_UNAVAILABLE, true).label)
+        assertEquals("Insufficient lighting", present(MonitoringScenario.FACE_TRACKING_UNAVAILABLE, true).label)
         val recovered = present(MonitoringScenario.NORMAL, false)
         assertEquals("Clear view", recovered.label)
         assertEquals("Monitoring active", recovered.monitoring.headline)

@@ -9,6 +9,8 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,8 +32,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
@@ -58,6 +64,7 @@ fun WifiProvisioningPanel(
     onOpenBleSetup: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val bluetoothAdapter = remember {
         context.getSystemService(BluetoothManager::class.java)?.adapter
     }
@@ -245,6 +252,8 @@ fun WifiProvisioningPanel(
                         onValueChange = { ssid = it },
                         label = { Text("Wi-Fi or hotspot SSID") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (ssid.firstOrNull()?.isWhitespace() == true || ssid.lastOrNull()?.isWhitespace() == true) {
@@ -262,6 +271,8 @@ fun WifiProvisioningPanel(
                         label = { Text("Wi-Fi password") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(14.dp))
@@ -328,6 +339,27 @@ fun WifiProvisioningPanel(
                 })
             }
             else -> Unit
+        }
+        if (state.stage in setOf(
+                ProvisioningStage.CONNECTING_BLE,
+                ProvisioningStage.PAIRING,
+                ProvisioningStage.CONNECTED_BLE,
+                ProvisioningStage.SENDING_CREDENTIALS,
+                ProvisioningStage.CONNECTING_WIFI,
+                ProvisioningStage.FAILED,
+            )
+        ) {
+            Spacer(Modifier.height(12.dp))
+            SecondaryButton("Back to BLE setup", onClick = {
+                focusManager.clearFocus()
+                onOpenBleSetup()
+            })
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Saved Wi-Fi details are kept. If the device does not appear when scanning, restart it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+            )
         }
     }
 

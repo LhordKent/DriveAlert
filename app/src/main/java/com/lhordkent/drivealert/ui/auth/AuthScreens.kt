@@ -318,3 +318,26 @@ fun ForgotPasswordScreen(
         Spacer(Modifier.height(24.dp))
     }
 }
+
+@Composable
+fun VerifyEmailScreen(email: String, callbacks: AuthCallbacks, state: AuthOperationState) {
+    var newEmail by rememberSaveable(email) { mutableStateOf("") }
+    AuthPage {
+        BrandHeader()
+        Spacer(Modifier.height(40.dp))
+        ScreenTitle("Verify your email", "Verify $email to continue. Open the email link, then return here. Use Resend if you need a link, and check your spam folder.")
+        Spacer(Modifier.height(24.dp))
+        AuthStatusBanner(state.errorMessage, state.successMessage)
+        Spacer(Modifier.height(16.dp))
+        PrimaryAuthButton("I've verified my email", callbacks.onCheckVerification, loading = state.isLoading)
+        Spacer(Modifier.height(12.dp))
+        SecondaryAuthButton("Resend verification email", callbacks.onResendVerification, enabled = !state.isLoading)
+        Spacer(Modifier.height(28.dp))
+        AuthTextField(newEmail, { newEmail = it }, "Correct email address", enabled = !state.isLoading,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+        TextButton(onClick = { callbacks.onChangeVerificationEmail(newEmail) }, enabled = !state.isLoading) {
+            Text("Send link to this address")
+        }
+        TextButton(onClick = callbacks.onSignOut, enabled = !state.isLoading) { Text("Sign out") }
+    }
+}

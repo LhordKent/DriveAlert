@@ -9,11 +9,20 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import org.junit.Before
 import java.util.concurrent.CopyOnWriteArrayList
 
 class BleSetupRecoveryTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
+
+    @Before
+    fun grantPermissionsRequiredByBleClient() {
+        val permissions = if (android.os.Build.VERSION.SDK_INT >= 31) {
+            listOf(android.Manifest.permission.BLUETOOTH_SCAN, android.Manifest.permission.BLUETOOTH_CONNECT)
+        } else listOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
+        permissions.forEach { instrumentation.uiAutomation.grantRuntimePermission(context.packageName, it) }
+    }
 
     @Test
     fun rememberedDeviceSurvivesStoreRecreationAndIsScopedToDriver() {

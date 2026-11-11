@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -77,7 +78,11 @@ fun DeviceConnectionScreen(
     onOpenBleSetup: () -> Unit = {},
     onManageDeviceAccess: () -> Unit = {},
 ) {
-    ScrollableScreen(title = "Device Connection", onBack = onBack) {
+    ScrollableScreen(
+        title = "Device Connection",
+        onBack = onBack,
+        modifier = Modifier.imePadding(),
+    ) {
         Text(if (showsSavedCameraConnection(vision)) "Your DriveAlert camera" else "Connect your DriveAlert camera", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
         Text(
@@ -327,23 +332,25 @@ private fun LightingGuidance(vision: DriverVisionUiState) {
     SetupDetailRow(
         "Facial lighting",
         when {
+            vision.insufficientLighting -> "Insufficient lighting"
             !vision.driverTracking.locked -> "Waiting for driver"
-            vision.lighting.recovering -> "Checking lighting"
-            quality == LightingQuality.INSUFFICIENT -> "Insufficient lighting"
-            quality == LightingQuality.USABLE -> "Usable"
-            else -> "Waiting for lighting sample"
+            else -> vision.lighting.statusLabel
         },
         if (quality == LightingQuality.USABLE) StatusTone.SUCCESS else StatusTone.WARNING,
     )
-    if (quality != LightingQuality.USABLE) {
+    if (vision.insufficientLighting || quality != LightingQuality.USABLE) {
         Text(
-            if (!vision.driverTracking.locked)
-                "Keep one face inside the driver area. Measurements pause until driver tracking returns."
-            else if (quality == LightingQuality.INSUFFICIENT && !vision.lighting.recovering)
+            if (vision.insufficientLighting)
                 "Restore camera visibility when safe. Calibration and drowsiness assessment pause until facial lighting recovers."
+            else if (!vision.driverTracking.locked)
+                "Keep one face inside the driver area. Measurements pause until driver tracking returns."
             else "Keep your face visible. Checking lighting before collecting measurements.",
             style = MaterialTheme.typography.bodySmall, color = TextSecondary,
         )
+    }
+    if (com.lhordkent.drivealert.BuildConfig.DEBUG && vision.lighting.timestampMs != null) {
+        Text("Face brightness: %.1f · contrast: %.1f / 255".format(vision.lighting.luminance, vision.lighting.contrast),
+            style = MaterialTheme.typography.bodySmall, color = TextMuted)
     }
 }
 
@@ -455,7 +462,8 @@ private fun RegionSlider(label: String, value: Double, range: ClosedFloatingPoin
 
 @Composable
 internal fun DriverTrackingGuidance(vision: DriverVisionUiState) {
-    Text(vision.driverTracking.label, style = MaterialTheme.typography.titleMedium, color = TextPrimary,
+    Text(if (vision.insufficientLighting) "Insufficient lighting" else vision.driverTracking.label, style = MaterialTheme.typography.titleMedium, color = TextPrimary,
         modifier = Modifier.padding(top = 12.dp))
-    Text(vision.driverTracking.guidance, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+    Text(if (vision.insufficientLighting) "The camera view is too dark or covered. Restore camera visibility when safe."
+        else vision.driverTracking.guidance, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
 }

@@ -6,17 +6,20 @@ import { trustedRoleAllowed } from '../../models/domain'
 import { PageSkeleton, ErrorState } from '../../components/PageState'
 import { Button } from '../../components/Button'
 import { authRepository } from '../../repositories/authRepository'
+import { VerifyEmailPage } from '../../features/auth/VerifyEmailPage'
 
 export function PublicOnlyRoute() {
-  const { user, loading } = useAuth()
+  const { user, loading, verified } = useAuth()
   if (loading) return <FullPageLoading />
+  if (user && !verified) return <VerifyEmailPage />
   return user ? <Navigate to="/dashboard" replace /> : <Outlet />
 }
 
 export function ProtectedRoute() {
-  const { user, loading } = useAuth()
+  const { user, loading, verified } = useAuth()
   const { profile, profileStatus, profileError, refreshProfile } = usePortal()
   const location = useLocation()
+  if (user && !loading && !verified) return <VerifyEmailPage />
   if (loading || (user && ['idle', 'loading'].includes(profileStatus))) return <FullPageLoading />
   if (!user) return <Navigate to="/auth/sign-in" replace state={{ from: location.pathname }} />
   if (profileStatus === 'error' && profileError) return <AccessPage icon={AlertTriangle} title="Profile unavailable" message={profileError.message} actions={<Button variant="secondary" onClick={refreshProfile}><RefreshCw className="size-4" />Try again</Button>} />

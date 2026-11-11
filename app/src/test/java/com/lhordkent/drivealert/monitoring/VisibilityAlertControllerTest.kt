@@ -7,6 +7,20 @@ import org.junit.Test
 
 class VisibilityAlertControllerTest {
     @Test
+    fun `darkness attribution preserves the face loss timer and cannot double announce`() {
+        val controller = VisibilityAlertController()
+        assertTrue(controller.update(0, VisibilityIssue.FACE_UNAVAILABLE).isEmpty())
+        assertTrue(controller.update(2_000, VisibilityIssue.INSUFFICIENT_LIGHTING).isEmpty())
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.INSUFFICIENT_LIGHTING)),
+            controller.update(3_000, VisibilityIssue.INSUFFICIENT_LIGHTING))
+        assertTrue(controller.update(3_100, VisibilityIssue.FACE_UNAVAILABLE).isEmpty())
+        assertTrue(controller.update(3_200, VisibilityIssue.INSUFFICIENT_LIGHTING).isEmpty())
+        assertTrue(controller.update(32_999, VisibilityIssue.INSUFFICIENT_LIGHTING).isEmpty())
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.INSUFFICIENT_LIGHTING)),
+            controller.update(33_000, VisibilityIssue.INSUFFICIENT_LIGHTING))
+    }
+
+    @Test
     fun `lighting cannot be acknowledged and repeats every thirty seconds`() {
         val controller = VisibilityAlertController()
         controller.beginSession(DriverAccessoryMode.MASK_AND_SUNGLASSES)
