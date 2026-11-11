@@ -2,7 +2,7 @@
 
 ## Current status (plain English) — last updated 2026-11-11
 
-**In one line:** Everything we can test without the camera passes. The two most serious bugs are fixed and live. Some smaller issues are written down but not fixed yet.
+**In one line:** Everything we can test without the camera passes. The three bugs most likely to hurt real users are fixed. A few smaller or unlikely issues are written down but not fixed yet.
 
 ### ✅ Done
 - **Alerts getting stuck (F1): fixed and live.** One failed alert used to stop all of a driver's later Stage 3 alerts from reaching their contacts. Fixed in the app and in the alert server, and the server change is deployed.
@@ -10,13 +10,13 @@
 - **Full test run: all green.** That covers the Android app, the web portal, the database security rules, the alert server and the camera firmware logic (on the PC, not the device).
 - **Outdated test: fixed.** One test expected old on-screen wording; it now matches the app.
 - **Everything above is saved to GitHub.**
+- **Website sign-up across browsers (F5): fixed (saved to GitHub).** Signing up in one browser (for example Chrome) and then confirming and logging in from another (for example Brave) used to end on "Profile not found". Now the website builds the profile from the account's name and email. **Tested with real Chrome and real Brave:** the old code showed "Profile not found", and the new code reaches the Dashboard (passed 3 times in a row). Signing up and finishing in the same browser still keeps every detail. One limit: in the cross-browser case the phone number isn't carried over, so the user adds it later on the Account page.
 - **New: sharing notice on connection requests (saved to GitHub).** Before sending a request, the phone app and the website now say: "Your name (…) and email (…) will be visible to the person you send this request to." Tests pass, but it hasn't been checked on screen.
 
 ### 🟡 Known but not fixed yet (in order of importance)
 1. **F2 (lowered to Low–Medium):** a connection request shows the sender's name and email, but the sender's own app supplies them, so a tampered app could fake them. It only works for someone who already has your connection code. **Decision (2026-11-11):** for now we only added a notice telling senders what's shared. The behind-the-scenes block on faked emails was skipped on purpose.
 2. **F3:** a stranger near the camera could register it to their account before you do.
-3. **F5:** signing up on the web, then logging in from another browser, can leave the account without a profile.
-4. **Smaller items (F6–F11):** alert times shown in UTC, error messages that disappear too fast, and similar.
+3. **Smaller items (F6–F11):** alert times shown in UTC, error messages that disappear too fast, and similar.
 
 ### 👀 Keep an eye on
 - **IT-07 test:** failed once, then passed twice. It might mean a connection request sometimes says "already exists" even though it worked. Not confirmed.

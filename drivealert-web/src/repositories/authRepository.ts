@@ -22,16 +22,35 @@ export interface RegistrationInput {
   password: string
 }
 
+/** Profile details recoverable from the Firebase account when the browser's sign-up record is missing. */
+export function fallbackRegistration(user: Pick<User, 'displayName' | 'email'>): RegistrationInput {
+  const email = user.email ?? ''
+  const fromEmail = email.split('@')[0].replace(/[._-]+/g, ' ').trim()
+  const words = (user.displayName?.trim() || fromEmail || 'DriveAlert user').split(/\s+/)
+  return {
+    firstName: words.length > 1 ? words.slice(0, -1).join(' ') : words[0],
+    lastName: words.length > 1 ? words[words.length - 1] : '',
+    email,
+    password: '',
+  }
+}
+
 let lastEmailSentAt = 0
 export const authRepository = {
   async finishPendingRegistration(user: User) {
     if (!user.emailVerified) return
     const key = 'drivealert.pending-registration.' + user.uid
     const pending = localStorage.getItem(key)
-    if (!pending) return
-    const input = JSON.parse(pending) as RegistrationInput
-    await profileRepository.createTrustedContact(user.uid, { ...input, email: user.email ?? input.email })
-    localStorage.removeItem(key)
+    if (pending) {
+      const input = JSON.parse(pending) as RegistrationInput
+      await profileRepository.createTrustedContact(user.uid, { ...input, email: user.email ?? input.email })
+      localStorage.removeItem(key)
+      return
+    }
+    // Sign-up details only live in the browser used to register. When the first verified sign-in happens
+    // elsewhere (another browser, device or cleared storage), build the profile from the Firebase account.
+    // createTrustedContact never overwrites an existing profile.
+    await profileRepository.createTrustedContact(user.uid, fallbackRegistration(user))
   },
   async checkVerification(user: User) {
     await reload(user)
