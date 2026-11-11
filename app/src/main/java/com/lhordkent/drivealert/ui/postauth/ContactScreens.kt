@@ -300,6 +300,8 @@ fun InviteConnectionScreen(
     onSend: () -> Unit,
     onClear: () -> Unit,
     onBack: () -> Unit,
+    senderName: String = "",
+    senderEmail: String = "",
 ) {
     val isDriverView = targetView == UserView.DRIVER
     var code by rememberSaveable { mutableStateOf("") }
@@ -372,6 +374,13 @@ fun InviteConnectionScreen(
                     color = TextSecondary,
                 )
             }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                connectionSharingNotice(senderName, senderEmail),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+                modifier = Modifier.testTag(PostAuthTestTags.INVITE_SHARING_NOTICE),
+            )
             Spacer(Modifier.height(16.dp))
             PrimaryButton(
                 text = if (inviteState.isSending) "Sending request…" else "Send connection request",
@@ -450,3 +459,10 @@ private fun Stage3SyncRecordRow(record: Stage3SyncRecord, onClick: () -> Unit) {
 
 private fun Stage3SyncRecord.isDelayedSynchronization(): Boolean =
     receivedAt?.let { Duration.between(occurredAt, it).toMinutes() > 5 } == true
+
+/** Tells the sender exactly what the other person will see; nothing is typed by the sender. */
+internal fun connectionSharingNotice(name: String, email: String): String {
+    val shared = listOfNotNull(name.trim().ifBlank { null }?.let { "name ($it)" }, email.trim().ifBlank { null }?.let { "email ($it)" })
+    return if (shared.isEmpty()) "Your name and email will be visible to the person you send this request to."
+    else "Your ${shared.joinToString(" and ")} will be visible to the person you send this request to."
+}

@@ -1,13 +1,41 @@
 # DriveAlert System Audit — 2026-11-11
 
-Scope: Firestore rules, notification-worker (Cloudflare), web portal, Android app (auth, sync, device access, monitoring service), ESP32 firmware authorization and HTTP layer. Every finding below was traced through the code. Nothing was modified.
+## Current status (plain English) — last updated 2026-11-11
+
+**In one line:** Everything we can test without the camera passes. The two most serious bugs are fixed and live. Some smaller issues are written down but not fixed yet.
+
+### ✅ Done
+- **Alerts getting stuck (F1): fixed and live.** One failed alert used to stop all of a driver's later Stage 3 alerts from reaching their contacts. Fixed in the app and in the alert server, and the server change is deployed.
+- **Phone stuck "Starting monitoring" (F4): fixed.** If something changed while monitoring was starting up, the phone could keep a notification and drain the battery. It now stops cleanly and shows why.
+- **Full test run: all green.** That covers the Android app, the web portal, the database security rules, the alert server and the camera firmware logic (on the PC, not the device).
+- **Outdated test: fixed.** One test expected old on-screen wording; it now matches the app.
+- **Everything above is saved to GitHub.**
+- **New: sharing notice on connection requests (not on GitHub yet).** Before sending a request, the phone app and the website now say: "Your name (…) and email (…) will be visible to the person you send this request to." Tests pass, but it hasn't been checked on screen.
+
+### 🟡 Known but not fixed yet (in order of importance)
+1. **F2 (lowered to Low–Medium):** a connection request shows the sender's name and email, but the sender's own app supplies them, so a tampered app could fake them. It only works for someone who already has your connection code. **Decision (2026-11-11):** for now we only added a notice telling senders what's shared. The behind-the-scenes block on faked emails was skipped on purpose.
+2. **F3:** a stranger near the camera could register it to their account before you do.
+3. **F5:** signing up on the web, then logging in from another browser, can leave the account without a profile.
+4. **Smaller items (F6–F11):** alert times shown in UTC, error messages that disappear too fast, and similar.
+
+### 👀 Keep an eye on
+- **IT-07 test:** failed once, then passed twice. It might mean a connection request sometimes says "already exists" even though it worked. Not confirmed.
+
+### ❌ Not covered
+- Anything that needs the physical camera: Bluetooth pairing, the live video stream, the speaker.
+
+---
+
+## Technical details
+
+Scope: Firestore rules, notification-worker (Cloudflare), web portal, Android app (auth, sync, device access, monitoring service), ESP32 firmware authorization and HTTP layer. Every finding below was traced through the code. When the audit was first written, nothing had been modified; fixes since then are listed under **Current status** above.
 
 ## Summary
 
 | ID | Severity | Area | Title |
 | --- | --- | --- | --- |
 | F1 | High | Worker + Android sync | A delivery row whose installation was deleted keeps its group "pending" forever, and this blocks every later Stage 3 alert from that driver |
-| F2 | Medium | Firestore rules | Connection requests accept a made-up email (and name) for the requester |
+| F2 | Low–Medium | Firestore rules | Connection requests accept a made-up email (and name) for the requester. The attacker must already have the target's connection code. |
 | F3 | Medium | Firestore rules / device claim | Anyone who knows a camera's Bluetooth MAC can claim it in Firestore first, and users have no way to recover it themselves |
 | F4 | Medium | Android monitoring | Monitoring start can end without calling either callback, leaving the foreground service and wake lock stuck |
 | F5 | Medium (web) / Low (Android) | Web + Android auth | Profile details are only saved on the device used to register. On the web, signing in elsewhere leaves no profile; Android creates a fallback profile but loses the structured name and phone number |

@@ -645,6 +645,8 @@ fun DriveAlertApp(
                     inviteState = postAuthState.connectionInvite,
                     onLookup = onLookupConnectionCode,
                     onSend = onSendTrustedContactRequest,
+                    senderName = postAuthState.profileDisplayName,
+                    senderEmail = postAuthState.accountEmail,
                     onClear = onClearConnectionInvite,
                     onBack = navController::popBackStack,
                 )
@@ -744,6 +746,8 @@ fun DriveAlertApp(
                     inviteState = postAuthState.connectionInvite,
                     onLookup = onLookupConnectionCode,
                     onSend = onSendDriverRequest,
+                    senderName = postAuthState.profileDisplayName,
+                    senderEmail = postAuthState.accountEmail,
                     onClear = onClearConnectionInvite,
                     onBack = navController::popBackStack,
                 )

@@ -79,6 +79,7 @@ object PostAuthTestTags {
     const val PRIMARY_ACTION = "post_auth_primary_action"
     const val BOTTOM_NAV = "post_auth_bottom_nav"
     const val INVITE_CODE = "invite_code"
+    const val INVITE_SHARING_NOTICE = "invite_sharing_notice"
 }
 
 data class AppNavItem(

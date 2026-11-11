@@ -31,6 +31,8 @@ describe('invite Driver form', () => {
     await userEvent.type(screen.getByLabelText('DriveAlert connection code'), target.normalizedCode)
     await userEvent.click(screen.getByRole('button', { name: 'Find Driver' }))
     expect(await screen.findByText('Long Driver Name')).toBeInTheDocument()
+    expect(screen.getByTestId('invite-sharing-notice')).toHaveTextContent(
+      'Your name (Mara Santos) and email (mara@example.com) will be visible to the person you send this request to.')
     await userEvent.click(screen.getByRole('button', { name: 'Send connection request' }))
     await waitFor(() => expect(connectionRepository.requestDriver).toHaveBeenCalledWith(profile, target))
     expect(navigate).toHaveBeenCalledWith('/requests', { replace: true })

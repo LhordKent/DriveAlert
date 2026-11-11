@@ -375,6 +375,7 @@ class PostAuthViewModel(
 
     fun setAccountEmail(email: String) {
         accountEmail = email.trim().lowercase()
+        state = state.copy(accountEmail = accountEmail)
     }
 
     fun setProfileDisplayName(displayName: String) {

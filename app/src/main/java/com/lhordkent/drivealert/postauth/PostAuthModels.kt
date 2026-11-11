@@ -203,6 +203,8 @@ data class PostAuthUiState(
     val monitoringScenario: MonitoringScenario = MonitoringScenario.NORMAL,
     val activeWarningStage: WarningStage? = null,
     val profileDisplayName: String = "",
+    /** Signed-in account email, shown when a connection request will share it. */
+    val accountEmail: String = "",
     val profileFirstName: String = "",
     val profileMiddleName: String = "",
     val profileLastName: String = "",
