@@ -49,9 +49,15 @@ class CameraVisibilityScreenTest {
         composeRule.onNodeWithText("Camera visibility").performScrollTo()
         capture("low-light")
 
+        // A confirmed dark scene with no face is treated as a dark or covered camera, not a missing driver.
         composeRule.runOnIdle { scenario.value = MonitoringScenario.FACE_TRACKING_UNAVAILABLE }
+        composeRule.onNodeWithText("Insufficient lighting").assertIsDisplayed()
+        composeRule.onNodeWithText("too dark or covered", substring = true).assertIsDisplayed()
+        capture("dark-face-missing")
+
+        composeRule.runOnIdle { lowLight.value = false }
         composeRule.onNodeWithText("Face not visible").assertIsDisplayed()
-        composeRule.onNodeWithText("Low light may be affecting", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("position or an obstruction", substring = true).assertIsDisplayed()
         capture("face-missing")
 
         composeRule.runOnIdle { stream.value = StreamConnectionState.RECONNECTING }
