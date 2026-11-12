@@ -1,8 +1,14 @@
 # DriveAlert System Audit — 2026-11-11
 
-## Current status (plain English) — last updated 2026-11-11
+## Current status (plain English) — last updated 2026-11-12
 
 **In one line:** Everything we can test without the camera passes. The three bugs most likely to hurt real users are fixed. A few smaller or unlikely issues are written down but not fixed yet.
+
+### 🆕 2026-11-12: faster camera video start (phone app only, saved to GitHub; APK file kept local)
+- **Problem:** after setup, the video took about 30 seconds to appear. The camera restarts into Wi-Fi mode, and during that time the phone was doing slow 8-second network searches and waiting longer and longer between tries.
+- **Fix:** right after setup (within 1 minute), the phone now checks the camera's known address about every 0.75 seconds for up to 25 seconds. If that doesn't work, it falls back to the old search. The camera doesn't need reflashing.
+- **Tests:** all 294 app tests pass, including 3 new ones for this. New install file: `output/DriveAlert-2026-11-12-faster-camera-start.apk`.
+- **Not checked yet:** on the real camera. Expect the video in about 8–12 seconds. If it gets worse, reinstall `output/DriveAlert-2026-11-11-fixes.apk`.
 
 ### ✅ Done
 - **Alerts getting stuck (F1): fixed and live.** One failed alert used to stop all of a driver's later Stage 3 alerts from reaching their contacts. Fixed in the app and in the alert server, and the server change is deployed.
@@ -17,7 +23,7 @@
 
 ### 🟡 Known but not fixed yet (in order of importance)
 1. **F2 (lowered to Low–Medium):** a connection request shows the sender's name and email, but the sender's own app supplies them, so a tampered app could fake them. It only works for someone who already has your connection code. **Decision (2026-11-11):** for now we only added a notice telling senders what's shared. The behind-the-scenes block on faked emails was skipped on purpose.
-2. **F3:** a stranger near the camera could register it to their account before you do.
+2. **F3 (left for the future, decided 2026-11-11):** a stranger near the camera could register it online before you do. They still can't use the camera without its 6-digit pairing PIN; they could only block online features such as adding drivers. Low risk, so it's not being fixed now.
 3. **Smaller items (F6–F11):** alert times shown in UTC, error messages that disappear too fast, and similar.
 
 ### 👀 Keep an eye on
