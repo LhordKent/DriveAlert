@@ -37,12 +37,16 @@ async function register(page: Page) {
   await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible()
 }
 
-async function confirmEmailIn(page: Page) {
+async function verificationLink() {
   const response = await fetch(`http://${AUTH}/emulator/v1/projects/${PROJECT_ID}/oobCodes`)
   const { oobCodes } = await response.json() as { oobCodes: Array<{ email: string; oobLink: string; requestType: string }> }
-  const link = oobCodes.filter((code) => code.email === EMAIL && code.requestType === 'VERIFY_EMAIL').at(-1)
-  expect(link, 'verification email').toBeTruthy()
-  await page.goto(link!.oobLink)
+  return oobCodes.filter((code) => code.email === EMAIL && code.requestType === 'VERIFY_EMAIL').at(-1)?.oobLink
+}
+
+async function confirmEmailIn(page: Page) {
+  // The "Verify your email" screen can render before the emulator records the email, so wait for it.
+  await expect.poll(verificationLink, { message: 'verification email', timeout: 10_000 }).toBeTruthy()
+  await page.goto((await verificationLink())!)
   await expect(page.getByText(/has been verified|successfully verified/i)).toBeVisible()
 }
 

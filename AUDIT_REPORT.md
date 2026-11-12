@@ -4,6 +4,27 @@
 
 **In one line:** Everything we can test without the camera passes. The three bugs most likely to hurt real users are fixed. A few smaller or unlikely issues are written down but not fixed yet.
 
+### 🧪 2026-11-12: "extreme" test run (everything that doesn't need the camera)
+Ran every test suite more than once, plus a random-tap stress test. Nothing touched the live website or real database.
+
+| What | Result |
+| --- | --- |
+| Android unit tests (294) + lint | ✅ 4 runs, 0 test failures (one run returned a build-tool error with no failed test) |
+| On-phone tests on emulator (92, incl. accounts & connections on a local test database) | ✅ 2 runs, 0 failures (1 skipped: needs the real camera over Bluetooth) |
+| Database security rules (32) | ✅ 3 runs, all pass |
+| Website: type check, lint, 74 unit tests, build | ✅ passes; unit tests 3/3 runs |
+| Website browser tests (14 + 3 skipped) | 🟡 passes when the PC is quiet; flaky under heavy load (timeouts) |
+| Alert server (10) | ✅ pass |
+| Camera firmware logic (3 suites) | ✅ 5 runs each with strict crash checks on |
+| Random-tap stress (3 × 3,000 events, phone offline) | 🟡 1 crash + 1 freeze, neither repeated on replay |
+
+**Found:**
+1. **Rare crash when typing:** a bug inside Android's text-box library (Compose), not DriveAlert's own code. It needs very fast random tapping to trigger. **Checked 2026-11-12: updating does NOT fix it.** The same faulty line is still there in Compose 1.7.0, 1.7.8 (the newest that fits our version locks) and 1.8.3. So we're staying on BOM 2024.02.02 and accepting this as a known rare issue.
+2. **One freeze** during stress testing on the slow software-graphics emulator. It didn't repeat and is probably the emulator, but that isn't proven.
+3. **Flaky website test: FIXED (2026-11-12).** The cross-browser sign-up test now waits up to 10 seconds for the verification email instead of checking once. It passed 10/10 times. Only the test changed; the website didn't. (One earlier run failed because the PC ran out of memory while the emulator was open, which wasn't a test problem.)
+
+Note: Steam uses port 8080 on this PC, so the local database tests were run on port 8085 using a temporary settings copy (deleted after).
+
 ### 🆕 2026-11-12: faster camera video start (phone app only, saved to GitHub; APK file kept local)
 - **Problem:** after setup, the video took about 30 seconds to appear. The camera restarts into Wi-Fi mode, and during that time the phone was doing slow 8-second network searches and waiting longer and longer between tries.
 - **Fix:** right after setup (within 1 minute), the phone now checks the camera's known address about every 0.75 seconds for up to 25 seconds. If that doesn't work, it falls back to the old search. The camera doesn't need reflashing.
