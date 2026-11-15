@@ -21,8 +21,14 @@ class EyeClosureDetector(
     private var candidateStartedAtMs: Long? = null
     private var lastTimestampMs: Long? = null
 
-    fun update(timestampMs: Long, ear: Double?): ConfirmedSignEvent? {
+    fun update(timestampMs: Long, ear: Double?, confirmedOpen: Boolean = false): ConfirmedSignEvent? {
         validateTimestamp(timestampMs)
+        // Looking down can compress the geometric eye ratio without closing
+        // the lids. A fresh independent open-eye reading breaks bilateral closure.
+        if (confirmedOpen) {
+            rearm()
+            return null
+        }
         if (ear == null || !ear.isFinite()) {
             if (state == TemporalState.CANDIDATE) rearm()
             return null

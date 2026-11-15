@@ -40,6 +40,7 @@ PlaybackCommand pendingCommand = {};
 volatile bool commandPending = false;
 unsigned long playbackStartedAtMs = 0;
 unsigned long playbackGuardMs = 0;
+uint16_t playbackTrack = 0;
 bool countdownStarted = false;
 
 bool elapsed(unsigned long now, unsigned long startedAt, unsigned long duration) {
@@ -56,6 +57,7 @@ bool takePending(PlaybackCommand *command) {
     available = (!command->repeat && !command->movement && !command->calibration) || !elapsed(now, command->queuedAtMs, REMINDER_MAX_QUEUE_AGE_MS);
     if (available) {
       playbackStartedAtMs = now;
+      playbackTrack = command->track;
       playbackGuardMs = command->track == CALIBRATION_COUNTDOWN_TRACK ? CALIBRATION_COUNTDOWN_MS
           : command->calibration ? CALIBRATION_PLAYBACK_GUARD_MS
           : command->track == NO_MOVEMENT_TRACK ? MOVEMENT_PLAYBACK_GUARD_MS
@@ -72,10 +74,18 @@ bool enqueuePlayback(uint16_t track, Volume volume, bool highPriority, bool repe
   if (!isAvailable() || track == 0 || valueForVolume(volume) == 0) return false;
   bool accepted = false;
   portENTER_CRITICAL(&commandMux);
+  const auto isStage3Track = [](uint16_t value) {
+    return value >= DIGITAL_BEEP_STAGE_3_TRACK && value <= BELL_CHIME_STAGE_3_TRACK;
+  };
+  // Finish the mixed warning/advice before any new command restarts the player.
+  // "High priority" must not restart the very same Stage 3 speech mid-sentence.
+  const bool protectedSpeech = (isStage3Track(playbackTrack) &&
+      !elapsed(millis(), playbackStartedAtMs, playbackGuardMs)) ||
+      (commandPending && isStage3Track(pendingCommand.track));
   const bool idleRequired = repeat || movement || calibration;
   const bool replacesMovement = !movement && !calibration && commandPending && (pendingCommand.movement || pendingCommand.calibration);
   const bool repeatAllowed = !idleRequired || ((!commandPending || replacesMovement) && elapsed(millis(), playbackStartedAtMs, playbackGuardMs));
-  if (repeatAllowed && (!commandPending || (highPriority && !pendingCommand.highPriority) || replacesMovement)) {
+  if (!protectedSpeech && repeatAllowed && (!commandPending || (highPriority && !pendingCommand.highPriority) || replacesMovement)) {
     pendingCommand = {track, volume, highPriority, repeat, movement, calibration, millis()};
     commandPending = true;
     if (track == CALIBRATION_COUNTDOWN_TRACK) countdownStarted = false;

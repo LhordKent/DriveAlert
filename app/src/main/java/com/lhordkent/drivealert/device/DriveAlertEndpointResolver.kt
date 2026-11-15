@@ -21,10 +21,17 @@ class AndroidDriveAlertEndpointResolver(context: Context) : DriveAlertEndpointRe
     private val nsd = context.applicationContext.getSystemService(NsdManager::class.java)
     private val policy = EndpointResolutionPolicy()
 
+    private companion object {
+        const val CONTROL_PORT = 80
+    }
+
     override suspend fun resolve(device: ProvisionedDevice): ProvisionedDevice? {
         return policy.resolve(
             persisted = device,
-            persistedReachable = { canConnect(device.lastKnownIp, device.streamPort) },
+            // Probe the control server (port 80), never the stream server: while video
+            // streams, the stream server's single task never accepts new sockets, so
+            // probes pile up in its backlog and later ones time out (missed alarms).
+            persistedReachable = { canConnect(device.lastKnownIp, CONTROL_PORT) },
             discover = discovery@ {
                 // An absent name must never select an arbitrary nearby camera.
                 if (device.hostname.isNullOrBlank()) return@discovery null

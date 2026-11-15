@@ -189,18 +189,6 @@ private fun SetupDeviceContent(
     )
     SetupStep(Icons.Rounded.CameraAlt, "Camera alignment", if (vision.alignmentConfirmed) "Confirmed" else "Confirmation needed", "Preview the live camera and confirm the Driver is clearly visible.", if (vision.alignmentConfirmed) StatusTone.SUCCESS else StatusTone.WARNING, onCameraAlignment)
     SetupStep(Icons.Rounded.CheckCircle, "Driver calibration", if (vision.activeCalibration != null) "Calibrated" else "Not calibrated", "Complete the guided eye, mouth, and head-position steps.", if (vision.activeCalibration != null) StatusTone.SUCCESS else StatusTone.WARNING, onCalibration)
-    Spacer(Modifier.height(8.dp))
-    GroupSurface {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = TextMuted, modifier = Modifier.size(22.dp))
-            Text(
-                "DriveAlert reports selected visible signs associated with drowsiness. It does not diagnose whether a Driver is drowsy.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
     Spacer(Modifier.height(24.dp))
     PrimaryButton("Continue to Home", onContinue)
     Spacer(Modifier.height(16.dp))
@@ -376,7 +364,11 @@ private fun AccessorySelectionDialog(
                     color = TextSecondary,
                 )
                 Spacer(Modifier.height(12.dp))
-                DriverAccessoryMode.entries.forEach { mode ->
+                listOf(
+                    DriverAccessoryMode.NONE,
+                    DriverAccessoryMode.MASK,
+                    DriverAccessoryMode.SUNGLASSES,
+                ).forEach { mode ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -391,6 +383,12 @@ private fun AccessorySelectionDialog(
                         }
                     }
                 }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Covering both your eyes and mouth is not allowed. Remove the obstructions before monitoring.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
             }
         },
         confirmButton = { TextButton(onClick = onStart) { Text("Start monitoring") } },

@@ -7,6 +7,66 @@ import org.junit.Test
 
 class VisibilityAlertControllerTest {
     @Test
+    fun `mask attribution changes update the same episode without repeated speech`() {
+        val controller = VisibilityAlertController()
+        controller.update(0, VisibilityIssue.LOWER_FACE_OBSTRUCTED)
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.LOWER_FACE_OBSTRUCTED)),
+            controller.update(3_000, VisibilityIssue.LOWER_FACE_OBSTRUCTED))
+        controller.update(3_400, VisibilityIssue.BOTH_REGIONS_OBSTRUCTED)
+        assertEquals(VisibilityIssue.LOWER_FACE_OBSTRUCTED, controller.reportedIssue)
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.BOTH_REGIONS_OBSTRUCTED, announce = false)),
+            controller.update(6_400, VisibilityIssue.BOTH_REGIONS_OBSTRUCTED))
+        controller.update(6_900, VisibilityIssue.LOWER_FACE_OBSTRUCTED)
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.LOWER_FACE_OBSTRUCTED, announce = false)),
+            controller.update(9_900, VisibilityIssue.LOWER_FACE_OBSTRUCTED))
+        assertTrue(controller.update(32_999, VisibilityIssue.LOWER_FACE_OBSTRUCTED).isEmpty())
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.LOWER_FACE_OBSTRUCTED)),
+            controller.update(33_000, VisibilityIssue.LOWER_FACE_OBSTRUCTED))
+    }
+
+    @Test
+    fun `face loss during a reported mouth obstruction is not recovery`() {
+        val controller = VisibilityAlertController()
+        controller.update(0, VisibilityIssue.LOWER_FACE_OBSTRUCTED)
+        controller.update(3_000, VisibilityIssue.LOWER_FACE_OBSTRUCTED)
+        assertTrue(controller.update(3_100, VisibilityIssue.FACE_UNAVAILABLE).isEmpty())
+        assertEquals(VisibilityIssue.LOWER_FACE_OBSTRUCTED, controller.reportedIssue)
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.FACE_UNAVAILABLE, announce = false)),
+            controller.update(6_100, VisibilityIssue.FACE_UNAVAILABLE))
+        controller.update(6_200, VisibilityIssue.LOWER_FACE_OBSTRUCTED)
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.LOWER_FACE_OBSTRUCTED, announce = false)),
+            controller.update(9_200, VisibilityIssue.LOWER_FACE_OBSTRUCTED))
+    }
+
+    @Test
+    fun `recovery clears the previous notification even if new attribution never matured`() {
+        val controller = VisibilityAlertController()
+        controller.update(0, VisibilityIssue.LOWER_FACE_OBSTRUCTED)
+        controller.update(3_000, VisibilityIssue.LOWER_FACE_OBSTRUCTED)
+        controller.update(3_100, VisibilityIssue.FACE_UNAVAILABLE)
+        assertTrue(controller.update(3_500, null).isEmpty())
+        assertTrue(controller.update(5_499, null).isEmpty())
+        assertEquals(listOf(VisibilityAlertEffect.Clear), controller.update(5_500, null))
+        assertNull(controller.reportedIssue)
+        controller.update(6_000, VisibilityIssue.LOWER_FACE_OBSTRUCTED)
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.LOWER_FACE_OBSTRUCTED)),
+            controller.update(9_000, VisibilityIssue.LOWER_FACE_OBSTRUCTED))
+    }
+
+    @Test
+    fun `rapid unconfirmed issue changes do not fabricate a regional notification`() {
+        val controller = VisibilityAlertController()
+        controller.update(0, VisibilityIssue.FACE_UNAVAILABLE)
+        controller.update(3_000, VisibilityIssue.FACE_UNAVAILABLE)
+        controller.update(3_100, VisibilityIssue.LOWER_FACE_OBSTRUCTED)
+        assertTrue(controller.update(4_000, VisibilityIssue.BOTH_REGIONS_OBSTRUCTED).isEmpty())
+        assertTrue(controller.update(5_000, VisibilityIssue.FACE_UNAVAILABLE).isEmpty())
+        assertEquals(VisibilityIssue.FACE_UNAVAILABLE, controller.reportedIssue)
+        assertTrue(controller.update(6_000, null).isEmpty())
+        assertEquals(listOf(VisibilityAlertEffect.Clear), controller.update(8_000, null))
+    }
+
+    @Test
     fun `darkness attribution preserves the face loss timer and cannot double announce`() {
         val controller = VisibilityAlertController()
         assertTrue(controller.update(0, VisibilityIssue.FACE_UNAVAILABLE).isEmpty())

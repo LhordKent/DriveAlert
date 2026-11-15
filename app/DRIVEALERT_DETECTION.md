@@ -1,5 +1,17 @@
 # DriveAlert Android detection core
 
+## Visibility episode continuity
+
+Once a sustained visibility problem has been reported, a change between mouth,
+eye, combined obstruction, face loss or lighting attribution does not dismiss
+the acknowledgement dialog or restart the 30-second speech cadence. A new
+attribution must still meet its confirmation delay before updating dialog
+content; updates inside the existing cadence are silent. The dialog clears on
+two seconds of observed recovery, explicit user action, session stop or camera
+interruption. Acknowledging a regional obstruction never bypasses fresh face,
+lighting, driver-lock or channel-availability checks. This stabilizes warning
+presentation; it does not improve the underlying classifier's accuracy.
+
 ## Responsibility and video path
 
 The operational camera is the OV3660 IR-capable sensor attached to an AI-Thinker-compatible classic ESP32-CAM/ESP-32S board with approximately 4 MB PSRAM. Android is the local processing device, not the capture camera. The ESP32-CAM-MB is currently used for USB programming and power. The intended offline path is:
@@ -14,14 +26,37 @@ No CameraX dependency, phone-camera source, `PreviewView`, `ImageAnalysis`, or A
 
 - Dependency: `com.google.mediapipe:tasks-vision:1.0.0`
 - Running mode: `VIDEO`
-- Faces: one
+- Faces: up to four in the scene graph, with an independent one-face VIDEO
+  tracker kept warm on the same full frames. The one-face result is considered
+  only when the scene graph returns zero faces, then passes the same driver-area,
+  continuity, acquisition and freshness gates. It never overrides scene
+  competitors or capacity saturation. This recovery targets partial-obstruction
+  dropouts; it is not proof of reliable mouth recognition at every distance.
 - Facial landmarks: enabled
+- Facial blendshapes: enabled only in debug builds for numeric investigation.
+  `DriveAlertEyeExpression` logs blink, look-down and squint activations for the
+  selected current face, paired by source timestamp. They do not affect
+  calibration, channel availability or alarms. No images are saved. These
+  landmark-derived activations are not independent evidence or calibrated
+  probabilities; real gaze/closure separation remains unverified.
+  The same debug line includes raw EAR and raw pitch before assessment gates.
+  `DriveAlertEyes` separately logs alignment, lighting eligibility, face lock,
+  monitoring status and source timestamp. Raw geometry is diagnostic evidence,
+  never authorization to bypass a failed assessment gate.
 - Facial transformation matrices: enabled
 - Model asset: `app/src/main/assets/face_landmarker.task`
 - Model provenance: byte-for-byte copy of `drivealert-ai-prototype/models/face_landmarker.task`
 - SHA-256: `64184E229B263107BC2B804C6625DB1341FF2BB731874B0BCC2FE6544E0BC9FF`
 
 Inference runs on a dedicated single-thread executor. If an inference is already active, a newly submitted stale frame is released and dropped. Closing the processor queues MediaPipe resource closure on the same executor.
+
+The recovery graph retains the original image coordinates and pose geometry; it
+does not feed manually zoomed image coordinates into saved calibration. Both
+graphs infer from the current bitmap, and neither substitutes old landmarks for
+an undetected driver. MediaPipe's graph invokes detection again when fewer than
+the configured maximum faces are tracked; a one-face VIDEO graph can instead
+continue its internal face-crop tracking. See the
+[upstream graph](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/tasks/cc/vision/face_landmarker/face_landmarker_graph.cc).
 
 MediaPipe and FaceAttribNet initialize lazily on that executor when the first
 camera frame is processed. App launch, sign-in, alignment configuration and closing
@@ -59,6 +94,16 @@ monitoring. When both regions are obstructed, head-pose monitoring is disabled
 as well and monitoring is paused. Cached results expire after two seconds.
 Eyeglasses remain diagnostic because clear eyeglasses have not been tested.
 
+Eye-openness outputs provide a disagreement check: either eye must score
+at least 0.90 on available, unobstructed attribute evidence captured no more
+than 750 ms before the current observation. A confidently open eye contradicts
+bilateral closure and rearms the timer even if mask-related landmark distortion
+or downward gaze compresses EAR. This does not establish that both eyes are open.
+Unknown, stale, invalid or only weakly open evidence cannot veto closure. Actual closure still
+requires the existing two seconds below the calibrated EAR threshold; the EAR
+formula, calibration and yawn/head rules are unchanged. This cross-check needs
+live verification for genuine closure and glasses; model outputs can be wrong.
+
 A lower-face obstruction sustained for two seconds produces a mobile visibility
 notification and a dedicated spoken request to the onboard speaker without
 creating a drowsiness event or changing warning-stage history. Eye obstruction
@@ -88,7 +133,12 @@ Model provenance and tensor metadata are recorded in
 - A continuous qualifying episode emits one event. A valid recovery observation re-arms its detector.
 - While a confirmed sign remains observable, Android requests a current-stage
   warning reminder every 2,000 ms for eye closure and every 3,000 ms for yawning
-  or head down, measured from confirmation. Reminders do not create detection
+  or head down, initially measured from confirmation. Successful camera acceptance
+  defers the next reminder by at least 2,300 ms for ordinary alarms, 10,300 ms
+  for Stage 3 mixed tracks, or 4,300 ms after visibility speech. These include a
+  margin over the existing firmware's estimated playback guards; they are not
+  measured sound-file lengths. Late observations schedule from the actual request
+  instead of catching up to an earlier slot. Reminders do not create detection
   events, history entries, phone notifications, or independently advance stages.
   Existing 60-second persistence escalation remains active. Simultaneous due
   reminders share one request; stage-change warnings supersede reminders.
@@ -96,6 +146,14 @@ Model provenance and tensor metadata are recorded in
   Missing/stale tracking, lighting pauses, and session termination stop reminders;
   delayed observations never produce a backlog. Delivery runs separately from
   frame processing, with at most one reminder request in flight.
+- An accepted Stage 3 mixed track covers new warning events for its 10,300 ms
+  reservation instead of being restarted mid-sentence. Event/history accounting
+  continues, but no fictitious HTTP request is logged for a coalesced warning.
+  Visibility speech waits for that reservation and rechecks its issue/session.
+- Capture age still gates individual results at 1,000 ms. Pipeline-stall detection
+  measures silence since the last valid result completed, so normal inference
+  latency is not counted twice. Stale UI readings are hidden immediately;
+  temporal evidence is reset on true stalls, bad observations or unusable light.
 - Missing measurements never become positive detections. Eye/yawn candidates reset on invalid input; invalid head observations are excluded. Face loss clears all temporal evidence.
 
 ## Calibration and event boundary

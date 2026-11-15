@@ -62,6 +62,15 @@ class CalibrationSession(
         resetPhaseProgress()
     }
 
+    /** The driver left the frame: keep finished steps, but redo the current one from its instructions. */
+    fun restartCurrentPhase() {
+        if (status != CalibrationStatus.COLLECTING) return
+        samples.remove(phase)
+        revision++
+        status = CalibrationStatus.READY
+        resetPhaseProgress()
+    }
+
     /** Invalid input breaks timing continuity and is never substituted with zero. */
     fun update(timestampMs: Long, measurements: FacialMeasurements): Boolean {
         if (status != CalibrationStatus.COLLECTING) return false

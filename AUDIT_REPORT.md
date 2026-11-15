@@ -1,6 +1,138 @@
 # DriveAlert System Audit — 2026-11-11
 
-## Current status (plain English) — last updated 2026-11-12
+## Current status (plain English) — last updated 2026-11-16
+
+### 2026-11-16: save existing work to main; lighting change remains a proposal
+- User authorized committing/pushing existing source, tests, tools and documentation to main. APKs, phone images, raw session exports and generated firmware outputs stay local. All old local feature-branch commits are already in main; no additional branch merge is needed.
+- Reviewed the pending calibration recovery, speaker timing/protection, visibility episode, eye diagnostic/safeguard and setup-dialog changes. Fresh checks: 315 Android unit tests pass with no skips; assembleDebug and compileDebugAndroidTestSources pass on JDK17; firmware warning-output host test passes. Initial sandboxed Android check failed on SDK file access; the approved rerun passes. No new physical-phone/camera or live FCM test performed.
+- LIGHTING_TUNING_PLAN.md records the proposed fast sampling, five-second warning confirmation, correct missing-face attribution and provisional dim-light threshold trial. No lighting implementation, threshold change, phone installation, firmware flash or cloud deployment in this step. Earlier trial edits were undone at the user's request. Eye-gaze investigation remains stopped.
+
+### 2026-11-15: only the two specified accessory choices removed
+- User clarified with screenshots: remove Ordinary eyeglasses and Mask and sunglasses only. No obstruction, Face mask and Sunglasses remain selectable. A static notice now says covering both eyes and mouth is not allowed and obstructions must be removed before monitoring.
+- Automatic obstruction/pausing behavior unchanged; old enum values remain readable for persisted session recovery. This is a dialog change, not a detector fix. Earlier setup disclaimer removal remains in place.
+- assembleDebug and targeted whitespace check pass. Installed output/DriveAlert-2026-11-15-three-accessory-choices.apk preserving data and reopened app. Rendered dialog verification could not proceed because home was not ready; no monitoring session started. No new tests for this simple UI change, firmware flash, commit/push/deploy or data reset. Eye investigation remains stopped.
+
+### 2026-11-15: requested Setup & Device notice removed entirely
+- Deleted the screenshot's entire selected-visible-signs/no-diagnosis card, including container, check icon, copy and dedicated spacer, from SetupDeviceContent. No replacement text or banner.
+- assembleDebug and targeted diff whitespace check pass. Installed output/DriveAlert-2026-11-15-remove-setup-notice.apk as an update preserving phone data, then reopened the app. No new tests for this simple UI deletion.
+- Eye investigation stays stopped. Detection, calibration and firmware unchanged; no commit/push/deploy or app-data reset.
+
+### 2026-11-15: user stops eye investigation; disclose limitation during defense
+- User explicitly stopped troubleshooting for now. No more research, code changes, installs, captures or pose tests unless resumed. Numeric collectors were already stopped. Current raw-eye-diagnostic APK stays installed; no detector fix claimed.
+- Camera position varies by driver; the current mount cannot be moved for the proposed eye-level comparison. Fixed eye-level placement is not an accepted product requirement.
+- Defense statement: Reliable distinction between downward gaze and actual eye closure across different camera positions is outside the prototype's validated scope. False eye-closure alerts under these conditions remain a known limitation and future improvement.
+- Internet research identified candidate eye-image classification and 3D geometry approaches; none was implemented or validated as a fix. Do not represent these suggestions or passing software tests as detection-accuracy validation.
+
+### 2026-11-15: paired EAR/gaze test confirms overlap; candidate agreement rule rejected
+- User confirms lens was below eye level. Low viewpoint is a candidate contributor, not a confirmed cause. Next proposed parked comparison temporarily raises camera nearer eye level while keeping distance/light similar, monitoring stopped and calibration unchanged. No collector or pose hold started.
+- User completed ahead/open, down/open and gentle closure after separate cues. Numeric raw EAR and eye scores now pair correctly. Monitoring stayed stopped; preview CONFIRMED is not a delivered alarm. Cue-to-reply windows include reading delay/transitions/recovery, not exact continuous pose labels.
+- Ahead cue window EAR median0.248 with no CONFIRMED; down cue median0.136 and repeated CONFIRMED states at near-neutral relative pitch. Plausible closure response15:47:37–45.7 has EAR roughly0.125–0.184, overlapping down. Lowering EAR cutoff is unsupported. Blink/look-down scores overlap too.
+- Simplified logged-sample replay: requiring both eye-open scores<=.20 continuously2s rejects current down and preserves current candidate closure, but misses the earlier user-confirmed14:54:45 closure. Looser .50/.80 still confirms down and misses that prior closure; .85 detects it but also down. Rejected candidate; no detector/settings/install changes. This is not exact production replay or accuracy validation.
+- Collector stopped and no leftovers found; user relaxed, no more pose repetitions requested. Asked camera height/viewpoint only. No images/firmware/commit/deploy. Evidence: output/Eye-gaze-paired-review-2026-11-15.md, output/eye-gaze-paired-summary-2026-11-15.json. False-alert fix remains unresolved.
+
+### 2026-11-15: raw EAR diagnostic correction installed and verified live
+- Previous preview comparison withheld normal EAR/MAR/pitch. Debug expression line now includes selected-current-face raw EAR/pitch before assessment gates. DriveAlertEyes separately logs source timestamp, alignment, face lock, lighting eligibility and monitoring activity. No gate/threshold/calibration/alert behavior changed; no images captured.
+- assembleDebug passes; targeted diff whitespace check passes. First install found no USB device; user reconnected and update install succeeded with data kept. Latest installed APK: output/DriveAlert-2026-11-15-raw-eye-diagnostic.apk. Normal app reopened. No test helper installed.
+- User restored preview. New numeric raw EAR and gate context match by source timestamp. Sample shows alignment=true, lighting UNKNOWN withholding assessment, then USABLE admitting numeric EAR; monitoring=false. This explains those new gated samples, not every earlier uninstrumented sample. Natural posture was not labeled, so do not classify low readings as a confirmed false event. Saved output/raw-eye-diagnostic-verification-2026-11-15.log. No active collector or further timed pose requested.
+- Previous 315 unit tests precede these logging-only edits and were not rerun. Downward-gaze fix remains unresolved; raw geometry does not bypass assessment, and expression scores have not reliably separated closure. No firmware flash, commit, push or deployment.
+
+### 2026-11-15: numeric gaze comparison completed; simple new score cutoff not supported
+- User completed no-mask/glasses ahead/open (normal blinking), down/open, then gentle4s closure with monitoring stopped. Selected-face blink/look-down scores were recorded; no images. Cue-to-reply windows include transition/recovery and are not exact continuous pose labels.
+- Initial ahead/open blink ranges .122–.237/.065–.264; down cue interval peaks .708/.718; closed cue interval peaks .509/.745. Look-down activation was already .58–.81 in the initial ahead/open sample and reached ~.89 in both other intervals. These overlapping scores do not validate a simple gaze/blink cutoff; a look-down veto could suppress actual closure.
+- Normal EAR/MAR/pitch were null/UNAVAILABLE for all237samples; the exact assessment gate was not established. This run validates expression logging, not actual monitoring alerts or synchronized EAR separation. Earlier downward-gaze EAR reproduction remains separate evidence.
+- Collection stopped after final done; no further pose requested or live collector left. No detector/settings/install/firmware change. Fix remains unresolved. Detailed evidence: output/Eye-gaze-diagnostic-2026-11-15.md and output/eye-gaze-phase-summary-2026-11-15.json.
+
+### 2026-11-15: downward-gaze error reproduced; numeric diagnostic installed
+- User-labeled downward gaze produced EAR 0.12–0.18 below the saved 0.284 threshold, reaching preview CONFIRMED with near-neutral head pitch. This was a stopped-session preview, not a newly delivered alarm. Looking ahead afterward had median EAR 0.317 and no CONFIRMED state in the sampled recovery window. A head-pitch-only exclusion would miss this case.
+- Calibration stores closed-eye EAR about 0.052, but the current threshold uses neutral EAR ×0.75 only. No threshold change is justified by this small sample; a lower threshold could miss genuine closure in other conditions.
+- Enabled debug-only MediaPipe blink/look-down/squint numeric logging for the selected current face. The bundled task already contains its blendshape model. Scores do not affect alarms/calibration and no automatic image capture was added. Google's model card documents shared-landmark limitations; gaze-versus-closure separation on this camera is still unverified.
+- 315 unit tests/build pass; targeted native empty-view test passes on TECNO. Installed output/DriveAlert-2026-11-15-eye-expression-diagnostic.apk with app data kept. Live numeric camera check could not reach the saved camera or discover it; no frames/scores collected. Helper removed and normal app reopened. User will reconnect later; no active collector or pose test. Final instrumentation build passes after strengthening expression-output checks. This is a diagnostic update, not a completed false-alert fix. No firmware flash, commit, push or deployment.
+
+### 2026-11-15: Android emulator shared-record and notification test passes
+- Added IT-09 to SoftwareIntegrationAuditTest and ran it on isolated emulator-5556 with local Firebase Auth/Firestore (9195/8185). Real Room -> WorkManager -> Firestore -> approved-contact mobile list/detail passed. Notification handler posted the expected title/body to Android's active notification list on the HIGH importance urgent channel with a tap intent; wrong-recipient message was ignored. One instrumentation test passed (29.197 s), no skips.
+- Message was injected directly into DriveAlertMessagingService.onMessageReceived; Google FCM transport, live server credentials/device registration, real phone delivery and audible output were NOT exercised. No claim of live end-to-end push delivery.
+- Test APK built with an empty worker URL to prevent production dispatch; keep this test build off user phones. Normal generated configuration restored afterwards. Production app behavior unchanged. No live accounts/records/notifications created. Isolated test services shut down after verification.
+### 2026-11-15: Level 3 trusted-contact delivery checks pass locally; real phone receipt pending
+- Fresh focused Android run: 36 tests pass (24 warning-stage, 9 sync foundation, 3 notification dispatcher). Worker TypeScript check and all 10 tests pass; dispatch tests use mocked Firebase/FCM, so they do not prove live push delivery. Firebase emulator rules: all 32 tests pass, including approved-contact access, pre-approval denial and revocation.
+- Current generated Android configuration contains the notification-worker endpoint. Website provides shared records but no browser push; Android push requires an approved connection, a registered signed-in contact device and allowed notifications. Cloud upload/server completion is not a handset receipt acknowledgement.
+- ADB reports no connected phone. No real notification sent, production data inserted, accounts created, app behavior changed or code deployed. Real verification still needs an actual Level 3 event while stationary, matching record on the approved contact account, and visible notification on their Android phone.
+### 2026-11-13: eye safeguard retest partially passes; masked open-eye false alerts remain
+- User reports no-mask/open20s passes; masked eyes-open20s still intermittently alarms. Masked deliberate4s closure and repeat after10s both alert as expected. These two trials preserve observed closure detection, not general accuracy certification.
+- Current logs/persisted events saved. Several remaining low-EAR runs include .87–.89 open scores, below the .90 veto; exact test-phase timestamps are not labeled. No unsupported cutoff/timing adjustment or new install performed. Remaining work needs raw evidence matched to an actual masked false event.
+
+### 2026-11-13: partial safeguard for mask-sensitive eye readings installed
+- New 22:04 logs show six eye events; several candidates include one strongly open eye that the previous both-open rule ignored. User clarifies friend's open/closed EAR responds normally and mask changes little; no frozen-display report.
+- Fresh available/unobstructed valid evidence from either eye >=0.90 now breaks bilateral-closure timing. EAR/calibration/2 s timing remain unchanged. Modeled mask/asymmetric replay and validity boundary checks added. Both-model errors can still trigger false warnings or suppress real closure; accuracy not certified.
+- 315 unit tests pass; APK/instrumentation compile pass. Installed output/DriveAlert-2026-11-13-eye-conflict-guard.apk preserving data and reopened app. Physical masked closure/glasses retest pending. No firmware flash/commit/push/deploy in this step.
+
+### 2026-11-13: latest eye Monitoring Logs inspected
+- Saved monitoring records confirm actual eye-closure detections at 20:56:08 and 20:57:37, durations 2.008/2.376 s, both Stage1; second repeated about3s later. No logging gaps in those sessions.
+- Fresh classifier readings include mixed/one-sided open evidence; current veto requires both eyes >=0.90 and does not fire during either qualifying sequence. Low EAR therefore confirms. Software trigger established; actual eyelid state/glasses not proven by scores. User context requested; no sensitivity or code change.
+- Selected identifier-free event export and detailed local report saved; transient full DB snapshot removed. See output/Eye-monitoring-review-2026-11-13.md.
+
+### 2026-11-13: mask popup/announcement loop corrected; classifier instability remains
+- Mask-startup logs show locked-face mouth/both-region speaker commands 3–5 s apart as eye-obstruction classification fluctuates. Runtime dismissed popup on any issue change; controller restarted speech cadence. Both behaviors corrected.
+- Same continuous episode retains its pending popup and 30 s speech cadence; new attribution still confirms for 3 s and can update prompt silently. Genuine recovery still clears after 2 s; acknowledgement never bypasses detection gates. Dialog clarifies face/light loss pauses monitoring.
+- All 311 unit tests pass, APK/instrumentation compilation passes. Installed output/DriveAlert-2026-11-13-visibility-episode.apk preserving data and reopened app. Real popup retest pending. Actual classifier swings/masked face-loss not solved; no firmware change/flash or commit/push/deploy.
+
+### 2026-11-13: original inputs captured; historical false warning not reproduced
+- Native opt-in capture passed for 5 and 20 natural frames. Full images, landmarks and 100 Android-prepared crop inputs saved only locally for offline inspection. Example crops contain the full face and normal-looking colour.
+- Offline replay matches all 100 native mask scores exactly. Current 0.20-margin scores stayed at 0.000–0.176, below 0.80. These healthy samples do not explain or disprove historical false warnings; failing original inputs are missing. Synthetic detail loss also does not establish a resolution fix.
+- Added bounded diagnosticSamples (1..20, default5) and reusable replay script. Diagnostic builds/native runs pass; 307 prior unit tests pass. No production detection-setting change. Removed temporary phone captures/helper; normal app reopened; computer evidence excluded from Git. No ongoing image recording.
+
+### 2026-11-13: USB restored; camera connection blocks original-input capture
+- Opt-in native diagnostic now supports original frame/landmark and Android-prepared input export via exportModelInputs=true; default saves no images. Production inference omits its synchronous observer and keeps existing settings.
+- 307 unit tests pass, app/instrumentation builds pass, diagnostic-compatible update installed preserving data. Saved camera address timed out; named-camera discovery also failed. No images collected. Normal app reopened; waiting only for camera live video restoration, no pose test.
+
+### 2026-11-13: offline diagnosis available; original camera input still needed
+- Added scripts/face_attribute_probe.py with usage notes: bundled-model inference, crop images and scores entirely offline. Smoke check passed and asset hash/quantization match. Pillow resize/manual bounds are approximations.
+- Screenshot inspection shows modal overlay contaminates its padded face crop; it cannot establish raw-camera accuracy. No production detection change. ADB currently has no connected phone, preventing fresh native capture/retest. No further pose test requested.
+
+### 2026-11-13: uncovered-mouth false warnings confirmed; crop diagnosis in progress
+- User reported two mouth-blocked false positives while looking ahead, uncovered. Their phone screenshot confirms visible mouth plus the obstruction dialog. High mask scores persisted with tracking locked; this is not fixed by calling it a short spike.
+- Production crop/threshold policy is unchanged. Optional classifier padding supports a guarded live diagnostic, skipped by normal test runs. On one same-frame uncovered-face comparison: padding 0.0 gave mask 0.324, 0.1 gave 0.520, current 0.2 gave 0.902, 0.3 gave 0.984. More clear frames and a positive covered-mouth control are needed before selecting a change.
+- Native diagnostic initially failed due to its own premature MPImage closure; that test bug is corrected and the single-phase run passed. After reconnection, paired comparison completed: five clear and five covered frames; uncovered scores reached 0.996 at every padding, while covered scores stayed 0.996. Tighter cropping alone is not a reliable fix. Helper removed and normal app reopened. User clarified that hand and mask are both expected obstruction cases; false warnings with an uncovered mouth are the defect. No diagnostic face images persisted. Existing user screenshot saved at their request.
+- Build and 307 unit tests pass. Do not consider mouth/glasses/extreme-down-gaze behavior validated. No firmware/production-mouth change, commit, push or deployment in this step.
+
+### 2026-11-13: downward-gaze eye check installed; yawn onset being measured
+- **Confirmed false eye warning:** at 19:07:44, EAR was 0.184 against threshold 0.246 while independent eye-open scores were 0.980/0.953. User says merely looking down to type triggers it.
+- **Change:** fresh available/unobstructed classifier evidence with both eye-open outputs >=0.90 and age <=750 ms now rearms eye-closure timing. Stale, unknown or one-sided readings cannot veto closure. Calibration thresholds, 2 s genuine closure and yawn/head rules remain unchanged.
+- **Verified:** 307 unit tests pass (including down-gaze replay then genuine closure, stale/one-sided evidence and unaffected other detectors); APK/instrumentation sources build. Installed `output/DriveAlert-2026-11-13-eye-gaze-crosscheck.apk`, preserving TECNO app data. Actual down-gaze/closure/glasses retest still required.
+- **Mouth:** user now reports blocking works in this test. Stable obstruction needs 3 s after classifier recognition (typically 4–5 s total); voice waits if Stage 3 is speaking. Yawn warning onset feels slow: confirmation stays 3 s, and MAR/duration/head/event logs were added to identify additional delay. No firmware changes, commit, push or deployment in this step.
+
+### 2026-11-13: speech cutoffs and premature pauses corrected in source; false eye alerts still open
+- **New user reports:** roughly four sounds then a pause; Stage 3 speech cut off by another warning; mouth-blocked detection only partly reliable; eye false positives much worse with ordinary glasses.
+- **Evidence/fixes:** Stage 3 requests 3–5 s apart were restarting the mixed track. App protection now coalesces warnings while that track's 10.3 s reservation is active and delays visibility speech, preserving event/history accounting. Camera firmware now protects pending/playing Stage 3 speech inside its existing 10 s guard too (source change, NOT flashed).
+- **Pause evidence/fix:** valid ~450 ms inference plus ~600 ms sampling made a capture-age watchdog clear evidence just before a valid result. Capture-age admission and lighting/face checks remain strict; pipeline silence now measures elapsed time since a valid result completed. Old UI readings are hidden immediately without unnecessarily resetting temporal detectors during ongoing inference.
+- **Verified:** 304 Android unit tests pass; app and instrumentation sources build. Firmware host tests pass including attempted interruption of queued/playing Stage 3. ESP32-CAM target firmware build passed (core 3.3.12, 59% flash / 27% globals); ready files in `output/stage3-speech-firmware/`, NOT flashed. Final app update is installed on TECNO with data preserved. New APK: `output/DriveAlert-2026-11-13-protected-speech-eye-diagnostics.apk`.
+- **Still open:** actual audible protection/continuity retest; consistent mouth recognition; eye false positives with glasses. Added EAR/threshold/eye-open-probability diagnostics; no sensitivity retuning without the controlled eyes-open sample. User has not performed that diagnostic test yet. No firmware flashed, commit, push or deployment.
+
+### 2026-11-13: Codex continuation — combined update installed; camera retest pending
+- **Mouth test evidence:** normal sitting distance still caused face loss, but moving closer produced the "mouth blocked" message (confirmed by the user) and stable 0.996 mask readings. The detector's face scale/continuity is implicated; changing confidence alone did not fix it.
+- **Recovery change:** a second single-face VIDEO tracker processes each current full frame, retaining MediaPipe's internal face-crop tracking. It supplements the multi-face graph only when that graph returns zero faces. Existing competing-face, driver-area, continuity, acquisition and freshness checks still apply. Both graphs preserve full-image geometry; no stale landmarks or face images are stored.
+- **Alarm timing:** repeats are spaced from actual requests and camera acceptance: at least 2.3 seconds for ordinary alarms, 10.3 seconds for Stage 3 mixed speech and 4.3 seconds for visibility speech. Pending output requests suppress overlapping reminders. Late replies from an old session cannot delay the new session.
+- **Verified:** 300 unit tests pass; APK/instrumentation build succeeds; the native two-tracker empty-view test passes on the TECNO (one specifically selected test; no app-data resets/accounts/Room writes). The test helper was removed afterwards.
+- **Installed:** `output/DriveAlert-2026-11-13-face-recovery-alarm-timing.apk`, as an update preserving TECNO app data. **Still pending:** normal-distance mouth test and audible alarm-rhythm retest. No firmware flashed, commit, push or deployment.
+
+### 🔊 2026-11-13: no sound from the camera speaker (being investigated)
+- **What we saw:** covering your mouth showed "Limited monitoring" but made no sound. The app's own log shows most speaker requests to the camera got **no answer within 4 seconds** (only 1 of 5 drowsiness alarms went through). When the camera isn't streaming video it answers in about 45 ms, so we think it gets too busy while sending video.
+- **Crash found and fixed:** the app crashed if monitoring stopped while an alarm was still waiting on the camera. Fixed; unit tests pass.
+- **Added:** the app now logs how each speaker request went (worked/failed, how long it took).
+- **Cause found (test run 17:34):** before every sound request the app checked the camera by connecting to its *video* port. While video streams, that port never accepts new connections, so the checks piled up. Later requests waited 1.5–4 s and failed, which gave random gaps (only ~half of alarms got through).
+- **Fix (app only):** the check now uses the camera's free control port. **Retested 17:41: works.** Nearly every beep reaches the camera in under 0.1 s, and the user confirms eyes-closed now always sounds. A few repeats are still rejected as "busy" because the app's 2 s repeat collides with the camera's 2 s guard; a fix is optional (repeat about every 2.3 s).
+- **Mouth cover said "face not visible":** a hand over the mouth made the face detector drop the whole face (0 faces seen). Lowered the face detector's confidence settings from 0.5 to 0.3 so a half-covered face is still tracked. Installed and **retested: not fixed.** At 17:47 on 2026-11-13 the user still reported "face not visible" and no phone pop-up. Codex recovered that final report from the Claude chat; investigation remains open. Saved phone logs also show zero-face results and accepted FACE_UNAVAILABLE sound commands (52–74 ms), so request delivery alone does not prove mouth classification or audible playback.
+- **By design, not a bug:** eyes closed repeats the beep every 2 s. Stage 3 plays a longer sound + spoken advice, and the camera won't start a repeat for 10 s after it (an estimated track length, not measured).
+- Covering the mouth showing "Limited monitoring" and pausing only yawn checks is by design (like a mask). The missing mouth sound was most likely the same connection problem.
+
+### ✂️ 2026-11-13: calibration instructions cut way down
+- The step pop-up went from about 90 words to two short lines (what to do, then "Tap Okay, wait for the countdown, then hold until you hear the ping"). The page intro, "step done" messages and the redo pop-up are shorter too.
+- Build and unit tests pass, and the on-phone test files still compile. Installed on the TECNO phone. The on-phone screen tests weren't run, because running them would wipe the app's data on your phone.
+
+### 🔧 2026-11-13: calibration no longer starts over when you step out of view
+- **Problem:** during calibration, leaving the camera's view and coming back sent you back to step 1 (normal face).
+- **Fix:** steps you already finished are now kept. Only the step you were on is repeated, and the app shows "Face lost… repeat this step". (Changing the camera's driver area or reconnecting the camera still restarts calibration, on purpose.)
+- **Tested:** all Android unit tests pass, including a new test for this. **Not yet tried on the real camera.**
+- **New install file:** `output/DriveAlert-2026-11-13-calibration-keeps-steps.apk`. **Installed on the TECNO test phone (2026-11-13)** as an update, so app data and sign-in are kept. Not saved to GitHub yet.
 
 **In one line:** Everything we can test without the camera passes. The three bugs most likely to hurt real users are fixed. A few smaller or unlikely issues are written down but not fixed yet.
 
@@ -21,7 +153,7 @@ Ran every test suite more than once, plus a random-tap stress test. Nothing touc
 **Found:**
 1. **Rare crash when typing:** a bug inside Android's text-box library (Compose), not DriveAlert's own code. It needs very fast random tapping to trigger. **Checked 2026-11-12: updating does NOT fix it.** The same faulty line is still there in Compose 1.7.0, 1.7.8 (the newest that fits our version locks) and 1.8.3. So we're staying on BOM 2024.02.02 and accepting this as a known rare issue.
 2. **One freeze** during stress testing on the slow software-graphics emulator. It didn't repeat and is probably the emulator, but that isn't proven.
-3. **Flaky website test: FIXED (2026-11-12).** The cross-browser sign-up test now waits up to 10 seconds for the verification email instead of checking once. It passed 10/10 times. Only the test changed; the website didn't. (One earlier run failed because the PC ran out of memory while the emulator was open, which wasn't a test problem.)
+3. **Flaky website test: FIXED (2026-11-12).** The cross-browser sign-up test now waits up to 10 seconds for the verification email instead of checking once. It passed 10/10 times, and the full browser suite then passed twice more (14 passed, 3 skipped by design). Only the test changed; the website didn't. (One earlier run failed because the PC ran out of memory while the emulator was open, which wasn't a test problem.)
 
 Note: Steam uses port 8080 on this PC, so the local database tests were run on port 8085 using a temporary settings copy (deleted after).
 
@@ -29,6 +161,7 @@ Note: Steam uses port 8080 on this PC, so the local database tests were run on p
 - **Problem:** after setup, the video took about 30 seconds to appear. The camera restarts into Wi-Fi mode, and during that time the phone was doing slow 8-second network searches and waiting longer and longer between tries.
 - **Fix:** right after setup (within 1 minute), the phone now checks the camera's known address about every 0.75 seconds for up to 25 seconds. If that doesn't work, it falls back to the old search. The camera doesn't need reflashing.
 - **Tests:** all 294 app tests pass, including 3 new ones for this. New install file: `output/DriveAlert-2026-11-12-faster-camera-start.apk`.
+- **Installed on the real phone (TECNO LE6h, Android 11) on 2026-11-12:** the old app and all its data were removed first, so it starts fresh. The welcome, Sign In and Create Account screens open without crashing, and empty sign-in boxes show "required" errors. No account was created on the phone.
 - **Not checked yet:** on the real camera. Expect the video in about 8–12 seconds. If it gets worse, reinstall `output/DriveAlert-2026-11-11-fixes.apk`.
 
 ### ✅ Done

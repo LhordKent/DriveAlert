@@ -205,7 +205,7 @@ fun CalibrationScreen(
     LaunchedEffect(acknowledged, phase, progress?.revision, vision.driverTracking.generation) {
         if (acknowledged) {
             if (progress == null || !onPreparePhase(progress)) {
-                countdownError = "The device countdown could not start. Check the speaker connection, then tap Okay to retry. Measurements have not started."
+                countdownError = "The device countdown could not start. Check the speaker, then tap Okay to try again."
                 acknowledged = false
                 return@LaunchedEffect
             }
@@ -231,7 +231,7 @@ fun CalibrationScreen(
                 countdownError?.let { Text(it); Spacer(Modifier.height(12.dp)) }
                 Text(phase.guidance())
                 Spacer(Modifier.height(12.dp))
-                Text("Tap Okay to hear the 2.5-second countdown on the DriveAlert speaker. Get into the requested position when the countdown finishes, then hold it for five seconds of valid measurements. The DriveAlert speaker plays a ping when this step finishes. When you hear it, relax the requested pose and read the next instruction. If visibility is interrupted, collection pauses; wait for the completion ping rather than counting five seconds yourself.")
+                Text("Tap Okay, wait for the countdown, then hold until you hear the ping.")
             } },
             confirmButton = { TextButton(onClick = { countdownError = null; countdownStarted = false; countdown = 3; acknowledged = true }) { Text("Okay") } },
             dismissButton = { Column {
@@ -244,7 +244,7 @@ fun CalibrationScreen(
         AlertDialog(
             onDismissRequest = { confirmRedoAll = false },
             title = { Text("Redo all calibration steps?") },
-            text = { Text("This clears your current calibration progress and returns to the normal driving posture step. You will acknowledge the instructions again before collecting new measurements. Your previously saved calibration stays stored until a new calibration is completed.") },
+            text = { Text("This starts again from step 1. Your saved calibration is kept until you finish a new one.") },
             confirmButton = { TextButton(onClick = { confirmRedoAll = false; onStartCalibration() }) { Text("Okay") } },
             dismissButton = { TextButton(onClick = { confirmRedoAll = false }) { Text("Keep Current Progress") } },
         )
@@ -252,7 +252,7 @@ fun CalibrationScreen(
     ScrollableScreen(title = "Driver Calibration", onBack = onBack) {
         Text("Personalized calibration", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
-        Text("Calibrate while parked. Sit in your normal driving posture and look ahead toward the road, rather than turning toward the camera. Read each step and tap Okay before it starts. The DriveAlert speaker pings after each completed step, including the last one. Make sure the speaker is audible before starting.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text("Do this while parked. Sit normally and look at the road. Turn the speaker up so you can hear the pings.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         Spacer(Modifier.height(22.dp))
         LiveCameraPreview(vision.streamState, previewFrames, vision.driverRegion, vision.driverTracking)
         Spacer(Modifier.height(18.dp))
@@ -296,7 +296,7 @@ fun CalibrationScreen(
                     ),
                     StatusTone.WARNING,
                 )
-            } else Text("Calibration is stored locally for this Driver and remains available offline.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            } else Text("Saved on this phone. Works offline.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         }
         Spacer(Modifier.height(22.dp))
         when {
@@ -315,7 +315,7 @@ fun CalibrationScreen(
             SecondaryButton("Go Back to Previous Step", onPreviousPhase,
                 enabled = !vision.monitoring.isActive && phase != CalibrationPhase.NEUTRAL)
             Spacer(Modifier.height(6.dp))
-            Text("Going back clears measurements for the previous step and all later steps.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            Text("Going back redoes the previous step.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             Spacer(Modifier.height(10.dp))
             SecondaryButton("Redo All Steps", { confirmRedoAll = true },
                 enabled = vision.alignmentConfirmed && vision.streamState == StreamConnectionState.CONNECTED && !vision.monitoring.isActive)
@@ -421,10 +421,10 @@ private fun CalibrationPhase.instruction() = when (this) {
 }
 
 private fun CalibrationPhase.guidance() = when (this) {
-    CalibrationPhase.NEUTRAL -> "Stay parked. Sit in your normal driving posture and look ahead as if watching the road. Keep your eyes naturally open and your mouth relaxed. Keep your head and the camera mount steady; do not turn to face the camera."
-    CalibrationPhase.EYES_CLOSED -> "Keep your head in its normal driving position. After tapping Okay, use the countdown to gently close both eyes without squeezing them shut. Keep them closed until the DriveAlert speaker pings, then open your eyes and read the next instruction."
-    CalibrationPhase.MOUTH_OPEN -> "Keep your head in its normal driving position, facing ahead toward the road. After tapping Okay, use the countdown to open your mouth comfortably as if yawning. Hold it open until the DriveAlert speaker pings, then relax your mouth and read the next instruction."
-    CalibrationPhase.HEAD_DOWN -> "Start in your normal driving posture. After tapping Okay, use the countdown to lower your head forward as if nodding down. Keep your face inside the driver area and the camera mount steady. Hold until the DriveAlert speaker pings, then raise your head to its normal position."
+    CalibrationPhase.NEUTRAL -> "Sit normally and look at the road, not the camera."
+    CalibrationPhase.EYES_CLOSED -> "Gently close both eyes. When you hear the ping, open your eyes."
+    CalibrationPhase.MOUTH_OPEN -> "Open your mouth wide, like a yawn."
+    CalibrationPhase.HEAD_DOWN -> "Drop your head forward, like you're nodding off."
     CalibrationPhase.COMPLETE -> "Calibration is complete."
 }
 

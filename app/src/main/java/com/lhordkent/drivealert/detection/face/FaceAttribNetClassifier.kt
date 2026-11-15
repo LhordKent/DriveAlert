@@ -72,11 +72,13 @@ internal class FaceAttribNetClassifier(
         landmarks: List<NormalizedLandmark>,
         frameWidth: Int,
         frameHeight: Int,
+        paddingFraction: Double = 0.20,
+        onPreparedInput: ((Bitmap) -> Unit)? = null,
     ): FaceAttributeInference? {
         require(bitmap.width == frameWidth && bitmap.height == frameHeight) {
             "FaceAttribNet frame dimensions do not match the bitmap."
         }
-        val crop = FaceCropCalculator.calculate(landmarks, frameWidth, frameHeight) ?: return null
+        val crop = FaceCropCalculator.calculate(landmarks, frameWidth, frameHeight, paddingFraction) ?: return null
         canvas.drawColor(android.graphics.Color.BLACK)
         canvas.drawBitmap(
             bitmap,
@@ -84,6 +86,9 @@ internal class FaceAttribNetClassifier(
             Rect(0, 0, INPUT_SIZE, INPUT_SIZE),
             paint,
         )
+        // Diagnostic observer must consume synchronously, without modifying or
+        // recycling this reusable bitmap. Production callers omit it.
+        onPreparedInput?.invoke(scaledFace)
         scaledFace.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
         input.rewind()
         pixels.forEach { color ->

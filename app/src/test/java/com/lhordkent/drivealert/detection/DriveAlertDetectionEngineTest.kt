@@ -79,6 +79,28 @@ class DriveAlertDetectionEngineTest {
         assertEquals(0L, result.calibration.validDurationMs)
     }
 
+    @Test fun `driver stepping out keeps finished calibration steps and repeats only the current one`() {
+        val engine = DriveAlertDetectionEngine(calibrationDurationMs = 100)
+        engine.startCalibration()
+        collect(engine, 0, ear = 0.40, mar = 0.10, pitch = 10.0)
+        engine.beginCalibrationPhase()
+        engine.process(face(200, 0.1, 0.1, 10.0))
+        engine.process(face(250, 0.1, 0.1, 10.0))
+        val revisionBefore = engine.calibrationProgress().revision
+        engine.driverTrackReacquired()
+        val progress = engine.calibrationProgress()
+        assertEquals(com.lhordkent.drivealert.detection.model.CalibrationPhase.EYES_CLOSED, progress.phase)
+        assertEquals(com.lhordkent.drivealert.detection.model.CalibrationStatus.READY, progress.status)
+        assertEquals(0L, progress.validDurationMs)
+        assertEquals(0, progress.validSampleCount)
+        assertTrue(progress.revision > revisionBefore)
+        // The step can be redone and calibration continues from there.
+        engine.beginCalibrationPhase()
+        engine.process(face(1_000, 0.1, 0.1, 10.0))
+        engine.process(face(1_100, 0.1, 0.1, 10.0))
+        assertEquals(com.lhordkent.drivealert.detection.model.CalibrationPhase.MOUTH_OPEN, engine.calibrationProgress().phase)
+    }
+
     @Test fun `driver target loss resets closure evidence but retains completed calibration`() {
         val engine = calibratedEngine()
         engine.process(face(0, 0.10, 0.1, 4.0))
@@ -366,6 +388,81 @@ class DriveAlertDetectionEngineTest {
             engine.process(face(12_000, ear = 0.10, mar = 0.10, pitch = 4.0)).events.single().type,
         )
     }
+
+    @Test fun `looking down with independently open eyes does not create closure events but real closure still fires`() {
+        val engine = calibratedEngine()
+        for (time in 0L..4_000L step 250) {
+            // Replay the conflict seen on the phone: EAR below threshold while
+            // the independent classifier reports both eyes strongly open.
+            val result = engine.process(face(time, 0.14, 0.1, 4.0), faceAttributes = attributes(time, 0.98f, 0.96f))
+            assertTrue(result.events.isEmpty())
+            assertEquals(TemporalState.NORMAL, result.eye.state)
+        }
+        val events = (5_000L..7_000L step 250).flatMap { time ->
+            engine.process(face(time, 0.10, 0.1, 4.0), faceAttributes = attributes(time, 0.02f, 0.03f)).events
+        }
+        assertEquals(listOf(SignType.PROLONGED_EYE_CLOSURE), events.map { it.type })
+        assertEquals(7_000L, events.single().timestampMs)
+    }
+
+    @Test fun `stale or weak open eye evidence cannot veto a real closure`() {
+        for (weak in listOf(false, true)) {
+            val engine = calibratedEngine()
+            val events = (2_000L..4_000L step 250).flatMap { time ->
+                val evidence = if (weak) attributes(time, 0.89f, 0.4f) else attributes(0, 0.99f, 0.99f)
+                engine.process(face(time, 0.10, 0.1, 4.0), faceAttributes = evidence).events
+            }
+            assertEquals(listOf(SignType.PROLONGED_EYE_CLOSURE), events.map { it.type })
+        }
+    }
+
+    @Test fun `masked asymmetric open eye replay breaks closure timer then both closed still confirms`() {
+        for (swapEyes in listOf(false, true)) {
+            val engine = calibratedEngine()
+            engine.activatePersistedCalibration(checkNotNull(engine.calibrationResult()).copy(earThreshold = 0.2838101952071067))
+            // Modeled replay of the 22:04:29 sequence. The final event EAR uses
+            // the last logged attribute scores; event-time scores were not logged.
+            val samples = listOf(
+                Triple(0L, 0.19415588462667893, 0.67578125f to 0.82421875f),
+                Triple(609L, 0.19659955274353128, 0.359375f to 0.92578125f),
+                Triple(1_169L, 0.18669566854792013, 0.88671875f to 0.7734375f),
+                Triple(1_733L, 0.16655958725652753, 0.953125f to 0.640625f),
+                Triple(2_202L, 0.1754953229826895, 0.953125f to 0.640625f),
+            )
+            for ((time, ear, open) in samples) {
+                val (left, right) = if (swapEyes) open.second to open.first else open
+                val result = engine.process(face(time, ear, 0.1, 4.0),
+                    RegionalVisibility(lowerFaceObstructed = true),
+                    faceAttributes = attributes(time, left, right).copy(lowerFaceObstructed = true))
+                assertTrue(result.events.isEmpty())
+                assertEquals(TemporalState.UNAVAILABLE, result.yawn.state)
+            }
+            engine.process(face(2_500, 0.17, 0.1, 4.0),
+                RegionalVisibility(lowerFaceObstructed = true),
+                faceAttributes = attributes(2_500, 0.95f, 0.5f))
+            val events = (3_000L..5_000L step 250).flatMap { time ->
+                engine.process(face(time, 0.10, 0.1, 4.0),
+                    RegionalVisibility(lowerFaceObstructed = true),
+                    faceAttributes = attributes(time, 0.02f, 0.03f)).events
+            }
+            assertEquals(listOf(SignType.PROLONGED_EYE_CLOSURE), events.map { it.type })
+            assertEquals(5_000L, events.single().timestampMs)
+        }
+    }
+
+    @Test fun `open eye cross check leaves yawning and head down detection active`() {
+        val engine = calibratedEngine()
+        val events = (0L..3_000L step 250).flatMap { time ->
+            engine.process(face(time, 0.14, 0.9, 30.0), faceAttributes = attributes(time, 0.99f, 0.99f)).events
+        }
+        assertEquals(setOf(SignType.YAWNING, SignType.HEAD_NODDING), events.map { it.type }.toSet())
+    }
+
+    private fun attributes(time: Long, left: Float, right: Float) = com.lhordkent.drivealert.detection.model.FaceAttributeResult(
+        timestampMs = time, ageMs = 0L,
+        probabilities = com.lhordkent.drivealert.detection.model.FaceAttributeProbabilities(left, right, 0f, 0f, 0f),
+        stableEyeglasses = false, lowerFaceObstructed = false, eyeRegionObstructed = false, inferenceDurationMs = 1.0,
+    )
 
     private fun collect(
         engine: DriveAlertDetectionEngine,

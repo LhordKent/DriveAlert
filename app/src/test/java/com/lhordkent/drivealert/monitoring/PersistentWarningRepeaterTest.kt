@@ -78,9 +78,9 @@ class PersistentWarningRepeaterTest {
         assertTrue(controller.tick().isEmpty())
         assertEquals(1, eyes().filterIsInstance<MonitoringEffect.RepeatWarning>().size)
         assertTrue(eyes().isEmpty())
-        now = 11_999L
+        now = 12_499L
         assertTrue(eyes().isEmpty())
-        now = 12_000L
+        now = 12_500L
         assertEquals(1, eyes().filterIsInstance<MonitoringEffect.RepeatWarning>().size)
     }
 
@@ -132,6 +132,43 @@ class PersistentWarningRepeaterTest {
     }
 
     private fun eyes() = controller.accept(emptyList(), eyeSigns)
+
+    @Test
+    fun `late camera acceptance spaces repeats from playback instead of detection`() {
+        controller.start("session")
+        controller.accept(listOf(event(SignType.PROLONGED_EYE_CLOSURE)))
+        now = 400L
+        controller.speakerAccepted("session", 2_300L)
+        now = 2_699L
+        assertTrue(eyes().isEmpty())
+        now = 2_700L
+        assertEquals(1, eyes().filterIsInstance<MonitoringEffect.RepeatWarning>().size)
+        now = 2_800L
+        controller.speakerAccepted("session", 2_300L)
+        now = 5_099L
+        assertTrue(eyes().isEmpty())
+        now = 5_100L
+        assertEquals(1, eyes().filterIsInstance<MonitoringEffect.RepeatWarning>().size)
+        assertEquals(1, controller.state.confirmedEventCount)
+    }
+
+    @Test
+    fun `long speech defers reminders and old session responses cannot delay a new session`() {
+        controller.start("old")
+        controller.accept(listOf(event(SignType.PROLONGED_EYE_CLOSURE)))
+        now = 100L
+        controller.speakerAccepted("old", 10_300L)
+        now = 10_399L
+        assertTrue(eyes().isEmpty())
+        now = 10_400L
+        assertEquals(1, eyes().filterIsInstance<MonitoringEffect.RepeatWarning>().size)
+        controller.stop()
+        controller.start("new")
+        controller.accept(listOf(event(SignType.PROLONGED_EYE_CLOSURE)))
+        controller.speakerAccepted("old", 10_300L)
+        now = 12_400L
+        assertEquals(1, eyes().filterIsInstance<MonitoringEffect.RepeatWarning>().size)
+    }
 
     private fun event(type: SignType) = ConfirmedSignEvent(type, now, 2_000L, 0.1, 0.2, "calibration", 3)
 

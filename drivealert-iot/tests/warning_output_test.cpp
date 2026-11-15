@@ -96,5 +96,23 @@ int main() {
   loop();
   assert(!calibrationCountdownStarted()); // Replaced countdown is never acknowledged.
   assert(testPlayedTrack == 1);
-  std::puts("Warning output: priorities, calibration ping and 2500 ms countdown dispatch pass.");
+  const Command stage3{3, Sound::DIGITAL_BEEP, Volume::HIGH_LEVEL, false};
+  assert(enqueue(stage3)); // An escalation can still preempt an ordinary beep.
+  assert(!enqueue(lighting)); // Pending Stage 3 cannot be replaced by visibility.
+  assert(!enqueue(stage3));
+  loop();
+  assert(testPlayedTrack == DIGITAL_BEEP_STAGE_3_TRACK);
+  testMillis += 3000;
+  assert(!enqueue(stage3)); // New incidents must not restart spoken advice.
+  assert(!enqueue(warning));
+  assert(!enqueue(lighting));
+  assert(!enqueue(movement));
+  assert(!enqueueCalibrationPing());
+  testMillis += 6999;
+  assert(!enqueue(reminder));
+  testMillis++;
+  assert(enqueue(lighting)); // Delivery is available after the existing guard.
+  loop();
+  assert(testPlayedTrack == INSUFFICIENT_LIGHTING_TRACK);
+  std::puts("Warning output: priorities, calibration cues and uninterrupted Stage 3 guard pass.");
 }

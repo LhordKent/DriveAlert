@@ -194,6 +194,53 @@ class SoftwareIntegrationAuditTest {
         recordPassed(id,session)
     }
 
+    /** Exercises real Android notification posting; FCM network delivery is deliberately bypassed. */
+    @Test fun it09_sharedRecordAndRecipientNotificationAppearOnAndroid() = runBlocking {
+        approveConnection()
+        val session = startSession()
+        val id = createRecord(session)
+        waitForSynced(id)
+        checkMobileSharedRecord(id)
+
+        driverAuth.signInWithEmailAndPassword(fixture.getString("contactEmail"), password).await()
+        assertEquals(contactUid, driverAuth.currentUser?.uid)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            instrumentation.uiAutomation.grantRuntimePermission(context.packageName,
+                android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        val manager = context.getSystemService(android.app.NotificationManager::class.java)
+        manager.cancel("stage3:$driverUid", 3003)
+        val service = com.lhordkent.drivealert.notification.DriveAlertMessagingService()
+        // Attach the target app context without starting the service or contacting production FCM.
+        android.content.ContextWrapper::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
+            .apply { isAccessible = true }.invoke(service, context)
+        fun message(recipient: String) = com.google.firebase.messaging.RemoteMessage.Builder("local-test")
+            .setData(mapOf("recipientUid" to recipient, "driverUid" to driverUid,
+                "audible" to "true", "title" to "DriveAlert Stage 3 warning",
+                "body" to "Integration Driver entered Stage 3"))
+            .build()
+
+        service.onMessageReceived(message(driverUid))
+        delay(500)
+        assertFalse("Another account's push must be ignored",
+            manager.activeNotifications.any { it.tag == "stage3:$driverUid" })
+        service.onMessageReceived(message(contactUid))
+        withTimeout(5_000) {
+            while (manager.activeNotifications.none { it.tag == "stage3:$driverUid" }) delay(100)
+        }
+        val posted = manager.activeNotifications.single { it.tag == "stage3:$driverUid" }.notification
+        assertEquals("DriveAlert Stage 3 warning", posted.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString())
+        assertEquals("Integration Driver entered Stage 3", posted.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString())
+        assertEquals("trusted_stage3_urgent", posted.channelId)
+        assertEquals(android.app.NotificationManager.IMPORTANCE_HIGH,
+            manager.getNotificationChannel(posted.channelId).importance)
+        assertNotNull(posted.contentIntent)
+        fixture.put("androidNotificationPosted", true).put("wrongRecipientIgnored", true)
+            .put("fcmNetworkDeliveryTested", false)
+        manager.cancel("stage3:$driverUid", 3003)
+        recordPassed(id, session)
+    }
+
     @Test fun it08_networkConstraintHoldsQueueAndReconnectUploadsAutomatically() = runBlocking {
         approveConnection()
         val session=startSession()

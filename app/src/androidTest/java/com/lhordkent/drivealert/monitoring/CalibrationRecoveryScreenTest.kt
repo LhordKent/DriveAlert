@@ -32,10 +32,10 @@ class CalibrationRecoveryScreenTest {
         } }
         for (phase in listOf(CalibrationPhase.NEUTRAL, CalibrationPhase.EYES_CLOSED, CalibrationPhase.MOUTH_OPEN, CalibrationPhase.HEAD_DOWN)) {
             compose.runOnIdle { state.value = state.value.copy(calibrationProgress = state.value.calibrationProgress!!.copy(phase = phase)) }
-            compose.onNodeWithText("The DriveAlert speaker plays a ping when this step finishes.", substring = true).assertExists()
+            compose.onNodeWithText("hold until you hear the ping", substring = true).assertExists()
             compose.onNodeWithText("Okay", useUnmergedTree = true).assertIsDisplayed()
             if (phase == CalibrationPhase.EYES_CLOSED) {
-                compose.onNodeWithText("then open your eyes", substring = true).assertIsDisplayed()
+                compose.onNodeWithText("open your eyes", substring = true).assertIsDisplayed()
                 compose.waitForIdle()
                 android.os.SystemClock.sleep(350)
                 val instrumentation = InstrumentationRegistry.getInstrumentation()

@@ -314,6 +314,12 @@ class MonitoringSessionController(
         state = state.copy(warningDelivery = status)
     }
 
+    fun speakerAccepted(sessionId: String, minimumDelayMs: Long) {
+        if (state.isActive && state.sessionId == sessionId) {
+            warningRepeater.speakerAccepted(clock(), minimumDelayMs)
+        }
+    }
+
     private fun duration(nowMs: Long) = (nowMs - checkNotNull(state.startedAtElapsedMs)).coerceAtLeast(0L)
 }
 

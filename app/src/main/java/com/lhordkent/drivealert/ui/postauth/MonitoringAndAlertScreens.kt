@@ -286,7 +286,7 @@ fun VisibilityAcknowledgementDialog(
         title = { Text("Limited monitoring") },
         text = {
             Text(
-                "$detail This acknowledgement lasts only for the current monitoring session.",
+                "$detail Monitoring pauses whenever face tracking or lighting is unavailable. This acknowledgement lasts only for the current monitoring session.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )

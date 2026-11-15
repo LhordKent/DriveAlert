@@ -31,7 +31,7 @@ internal fun DriverAccessoryMode.declaredIssue(): VisibilityIssue? = when {
 }
 
 sealed interface VisibilityAlertEffect {
-    data class Notify(val issue: VisibilityIssue) : VisibilityAlertEffect
+    data class Notify(val issue: VisibilityIssue, val announce: Boolean = true) : VisibilityAlertEffect
     data object Clear : VisibilityAlertEffect
 }
 
@@ -70,11 +70,12 @@ class VisibilityAlertController(
     private var recoveryStartedAtMs: Long? = null
     private var notified = false
     private var lastNotifiedAtMs: Long? = null
+    private var lastReportedIssue: VisibilityIssue? = null
     private var acceptedLowerFace = false
     private var acceptedEyeRegion = false
 
     val reportedIssue: VisibilityIssue?
-        get() = activeIssue.takeIf { notified }
+        get() = lastReportedIssue
 
     init {
         require(lowerFaceDelayMs >= 0L)
@@ -86,7 +87,7 @@ class VisibilityAlertController(
     fun update(timestampMs: Long, issue: VisibilityIssue?): List<VisibilityAlertEffect> {
         if (issue == null) return recover(timestampMs)
         if (isAccepted(issue)) {
-            val shouldClear = notified
+            val shouldClear = lastReportedIssue != null
             clearEpisode()
             return if (shouldClear) listOf(VisibilityAlertEffect.Clear) else emptyList()
         }
@@ -101,7 +102,6 @@ class VisibilityAlertController(
             if (!sameVisibilityLoss) {
                 candidateStartedAtMs = timestampMs
                 notified = false
-                lastNotifiedAtMs = null
             }
         }
         val requiredDelay = when (issue) {
@@ -114,12 +114,17 @@ class VisibilityAlertController(
         val startedAt = checkNotNull(candidateStartedAtMs)
         if (!notified && timestampMs - startedAt >= requiredDelay) {
             notified = true
-            lastNotifiedAtMs = timestampMs
-            return listOf(VisibilityAlertEffect.Notify(issue))
+            lastReportedIssue = issue
+            // A changed attribution is still the same uninterrupted visibility
+            // problem. Update its UI, but do not restart spoken reminders.
+            val announce = lastNotifiedAtMs?.let { timestampMs - it >= reminderIntervalMs } ?: true
+            if (announce) lastNotifiedAtMs = timestampMs
+            return listOf(VisibilityAlertEffect.Notify(issue, announce))
         }
         val lastNotified = lastNotifiedAtMs
         if (notified && lastNotified != null && timestampMs - lastNotified >= reminderIntervalMs) {
             lastNotifiedAtMs = timestampMs
+            lastReportedIssue = issue
             return listOf(VisibilityAlertEffect.Notify(issue))
         }
         return emptyList()
@@ -166,11 +171,12 @@ class VisibilityAlertController(
         recoveryStartedAtMs = null
         notified = false
         lastNotifiedAtMs = null
+        lastReportedIssue = null
     }
 
     private fun recover(timestampMs: Long): List<VisibilityAlertEffect> {
         if (activeIssue == null) return emptyList()
-        if (!notified) {
+        if (lastReportedIssue == null) {
             clearEpisode()
             return emptyList()
         }

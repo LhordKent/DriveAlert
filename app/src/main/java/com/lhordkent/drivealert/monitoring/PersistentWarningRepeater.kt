@@ -15,7 +15,9 @@ internal class PersistentWarningRepeater {
             val due = nextReminderAtMs.getOrPut(sign) { nowMs + interval }
             if (nowMs < due) false else {
                 // Skip missed slots instead of replaying a backlog after a delayed frame.
-                nextReminderAtMs[sign] = due + ((nowMs - due) / interval + 1) * interval
+                // Space from the actual request, not an old slot: late frames must
+                // not put the next request inside the speaker's playback guard.
+                nextReminderAtMs[sign] = nowMs + interval
                 true
             }
         }
@@ -24,6 +26,15 @@ internal class PersistentWarningRepeater {
     /** An initial/stage-change warning also satisfies any nearby reminder. */
     fun warningActivated(nowMs: Long) {
         nextReminderAtMs.keys.toList().forEach { nextReminderAtMs[it] = nowMs + intervalMs(it) }
+    }
+
+    /** The camera starts playback after accepting HTTP, not at detection time. */
+    fun speakerAccepted(nowMs: Long, minimumDelayMs: Long) {
+        require(minimumDelayMs >= 0L)
+        nextReminderAtMs.keys.toList().forEach { sign ->
+            nextReminderAtMs[sign] = maxOf(nextReminderAtMs.getValue(sign),
+                nowMs + maxOf(intervalMs(sign), minimumDelayMs))
+        }
     }
 
     private fun intervalMs(sign: VisibleSign): Long = when (sign) {

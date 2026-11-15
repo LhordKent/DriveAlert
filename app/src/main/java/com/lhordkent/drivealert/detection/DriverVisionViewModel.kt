@@ -173,6 +173,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
     private val movementTracker = DriverMovementTracker()
     private var movementSpeechJob: Job? = null
     private var outputRequestsInFlight = 0
+    private val stage3PlaybackGuard = com.lhordkent.drivealert.monitoring.Stage3PlaybackGuard()
+    private var lastEyeDiagnosticAtMs = Long.MIN_VALUE
 
     private fun resetMovement() {
         movementSpeechJob?.cancel()
@@ -214,10 +216,11 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     resetMovement()
                     targetGeneration = tracking.generation
                     lightingTracker.reset()
-                    engine.invalidateDriverTarget()
+                    engine.driverTrackReacquired()
                     monitoringController.accept(emptyList(), emptySet())
                     if (mutableState.value.calibrationInProgress) {
-                        mutableState.update { it.copy(errorMessage = "Driver tracking changed. Restart calibration from the neutral position.") }
+                        val progress = engine.calibrationProgress()
+                        mutableState.update { it.copy(calibrationProgress = progress, errorMessage = "Face lost. Finished steps are saved; this step will restart.") }
                     }
                 }
                 mutableState.update { it.copy(driverTracking = tracking) }
@@ -238,6 +241,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     observation,
                     effectiveRegionalVisibility(faceAttributes),
                     assessmentAllowed = tracking.locked && mutableState.value.alignmentConfirmed && lighting.allowsAssessment(elapsedClock()),
+                    faceAttributes = faceAttributes,
                 )
                 if (monitoringController.state.isActive && tracking.locked &&
                     mutableState.value.alignmentConfirmed && lighting.allowsAssessment(elapsedClock()) &&
@@ -291,7 +295,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     @Volatile private var observationCutoffMs = 0L
     @Volatile private var streamGeneration = 0
     @Volatile private var lastFrameTimestampMs: Long? = null
-    private var lastDetectionTimestampMs: Long? = null
+    private val resultWatchdog = CameraResultWatchdog(DriverFaceSelector.MAX_FRAME_GAP_MS)
     private var lastBrightnessTimestampMs: Long? = null
     private var reconnectAttempt = 0
     private var heartbeatJob: Job? = null
@@ -860,7 +864,22 @@ class DriverVisionRuntime @JvmOverloads constructor(
             mutableState.value.streamState != StreamConnectionState.CONNECTED ||
             elapsedClock() - result.timestampMs > CAMERA_READING_STALE_MS
         ) return
-        lastDetectionTimestampMs = result.timestampMs
+        val receivedAtMs = elapsedClock()
+        if (!resultWatchdog.accept(result.timestampMs, receivedAtMs)) return
+        if (BuildConfig.DEBUG && (lastEyeDiagnosticAtMs == Long.MIN_VALUE || receivedAtMs - lastEyeDiagnosticAtMs >= 500L)) {
+            lastEyeDiagnosticAtMs = receivedAtMs
+            Log.d("DriveAlertEyes", "ear=${result.eye.value} threshold=${result.eye.threshold} " +
+                "state=${result.eye.state} duration=${result.eye.candidateDurationMs}ms " +
+                "sourceTs=${result.timestampMs} track=${mutableState.value.driverTracking.status} " +
+                "aligned=${mutableState.value.alignmentConfirmed} lighting=${lighting.quality} " +
+                "lightingAllows=${lighting.allowsAssessment(receivedAtMs)} monitoring=${monitoringController.state.isActive} " +
+                "sampleAge=${receivedAtMs - result.timestampMs}ms " +
+                "leftOpen=${faceAttributes.probabilities?.leftEyeOpen} rightOpen=${faceAttributes.probabilities?.rightEyeOpen} " +
+                "glasses=${faceAttributes.probabilities?.eyeglasses} attributeAge=${faceAttributes.ageMs}ms " +
+                "mar=${result.yawn.value} yawnThreshold=${result.yawn.threshold} yawnState=${result.yawn.state} yawnDuration=${result.yawn.candidateDurationMs}ms " +
+                "pitch=${result.relativeHeadPitchDegrees} headState=${result.head.state} " +
+                "frame=${mutableState.value.driverTracking.frameWidth}x${mutableState.value.driverTracking.frameHeight}")
+        }
         val stepCompleted = mutableState.value.calibrationInProgress &&
             com.lhordkent.drivealert.detection.calibration.completedCalibrationStep(mutableState.value.calibrationProgress, result.calibration)
         val calibrationCompleted = mutableState.value.calibrationInProgress && result.calibration.status == CalibrationStatus.COMPLETE
@@ -885,12 +904,12 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 lighting = lighting,
                 calibrationProgress = if (it.calibrationInProgress) result.calibration else it.calibrationProgress,
                 calibrationInProgress = if (calibrationCompleted) false else it.calibrationInProgress,
-                calibrationAudioMessage = if (stepCompleted) "Step complete. You can relax the requested pose and read the next instruction." else it.calibrationAudioMessage,
+                calibrationAudioMessage = if (stepCompleted) "Step done. You can relax." else it.calibrationAudioMessage,
                 activeCalibration = result.activeCalibration ?: it.activeCalibration,
                 visibilityIssue = visibilityIssue,
-                visibilityAcknowledgementRequired = it.visibilityAcknowledgementRequired?.takeIf { pending ->
-                    pending == visibilityIssue
-                },
+                // Only a confirmed recovery or an explicit action dismisses
+                // the prompt. A changed attribution is not restored visibility.
+                visibilityAcknowledgementRequired = it.visibilityAcknowledgementRequired,
             )
         }
         if (stepCompleted) playCalibrationCompletionPing(result.calibration)
@@ -908,6 +927,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         val sessionId = monitoringController.state.sessionId
         if (sessionId != null) {
             result.events.forEach { sign ->
+                if (BuildConfig.DEBUG) Log.d("DriveAlertSigns", "confirmed=${sign.type} value=${sign.measuredValue} threshold=${sign.threshold} duration=${sign.qualifyingDurationMs}ms")
                 monitoringLogWriter?.sign(userId, sessionId, toEpochMillis(sign.timestampMs), sign)
             }
             val effects = monitoringController.accept(result.events, result.currentlyConfirmedSigns())
@@ -934,8 +954,8 @@ class DriverVisionRuntime @JvmOverloads constructor(
             if (expectedAccount != accountGeneration || expectedStream != streamGeneration ||
                 current?.phase != progress.phase || current.revision != progress.revision) return@launch
             mutableState.update { it.copy(calibrationAudioMessage = if (delivered)
-                "Step complete. The device was asked to play the ping. You can relax the requested pose."
-            else "Step complete. The completion ping could not be sent. You can open your eyes, relax your mouth, and return your head to its normal position.") }
+                "Step done. You can relax."
+            else "Step done (the ping didn't play). You can relax.") }
         }
     }
 
@@ -976,9 +996,24 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     if (effect.issue != VisibilityIssue.FACE_UNAVAILABLE && effect.issue != VisibilityIssue.INSUFFICIENT_LIGHTING) {
                         mutableState.update { it.copy(visibilityAcknowledgementRequired = effect.issue) }
                     }
-                    withSpeakerRequest {
+                    if (!effect.announce) return@forEach
+                    // Do not cut the spoken Stage 3 advice with visibility speech.
+                    // Revalidate the CURRENT issue after waiting; never play stale advice.
+                    var waitMs = stage3PlaybackGuard.remainingMs(activeDevice?.deviceId, elapsedClock())
+                    while (waitMs > 0L) {
+                        delay(waitMs)
+                        if (sessionId != monitoringController.state.sessionId || generation != streamGeneration ||
+                            mutableState.value.visibilityIssue != effect.issue) return@forEach
+                        waitMs = stage3PlaybackGuard.remainingMs(activeDevice?.deviceId, elapsedClock())
+                    }
+                    val startedAt = elapsedClock()
+                    val delivery = withSpeakerRequest {
                         visibilityOutputGateway.activateSafely(VisibilityOutputCommand(effect.issue, monitoringVolume))
                     }
+                    if (delivery == WarningDeliveryStatus.DELIVERED) {
+                        monitoringController.speakerAccepted(sessionId, 4_300L)
+                    }
+                    if (BuildConfig.DEBUG) Log.d("DriveAlertSpeaker", "visibility issue=${effect.issue} result=$delivery took=${elapsedClock() - startedAt}ms")
                     if (sessionId != monitoringController.state.sessionId || generation != streamGeneration ||
                         mutableState.value.visibilityIssue != effect.issue
                     ) return@forEach
@@ -1020,7 +1055,19 @@ class DriverVisionRuntime @JvmOverloads constructor(
         driverId: String,
         sessionId: String,
     ) {
-        for (effect in effects) when (effect) {
+        for (effect in effects) {
+            // A speaker request can suspend for seconds; stop if monitoring ended meanwhile.
+            if (sessionId != monitoringController.state.sessionId) return
+            handleMonitoringEffect(effect, driverId, sessionId)
+        }
+    }
+
+    private suspend fun handleMonitoringEffect(
+        effect: MonitoringEffect,
+        driverId: String,
+        sessionId: String,
+    ) {
+        when (effect) {
             is MonitoringEffect.ActivateWarning -> {
                 repeatWarningJob?.cancel()
                 val delivery = activateLoggedWarning(driverId, sessionId,
@@ -1030,7 +1077,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
             }
             is MonitoringEffect.RepeatWarning -> {
                 // Do not block frame processing or queue reminders behind a slow HTTP request.
-                if (repeatWarningJob?.isActive == true) continue
+                if (repeatWarningJob?.isActive == true || outputRequestsInFlight > 0) return
                 val generation = streamGeneration
                 repeatWarningSigns = effect.signs
                 repeatWarningJob = scope.launch {
@@ -1101,9 +1148,25 @@ class DriverVisionRuntime @JvmOverloads constructor(
         driverId: String, sessionId: String,
         command: com.lhordkent.drivealert.monitoring.WarningOutputCommand,
     ): WarningDeliveryStatus {
+        val cameraId = activeDevice?.deviceId
+        if (stage3PlaybackGuard.remainingMs(cameraId, elapsedClock()) > 0L) {
+            // The accepted warning already covers this event. Do not record a
+            // fictitious new HTTP request or restart the physical audio.
+            if (BuildConfig.DEBUG) Log.d("DriveAlertSpeaker", "warning stage=${command.stage} coalesced=stage3_playing")
+            return WarningDeliveryStatus.DELIVERED
+        }
         val requestId = monitoringLogWriter?.request(driverId, sessionId, wallClock(), command.stage.ordinal + 1, command.repeat)
         try {
+            val startedAt = elapsedClock()
             val result = withSpeakerRequest { warningOutputGateway.activateSafely(command) }
+            if (result == WarningDeliveryStatus.DELIVERED) {
+                cameraId?.let { stage3PlaybackGuard.accepted(it, command.stage, elapsedClock()) }
+                // Firmware reserves normal tracks for 2 s and mixed Stage 3 for
+                // 10 s after dequeuing. Include transport/loop scheduling margin.
+                monitoringController.speakerAccepted(sessionId,
+                    if (command.stage == WarningStage.STAGE_3) 10_300L else 2_300L)
+            }
+            if (BuildConfig.DEBUG) Log.d("DriveAlertSpeaker", "warning stage=${command.stage} repeat=${command.repeat} result=$result took=${elapsedClock() - startedAt}ms")
             requestId?.let { monitoringLogWriter?.result(driverId, sessionId, it, wallClock(), result) }
             return result
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -1148,7 +1211,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     private fun clearCameraReadings() {
         observationCutoffMs = elapsedClock()
         lastFrameTimestampMs = null
-        lastDetectionTimestampMs = null
+        resultWatchdog.reset()
         resetBrightness()
         resetLighting()
         // An unobserved interval cannot keep a previous drowsiness episode active.
@@ -1165,7 +1228,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
     /** A late result pauses evidence; it must not reconfigure the face selector or
      * turn a lighting timeout into a new driver and a full calibration restart. */
     private fun pauseCameraAssessments() {
-        lastDetectionTimestampMs = null
+        resultWatchdog.reset()
         resetMovement()
         repeatWarningJob?.cancel()
         engine.invalidateTracking()
@@ -1187,23 +1250,29 @@ class DriverVisionRuntime @JvmOverloads constructor(
         if (mutableState.value.streamState != StreamConnectionState.CONNECTED) return
         val now = elapsedClock()
         val frameStale = lastFrameTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true
-        val detectionStale = lastDetectionTimestampMs?.let { now - it > DriverFaceSelector.MAX_FRAME_GAP_MS } == true
+        val detectionStale = resultWatchdog.expired(now)
         if (frameStale || detectionStale) {
-            if (BuildConfig.DEBUG) Log.d("DriverFaceLock", "expire frame=$frameStale detection=$detectionStale age=${lastDetectionTimestampMs?.let { now - it }}ms")
+            if (BuildConfig.DEBUG) Log.d("DriverFaceLock", "expire frame=$frameStale detection=$detectionStale")
             if (frameStale) lastFrameTimestampMs = null
             pauseCameraAssessments()
         } else {
-            val lighting = mutableState.value.lighting
-            if (lighting.timestampMs != null && now - lighting.timestampMs > FaceLightingAssessment.FRESHNESS_MS) {
-                pauseCameraAssessments()
+            // Each result still needs fresh lighting and capture time before it
+            // can assess drowsiness. Do not erase detector continuity merely
+            // because the previous sample ages while a new frame is processing.
+            if (mutableState.value.detection?.timestampMs?.let { now - it > DriverFaceSelector.MAX_FRAME_GAP_MS } == true) {
+                // Hide old readings immediately. Keeping the engine's temporal
+                // state is not permission to display or repeat stale evidence.
+                mutableState.update { it.copy(detection = null, faceDetected = null, faceAttributes = null,
+                    lighting = FaceLightingAssessment()) }
             }
             if (lastBrightnessTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true) resetBrightness()
         }
     }
 
     private fun toEpochMillis(elapsedMs: Long): Long {
-        val elapsedStart = requireNotNull(sessionStartedAtElapsedMs)
-        val epochStart = requireNotNull(sessionStartedAtEpochMillis)
+        // The session can end while a slow speaker request is in flight; never crash on that.
+        val elapsedStart = sessionStartedAtElapsedMs ?: return wallClock()
+        val epochStart = sessionStartedAtEpochMillis ?: return wallClock()
         return epochStart + (elapsedMs - elapsedStart).coerceAtLeast(0L)
     }
 

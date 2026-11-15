@@ -87,6 +87,14 @@ Rebooting avoids keeping BLE, camera, Wi-Fi, and the HTTP stream allocated toget
 
 ## Build verification
 
+Stage 3 mixed warning/advice tracks now reserve their existing 10-second guard
+against every other playback command, including a new non-repeat warning.
+Pending Stage 3 commands are protected too. Ordinary alerts can still escalate
+to Stage 3 immediately. Requests inside the protected guard return busy rather
+than restarting spoken advice. The guard is still an estimated recording length,
+not a measured playback-complete signal. This source change needs a firmware
+update on the camera; building does not flash it.
+
 The driver-movement advisory adds visibility intent `MOVEMENT` and recording
 `/mp3/0015.mp3`. Movement analysis stays on Android. See
 [deployment instructions](deployment/README.md) for the one-time firmware update,

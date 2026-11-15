@@ -154,4 +154,43 @@ class DriverFaceSelectorTest {
         assertFalse(select(s, 1_200, face(1_200)).tracking.locked)
         assertFalse(s.select(1_300, listOf(face(1_300)), DriverRegion.DEFAULT, 640, 480).tracking.locked)
     }
+
+    @Test fun `current frame single face recovery preserves lock through full scene detector dropout`() {
+        val selector = DriverFaceSelector()
+        val original = lock(selector)
+        for (time in 1_100L..6_000L step 100) {
+            val current = face(time, x = 0.31)
+            val candidates = recoverFaceCandidates(emptyList(), listOf(current))
+            val result = selector.select(time, candidates, region, 640, 480)
+            assertSame(current, result.observation)
+            assertEquals(original.tracking.generation, result.tracking.generation)
+        }
+        val missing = selector.select(6_100, recoverFaceCandidates(emptyList(), emptyList()), region, 640, 480)
+        assertEquals(DriverTrackingStatus.LOST, missing.tracking.status)
+        assertNull(missing.observation)
+    }
+
+    @Test fun `single face recovery cannot override scene competitors or detector capacity`() {
+        for (scene in listOf(listOf(face(1_100), face(1_100, 0.45)),
+            listOf(face(1_100), face(1_100, 0.7), face(1_100, 0.8), face(1_100, 0.9)))) {
+            val selector = DriverFaceSelector()
+            lock(selector)
+            val result = selector.select(1_100, recoverFaceCandidates(scene, listOf(face(1_100))), region, 640, 480)
+            assertEquals(DriverTrackingStatus.AMBIGUOUS, result.tracking.status)
+            assertNull(result.observation)
+        }
+    }
+
+    @Test fun `single face recovery outside driver area or across a stale gap cannot inherit lock`() {
+        val selector = DriverFaceSelector()
+        lock(selector)
+        val passenger = selector.select(1_100, recoverFaceCandidates(emptyList(), listOf(face(1_100, 0.8))), region, 640, 480)
+        assertEquals(DriverTrackingStatus.LOST, passenger.tracking.status)
+        assertNull(passenger.observation)
+        val other = DriverFaceSelector()
+        lock(other)
+        val late = other.select(2_001, recoverFaceCandidates(emptyList(), listOf(face(2_001))), region, 640, 480)
+        assertFalse(late.tracking.locked)
+        assertNull(late.observation)
+    }
 }

@@ -7,6 +7,8 @@ import com.lhordkent.drivealert.detection.model.CalibrationStatus
 import com.lhordkent.drivealert.detection.model.ConfirmedSignEvent
 import com.lhordkent.drivealert.detection.model.DetectionChannelStatus
 import com.lhordkent.drivealert.detection.model.FaceObservation
+import com.lhordkent.drivealert.detection.model.FaceAttributeResult
+import com.lhordkent.drivealert.detection.model.contradictsBilateralClosureAt
 import com.lhordkent.drivealert.detection.model.FacialMeasurements
 import com.lhordkent.drivealert.detection.model.MonitoringDetectionResult
 import com.lhordkent.drivealert.detection.model.RegionalVisibility
@@ -67,10 +69,11 @@ class DriveAlertDetectionEngine(
         observation: FaceObservation?,
         regionalVisibility: RegionalVisibility = RegionalVisibility(),
         assessmentAllowed: Boolean = true,
+        faceAttributes: FaceAttributeResult? = null,
     ): MonitoringDetectionResult {
         val timestampMs = observation?.timestampMs
             ?: requireNotNull(lastTimestampMs) { "A timestamp is required before reporting a missing face." }
-        return process(timestampMs, observation, regionalVisibility, assessmentAllowed)
+        return process(timestampMs, observation, regionalVisibility, assessmentAllowed, faceAttributes)
     }
 
     @Synchronized
@@ -79,6 +82,7 @@ class DriveAlertDetectionEngine(
         observation: FaceObservation?,
         regionalVisibility: RegionalVisibility = RegionalVisibility(),
         assessmentAllowed: Boolean = true,
+        faceAttributes: FaceAttributeResult? = null,
     ): MonitoringDetectionResult {
         require(lastTimestampMs == null || timestampMs >= checkNotNull(lastTimestampMs)) {
             "Frame timestamps must be monotonic."
@@ -131,7 +135,9 @@ class DriveAlertDetectionEngine(
                 ?.times(configured.downwardPitchMultiplier)
         }
         val events = buildList {
-            eyeDetector?.update(timestampMs, measurements.ear)?.let(::add)
+            eyeDetector?.update(timestampMs, measurements.ear,
+                confirmedOpen = measurements.ear != null && faceAttributes?.contradictsBilateralClosureAt(timestampMs) == true,
+            )?.let(::add)
             yawnDetector?.update(timestampMs, measurements.mar)?.let(::add)
             headDetector?.update(timestampMs, relativePitch)?.let(::add)
         }
@@ -215,6 +221,14 @@ class DriveAlertDetectionEngine(
     fun invalidateDriverTarget() {
         invalidateTracking()
         if (activeCalibration == null) calibration.start()
+    }
+
+    /** The face lock was lost and re-acquired (e.g. the driver stepped out of view).
+     * Completed calibration steps are kept; only the unfinished step is repeated. */
+    @Synchronized
+    fun driverTrackReacquired() {
+        invalidateTracking()
+        if (activeCalibration == null) calibration.restartCurrentPhase()
     }
 
     private fun clearDetectorEvidence() {
