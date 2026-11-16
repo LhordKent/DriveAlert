@@ -105,6 +105,7 @@ data class DriverVisionUiState(
     val calibrationProgress: CalibrationProgress? = null,
     val calibrationAudioMessage: String? = null,
     val calibrationInProgress: Boolean = false,
+    val calibrationLightingGraceActive: Boolean = false,
     val activeCalibration: CalibrationResult? = null,
     val disconnectInProgress: Boolean = false,
     val monitoring: ActiveMonitoringState = ActiveMonitoringState(),
@@ -119,8 +120,12 @@ data class DriverVisionUiState(
     val errorMessage: String? = null,
 ) {
     val insufficientLighting: Boolean get() = streamState == StreamConnectionState.CONNECTED &&
-        lightingVisibilityIssue(driverTracking.locked, lighting, lowLight == true, driverTracking.detectedFaceCount) ==
+        lightingVisibilityIssue(driverTracking.locked && faceDetected == true, lighting) ==
         VisibilityIssue.INSUFFICIENT_LIGHTING
+
+    fun lightingSpeechAllowed(nowMs: Long, expectedSinceMs: Long?): Boolean =
+        monitoring.isActive && streamState == StreamConnectionState.CONNECTED && alignmentConfirmed && driverTracking.locked &&
+            faceDetected == true && lighting.matchesPoorEpisode(nowMs, expectedSinceMs)
 }
 
 class DriverVisionRuntime @JvmOverloads constructor(
@@ -188,6 +193,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         return try { block() } finally { outputRequestsInFlight-- }
     }
     private val lightingTracker = FaceLightingTracker()
+    private val calibrationLightingGrace = CalibrationLightingGrace()
     private var lastLightingDiagnosticTimestampMs: Long? = null
     private val regionStore = DriverRegionStore()
     private var regionKey: String? = null
@@ -215,6 +221,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 if (targetGeneration != tracking.generation) {
                     resetMovement()
                     targetGeneration = tracking.generation
+                    calibrationLightingGrace.reset()
                     lightingTracker.reset()
                     engine.driverTrackReacquired()
                     monitoringController.accept(emptyList(), emptySet())
@@ -236,11 +243,19 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 if (BuildConfig.DEBUG && lighting.quality != mutableState.value.lighting.quality) {
                     Log.d("DriverFaceLock", "lighting=${lighting.quality} target=${tracking.generation}")
                 }
+                val now = elapsedClock()
+                val faceTimestamp = observation?.timestampMs?.takeIf {
+                    tracking.locked && mutableState.value.alignmentConfirmed
+                }
+                val calibrationLightingAllowed = calibrationLightingGrace.allowsAssessment(now, faceTimestamp, lighting)
+                val graceActive = mutableState.value.calibrationInProgress &&
+                    calibrationLightingAllowed && !lighting.allowsAssessment(now)
                 val result = engine.process(
                     timestamp,
                     observation,
                     effectiveRegionalVisibility(faceAttributes),
-                    assessmentAllowed = tracking.locked && mutableState.value.alignmentConfirmed && lighting.allowsAssessment(elapsedClock()),
+                    assessmentAllowed = tracking.locked && mutableState.value.alignmentConfirmed &&
+                        (lighting.allowsAssessment(now) || graceActive),
                     faceAttributes = faceAttributes,
                 )
                 if (monitoringController.state.isActive && tracking.locked &&
@@ -251,7 +266,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     val movement = movementTracker.update(observation)
                     mutableState.update { it.copy(movement = movement) }
                 } else resetMovement()
-                acceptDetection(result, faceAttributes, lighting)
+                acceptDetection(result, faceAttributes, lighting, graceActive)
                 // Drowsiness/visibility decisions and their requests take priority.
                 requestMovementSpeech()
             }
@@ -593,7 +608,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
             if (expected != accountGeneration) return@launch
             engine = DriveAlertDetectionEngine()
             active?.let(engine::activatePersistedCalibration)
-            mutableState.update { it.copy(calibrationProgress = null, calibrationInProgress = false, calibrationAudioMessage = null, activeCalibration = active) }
+            mutableState.update { it.copy(calibrationProgress = null, calibrationInProgress = false, calibrationLightingGraceActive = false, calibrationAudioMessage = null, activeCalibration = active) }
         }
     }
 
@@ -859,6 +874,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
         result: MonitoringDetectionResult,
         faceAttributes: FaceAttributeResult,
         lighting: FaceLightingAssessment,
+        calibrationLightingGraceActive: Boolean,
     ) {
         if (!streamWanted || result.timestampMs < observationCutoffMs ||
             mutableState.value.streamState != StreamConnectionState.CONNECTED ||
@@ -886,16 +902,17 @@ class DriverVisionRuntime @JvmOverloads constructor(
         val regionalVisibility = effectiveRegionalVisibility(faceAttributes)
         val observedVisibilityIssue = if (monitoringController.state.isActive) monitoringVisibilityIssue(
             faceDetected = result.faceDetected, lighting = lighting,
-            sceneDark = mutableState.value.lowLight == true &&
-                lastBrightnessTimestampMs?.let { elapsedClock() - it in 0L..CAMERA_READING_STALE_MS } == true,
             tracking = mutableState.value.driverTracking,
             alignmentConfirmed = mutableState.value.alignmentConfirmed,
             regionalVisibility = regionalVisibility,
         ) else null
         val visibilityEffects = if (monitoringController.state.isActive) {
-            visibilityAlertController.update(result.timestampMs, observedVisibilityIssue)
+            visibilityAlertController.update(result.timestampMs, observedVisibilityIssue, lighting)
         } else emptyList()
+        // The controller keeps the reported episode through recovery. Its old
+        // lighting attribution is not evidence that the current view is dark.
         val visibilityIssue = observedVisibilityIssue ?: visibilityAlertController.reportedIssue
+            ?.takeUnless { it == VisibilityIssue.INSUFFICIENT_LIGHTING }
         mutableState.update {
             it.copy(
                 faceDetected = result.faceDetected,
@@ -904,6 +921,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                 lighting = lighting,
                 calibrationProgress = if (it.calibrationInProgress) result.calibration else it.calibrationProgress,
                 calibrationInProgress = if (calibrationCompleted) false else it.calibrationInProgress,
+                calibrationLightingGraceActive = !calibrationCompleted && calibrationLightingGraceActive,
                 calibrationAudioMessage = if (stepCompleted) "Step done. You can relax." else it.calibrationAudioMessage,
                 activeCalibration = result.activeCalibration ?: it.activeCalibration,
                 visibilityIssue = visibilityIssue,
@@ -936,7 +954,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
             publishMonitoringState()
             // Speaker delivery can suspend; account for this frame's evidence first.
             if (sessionId == monitoringController.state.sessionId && result.timestampMs >= observationCutoffMs) {
-                handleVisibilityEffects(visibilityEffects)
+                handleVisibilityEffects(visibilityEffects, lighting.poorSinceMs)
             }
         }
     }
@@ -986,13 +1004,19 @@ class DriverVisionRuntime @JvmOverloads constructor(
         }
     }
 
-    private suspend fun handleVisibilityEffects(effects: List<VisibilityAlertEffect>) {
+    private suspend fun handleVisibilityEffects(
+        effects: List<VisibilityAlertEffect>,
+        lightingEpisodeStartedAtMs: Long?,
+    ) {
         val sessionId = monitoringController.state.sessionId ?: return
         val generation = streamGeneration
         effects.forEach { effect ->
             when (effect) {
                 is VisibilityAlertEffect.Notify -> {
                     if (mutableState.value.visibilityIssue != effect.issue) return@forEach
+                    fun lightingStillCurrent(): Boolean = effect.issue != VisibilityIssue.INSUFFICIENT_LIGHTING ||
+                        mutableState.value.lightingSpeechAllowed(elapsedClock(), lightingEpisodeStartedAtMs)
+                    if (!lightingStillCurrent()) return@forEach
                     if (effect.issue != VisibilityIssue.FACE_UNAVAILABLE && effect.issue != VisibilityIssue.INSUFFICIENT_LIGHTING) {
                         mutableState.update { it.copy(visibilityAcknowledgementRequired = effect.issue) }
                     }
@@ -1003,9 +1027,10 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     while (waitMs > 0L) {
                         delay(waitMs)
                         if (sessionId != monitoringController.state.sessionId || generation != streamGeneration ||
-                            mutableState.value.visibilityIssue != effect.issue) return@forEach
+                            mutableState.value.visibilityIssue != effect.issue || !lightingStillCurrent()) return@forEach
                         waitMs = stage3PlaybackGuard.remainingMs(activeDevice?.deviceId, elapsedClock())
                     }
+                    if (!lightingStillCurrent()) return@forEach
                     val startedAt = elapsedClock()
                     val delivery = withSpeakerRequest {
                         visibilityOutputGateway.activateSafely(VisibilityOutputCommand(effect.issue, monitoringVolume))
@@ -1015,7 +1040,7 @@ class DriverVisionRuntime @JvmOverloads constructor(
                     }
                     if (BuildConfig.DEBUG) Log.d("DriveAlertSpeaker", "visibility issue=${effect.issue} result=$delivery took=${elapsedClock() - startedAt}ms")
                     if (sessionId != monitoringController.state.sessionId || generation != streamGeneration ||
-                        mutableState.value.visibilityIssue != effect.issue
+                        mutableState.value.visibilityIssue != effect.issue || !lightingStillCurrent()
                     ) return@forEach
                     visibilityNotificationCoordinator.notify(
                         issue = effect.issue,
@@ -1204,8 +1229,9 @@ class DriverVisionRuntime @JvmOverloads constructor(
         targetConfigurationRevision = processor.configure(if (regionKey != null) mutableState.value.driverRegion else null)
         targetGeneration = -1L
         lightingTracker.reset()
+        calibrationLightingGrace.reset()
         engine.invalidateDriverTarget()
-        mutableState.update { it.copy(lighting = FaceLightingAssessment(), driverTracking = DriverTrackingState(if (regionKey == null) DriverTrackingStatus.UNCONFIGURED else DriverTrackingStatus.ACQUIRING), detection = null, faceAttributes = null) }
+        mutableState.update { it.copy(lighting = FaceLightingAssessment(), calibrationLightingGraceActive = false, driverTracking = DriverTrackingState(if (regionKey == null) DriverTrackingStatus.UNCONFIGURED else DriverTrackingStatus.ACQUIRING), detection = null, faceAttributes = null) }
     }
 
     private fun clearCameraReadings() {
@@ -1233,13 +1259,14 @@ class DriverVisionRuntime @JvmOverloads constructor(
         repeatWarningJob?.cancel()
         engine.invalidateTracking()
         lightingTracker.update(elapsedClock(), null)
+        calibrationLightingGrace.reset()
         monitoringController.accept(emptyList(), emptySet())
         visibilityAlertController.interrupt()
         visibilityNotificationCoordinator.clear()
         val calibrationProgress = engine.calibrationProgress()
         mutableState.update {
             it.copy(faceDetected = null, detection = null, faceAttributes = null,
-                lighting = FaceLightingAssessment(),
+                lighting = FaceLightingAssessment(), calibrationLightingGraceActive = false,
                 driverTracking = it.driverTracking.copy(status = DriverTrackingStatus.ACQUIRING, bounds = null),
                 calibrationProgress = if (it.calibrationInProgress) calibrationProgress else it.calibrationProgress,
                 visibilityIssue = null, visibilityAcknowledgementRequired = null)
@@ -1262,8 +1289,9 @@ class DriverVisionRuntime @JvmOverloads constructor(
             if (mutableState.value.detection?.timestampMs?.let { now - it > DriverFaceSelector.MAX_FRAME_GAP_MS } == true) {
                 // Hide old readings immediately. Keeping the engine's temporal
                 // state is not permission to display or repeat stale evidence.
+                calibrationLightingGrace.reset()
                 mutableState.update { it.copy(detection = null, faceDetected = null, faceAttributes = null,
-                    lighting = FaceLightingAssessment()) }
+                    lighting = FaceLightingAssessment(), calibrationLightingGraceActive = false) }
             }
             if (lastBrightnessTimestampMs?.let { now - it > CAMERA_READING_STALE_MS } == true) resetBrightness()
         }

@@ -153,6 +153,48 @@ class DriveAlertDetectionEngineTest {
         assertEquals(1_000L, engine.process(face(20_000, 0.25, 0.1, 4.0)).calibration.validDurationMs)
     }
 
+    @Test fun `lighting confirmation and recovery never contribute bad calibration samples`() {
+        val engine = DriveAlertDetectionEngine(calibrationDurationMs = 5_000)
+        val tracker = com.lhordkent.drivealert.monitoring.FaceLightingTracker()
+        engine.startCalibration()
+        engine.beginCalibrationPhase()
+        fun process(time: Long, brightness: Double, contrast: Double) = engine.process(
+            face(time, 0.25, 0.1, 4.0), assessmentAllowed = tracker.update(time,
+                com.lhordkent.drivealert.monitoring.FaceLightingSample(time, brightness, contrast)).allowsAssessment(time))
+        for (time in 0L..2_000L step 200) assertEquals(0L, process(time, 37.0, 15.0).calibration.validDurationMs)
+        assertEquals(200L, process(2_200, 37.0, 15.0).calibration.validDurationMs)
+        for (time in 2_400L..4_400L step 200) {
+            val result = process(time, 10.0, 0.0)
+            assertEquals(200L, result.calibration.validDurationMs)
+            assertTrue(result.events.isEmpty())
+        }
+        for (time in 4_600L..6_400L step 200) assertEquals(200L, process(time, 37.0, 15.0).calibration.validDurationMs)
+        assertEquals(200L, process(6_600, 37.0, 15.0).calibration.validDurationMs)
+        assertEquals(400L, process(6_800, 37.0, 15.0).calibration.validDurationMs)
+    }
+
+    @Test fun `calibration collects fresh faces during brief lighting gaps but pauses on poor light`() {
+        val engine = DriveAlertDetectionEngine(calibrationDurationMs = 5_000)
+        val gate = CalibrationLightingGrace()
+        engine.startCalibration()
+        engine.beginCalibrationPhase()
+        fun process(time: Long, lighting: com.lhordkent.drivealert.monitoring.FaceLightingAssessment) =
+            engine.process(face(time, 0.25, 0.1, 4.0), assessmentAllowed = gate.allowsAssessment(time, time, lighting))
+        val good = com.lhordkent.drivealert.monitoring.FaceLightingAssessment(0,
+            com.lhordkent.drivealert.monitoring.LightingQuality.USABLE)
+        val missing = com.lhordkent.drivealert.monitoring.FaceLightingAssessment()
+        process(0, good)
+        assertEquals(1_000L, process(1_000, missing).calibration.validDurationMs)
+        assertEquals(2_000L, process(2_000, missing).calibration.validDurationMs)
+        assertEquals(2_000L, process(2_001, missing).calibration.validDurationMs)
+        assertEquals(2_000L, process(2_100, good.copy(timestampMs = 2_100)).calibration.validDurationMs)
+        assertEquals(2_100L, process(2_200, missing).calibration.validDurationMs)
+        val poor = good.copy(timestampMs = 2_300,
+            quality = com.lhordkent.drivealert.monitoring.LightingQuality.UNKNOWN, poorSinceMs = 2_300)
+        assertEquals(2_100L, process(2_300, poor).calibration.validDurationMs)
+        assertEquals(2_100L, process(2_400, missing).calibration.validDurationMs)
+    }
+
     @Test
     fun persistedCalibrationCanBeActivatedWithoutCollection() {
         val engine = DriveAlertDetectionEngine()

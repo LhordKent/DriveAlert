@@ -248,8 +248,7 @@ fun DriverHomeScreen(
     val lightingDetail = if (!vision.alignmentConfirmed) "Confirm the driver area in Camera Alignment."
     else if (vision.insufficientLighting) "Insufficient lighting. Restore camera visibility when safe."
     else if (!vision.driverTracking.locked) vision.driverTracking.guidance
-    else if (vision.lighting.recovering || vision.lighting.quality == LightingQuality.UNKNOWN &&
-        vision.visibilityIssue != VisibilityIssue.INSUFFICIENT_LIGHTING) {
+    else if (vision.lighting.recovering || vision.lighting.quality == LightingQuality.UNKNOWN) {
         "Checking visibility. Drowsiness assessment resumes after usable facial lighting is established."
     } else "Insufficient lighting. Restore camera visibility when safe."
     Column {

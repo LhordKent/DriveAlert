@@ -67,17 +67,22 @@ class VisibilityAlertControllerTest {
     }
 
     @Test
-    fun `darkness attribution preserves the face loss timer and cannot double announce`() {
+    fun `lighting never inherits missing face time and attribution cannot double announce`() {
         val controller = VisibilityAlertController()
         assertTrue(controller.update(0, VisibilityIssue.FACE_UNAVAILABLE).isEmpty())
         assertTrue(controller.update(2_000, VisibilityIssue.INSUFFICIENT_LIGHTING).isEmpty())
+        assertTrue(controller.update(3_000, VisibilityIssue.INSUFFICIENT_LIGHTING).isEmpty())
         assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.INSUFFICIENT_LIGHTING)),
-            controller.update(3_000, VisibilityIssue.INSUFFICIENT_LIGHTING))
-        assertTrue(controller.update(3_100, VisibilityIssue.FACE_UNAVAILABLE).isEmpty())
-        assertTrue(controller.update(3_200, VisibilityIssue.INSUFFICIENT_LIGHTING).isEmpty())
-        assertTrue(controller.update(32_999, VisibilityIssue.INSUFFICIENT_LIGHTING).isEmpty())
+            controller.update(5_000, VisibilityIssue.INSUFFICIENT_LIGHTING))
+        assertTrue(controller.update(5_100, VisibilityIssue.FACE_UNAVAILABLE).isEmpty())
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.FACE_UNAVAILABLE, announce = false)),
+            controller.update(8_100, VisibilityIssue.FACE_UNAVAILABLE))
+        controller.update(8_200, VisibilityIssue.INSUFFICIENT_LIGHTING)
+        assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.INSUFFICIENT_LIGHTING, announce = false)),
+            controller.update(11_200, VisibilityIssue.INSUFFICIENT_LIGHTING))
+        assertTrue(controller.update(34_999, VisibilityIssue.INSUFFICIENT_LIGHTING).isEmpty())
         assertEquals(listOf(VisibilityAlertEffect.Notify(VisibilityIssue.INSUFFICIENT_LIGHTING)),
-            controller.update(33_000, VisibilityIssue.INSUFFICIENT_LIGHTING))
+            controller.update(35_000, VisibilityIssue.INSUFFICIENT_LIGHTING))
     }
 
     @Test

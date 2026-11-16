@@ -64,6 +64,7 @@ class VisibilityAlertController(
     private val faceUnavailableDelayMs: Long = 3_000L,
     private val recoveryDelayMs: Long = 2_000L,
     private val reminderIntervalMs: Long = 30_000L,
+    private val lightingDelayMs: Long = 3_000L,
 ) {
     private var activeIssue: VisibilityIssue? = null
     private var candidateStartedAtMs: Long? = null
@@ -73,6 +74,7 @@ class VisibilityAlertController(
     private var lastReportedIssue: VisibilityIssue? = null
     private var acceptedLowerFace = false
     private var acceptedEyeRegion = false
+    private var lightingEpisodeStartedAtMs: Long? = null
 
     val reportedIssue: VisibilityIssue?
         get() = lastReportedIssue
@@ -82,48 +84,65 @@ class VisibilityAlertController(
         require(faceUnavailableDelayMs >= 0L)
         require(recoveryDelayMs >= 0L)
         require(reminderIntervalMs > 0L)
+        require(lightingDelayMs >= 0L)
     }
 
-    fun update(timestampMs: Long, issue: VisibilityIssue?): List<VisibilityAlertEffect> {
-        if (issue == null) return recover(timestampMs)
+    fun update(
+        timestampMs: Long,
+        issue: VisibilityIssue?,
+        lighting: FaceLightingAssessment? = null,
+    ): List<VisibilityAlertEffect> {
+        if (issue == null) {
+            if (activeIssue == VisibilityIssue.INSUFFICIENT_LIGHTING && lighting != null &&
+                !lighting.hasFreshGoodSample(timestampMs)) {
+                // Checking a new dark interval or waiting for samples is not
+                // observed recovery from the previously reported episode.
+                pauseLightingQualification()
+                recoveryStartedAtMs = null
+                return emptyList()
+            }
+            return recover(timestampMs)
+        }
+        if (issue == VisibilityIssue.INSUFFICIENT_LIGHTING && lighting != null &&
+            !lighting.hasConfirmedPoorLighting(timestampMs)) return update(timestampMs, null, lighting)
         if (isAccepted(issue)) {
             val shouldClear = lastReportedIssue != null
             clearEpisode()
             return if (shouldClear) listOf(VisibilityAlertEffect.Clear) else emptyList()
         }
         recoveryStartedAtMs = null
-        if (issue != activeIssue) {
-            val sameVisibilityLoss = when (activeIssue) {
-                VisibilityIssue.FACE_UNAVAILABLE -> issue == VisibilityIssue.INSUFFICIENT_LIGHTING
-                VisibilityIssue.INSUFFICIENT_LIGHTING -> issue == VisibilityIssue.FACE_UNAVAILABLE
-                else -> false
-            }
+        // Lighting qualifies from new facial samples, never elapsed missing-face
+        // time or repeated cached samples. Face/obstruction delays stay unchanged.
+        val evidenceAtMs = if (issue == VisibilityIssue.INSUFFICIENT_LIGHTING)
+            lighting?.timestampMs ?: timestampMs else timestampMs
+        val newLightingEpisode = issue == VisibilityIssue.INSUFFICIENT_LIGHTING &&
+            lightingEpisodeStartedAtMs != lighting?.poorSinceMs
+        if (issue != activeIssue || candidateStartedAtMs == null || newLightingEpisode) {
             activeIssue = issue
-            if (!sameVisibilityLoss) {
-                candidateStartedAtMs = timestampMs
-                notified = false
-            }
+            candidateStartedAtMs = evidenceAtMs
+            notified = false
+            lightingEpisodeStartedAtMs = lighting?.poorSinceMs.takeIf { issue == VisibilityIssue.INSUFFICIENT_LIGHTING }
         }
         val requiredDelay = when (issue) {
             VisibilityIssue.LOWER_FACE_OBSTRUCTED -> lowerFaceDelayMs
             VisibilityIssue.EYE_REGION_OBSTRUCTED -> lowerFaceDelayMs
             VisibilityIssue.BOTH_REGIONS_OBSTRUCTED -> faceUnavailableDelayMs
             VisibilityIssue.FACE_UNAVAILABLE -> faceUnavailableDelayMs
-            VisibilityIssue.INSUFFICIENT_LIGHTING -> faceUnavailableDelayMs
+            VisibilityIssue.INSUFFICIENT_LIGHTING -> lightingDelayMs
         }
         val startedAt = checkNotNull(candidateStartedAtMs)
-        if (!notified && timestampMs - startedAt >= requiredDelay) {
+        if (!notified && evidenceAtMs - startedAt >= requiredDelay) {
             notified = true
             lastReportedIssue = issue
             // A changed attribution is still the same uninterrupted visibility
             // problem. Update its UI, but do not restart spoken reminders.
-            val announce = lastNotifiedAtMs?.let { timestampMs - it >= reminderIntervalMs } ?: true
-            if (announce) lastNotifiedAtMs = timestampMs
+            val announce = lastNotifiedAtMs?.let { evidenceAtMs - it >= reminderIntervalMs } ?: true
+            if (announce) lastNotifiedAtMs = evidenceAtMs
             return listOf(VisibilityAlertEffect.Notify(issue, announce))
         }
         val lastNotified = lastNotifiedAtMs
-        if (notified && lastNotified != null && timestampMs - lastNotified >= reminderIntervalMs) {
-            lastNotifiedAtMs = timestampMs
+        if (notified && lastNotified != null && evidenceAtMs - lastNotified >= reminderIntervalMs) {
+            lastNotifiedAtMs = evidenceAtMs
             lastReportedIssue = issue
             return listOf(VisibilityAlertEffect.Notify(issue))
         }
@@ -172,10 +191,16 @@ class VisibilityAlertController(
         notified = false
         lastNotifiedAtMs = null
         lastReportedIssue = null
+        lightingEpisodeStartedAtMs = null
     }
 
     private fun recover(timestampMs: Long): List<VisibilityAlertEffect> {
         if (activeIssue == null) return emptyList()
+        if (activeIssue == VisibilityIssue.INSUFFICIENT_LIGHTING) {
+            // Keep the reported episode during recovery, but a new dark interval
+            // must qualify again even if the notification has not cleared yet.
+            pauseLightingQualification()
+        }
         if (lastReportedIssue == null) {
             clearEpisode()
             return emptyList()
@@ -184,5 +209,11 @@ class VisibilityAlertController(
         if (timestampMs - recoveryStart < recoveryDelayMs) return emptyList()
         clearEpisode()
         return listOf(VisibilityAlertEffect.Clear)
+    }
+
+    private fun pauseLightingQualification() {
+        candidateStartedAtMs = null
+        lightingEpisodeStartedAtMs = null
+        notified = false
     }
 }

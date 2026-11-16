@@ -6,6 +6,30 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class CameraVisibilityPresentationTest {
+    @Test fun `checking a new dark crop cannot show an old reported lighting warning`() {
+        val view = cameraVisibilityPresentation(StreamConnectionState.CONNECTED, MonitoringScenario.NORMAL,
+            true, true, pendingIssue = VisibilityIssue.INSUFFICIENT_LIGHTING,
+            lighting = FaceLightingAssessment(4_000, poorSinceMs = 4_000))
+        assertEquals("Checking visibility", view.label)
+        assertFalse(view.monitoring.eyeAvailable || view.monitoring.yawningAvailable || view.monitoring.headAvailable)
+    }
+
+    @Test fun `lost face overrides previously confirmed poor facial lighting`() {
+        val view = cameraVisibilityPresentation(StreamConnectionState.CONNECTED, MonitoringScenario.FACE_TRACKING_UNAVAILABLE,
+            true, true, pendingIssue = VisibilityIssue.INSUFFICIENT_LIGHTING,
+            lighting = FaceLightingAssessment(4_000, LightingQuality.INSUFFICIENT, 10.0, 0.0, poorSinceMs = 0))
+        assertEquals("Face not visible", view.label)
+        assertFalse(view.monitoring.eyeAvailable || view.monitoring.yawningAvailable || view.monitoring.headAvailable)
+    }
+
+    @Test fun `current usable lighting supersedes an old reported lighting issue`() {
+        val view = cameraVisibilityPresentation(StreamConnectionState.CONNECTED, MonitoringScenario.NORMAL,
+            true, true, pendingIssue = VisibilityIssue.INSUFFICIENT_LIGHTING,
+            lighting = FaceLightingAssessment(4_000, LightingQuality.USABLE, 37.0, 15.0))
+        assertEquals("Low light", view.label)
+        assertEquals("Monitoring active", view.monitoring.headline)
+    }
+
     @Test
     fun `usable dim lighting presents active signs instead of a third lighting classification`() {
         val view = cameraVisibilityPresentation(StreamConnectionState.CONNECTED, MonitoringScenario.NORMAL,
@@ -56,21 +80,21 @@ class CameraVisibilityPresentationTest {
     }
 
     @Test
-    fun `confirmed dark scene overrides absent face and missing lighting samples`() {
+    fun `dim cabin with absent face uses the existing face warning`() {
         val view = present(MonitoringScenario.FACE_TRACKING_UNAVAILABLE, lowLight = true)
-        assertEquals("Insufficient lighting", view.label)
-        assertTrue(view.detail.contains("too dark or covered"))
+        assertEquals("Face not visible", view.label)
+        assertTrue(view.detail.contains("Low light may"))
         assertEquals("Monitoring paused", view.monitoring.headline)
         assertFalse(view.monitoring.eyeAvailable || view.monitoring.yawningAvailable || view.monitoring.headAvailable)
     }
 
     @Test
-    fun `covered camera darkness is displayed ahead of driver acquisition`() {
+    fun `ambient darkness cannot replace required alignment with a lighting claim`() {
         val view = cameraVisibilityPresentation(StreamConnectionState.CONNECTED, MonitoringScenario.FACE_TRACKING_UNAVAILABLE,
             true, true, lighting = FaceLightingAssessment(), alignmentConfirmed = false,
             driverTracking = com.lhordkent.drivealert.detection.face.DriverTrackingState(
                 com.lhordkent.drivealert.detection.face.DriverTrackingStatus.LOST, detectedFaceCount = 0))
-        assertEquals("Insufficient lighting", view.label)
+        assertEquals("Set driver area", view.label)
         assertFalse(view.monitoring.eyeAvailable || view.monitoring.yawningAvailable || view.monitoring.headAvailable)
     }
 
@@ -114,7 +138,7 @@ class CameraVisibilityPresentationTest {
 
     @Test
     fun `clear tracking restores all available signs`() {
-        assertEquals("Insufficient lighting", present(MonitoringScenario.FACE_TRACKING_UNAVAILABLE, true).label)
+        assertEquals("Face not visible", present(MonitoringScenario.FACE_TRACKING_UNAVAILABLE, true).label)
         val recovered = present(MonitoringScenario.NORMAL, false)
         assertEquals("Clear view", recovered.label)
         assertEquals("Monitoring active", recovered.monitoring.headline)

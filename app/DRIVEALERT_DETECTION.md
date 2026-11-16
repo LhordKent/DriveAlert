@@ -1,5 +1,46 @@
 # DriveAlert Android detection core
 
+## Facial lighting and missing-face attribution (2026-11-16)
+
+Facial pixels are poor when trimmed luminance is below15, or luminance is below35
+and contrast is below20 (0–255). These are relaxed engineering settings awaiting
+parked-camera validation in dim cabin light. Sampling remains at most every200ms
+as frames permit; accepted lighting samples must still be no older than1s.
+
+A poor sample pauses assessment immediately but remains checking/UNKNOWN until
+two continuous seconds of new poor samples confirm INSUFFICIENT. The visibility
+controller then requires three further seconds of qualifying sample timestamps
+before requesting lighting speech (at least five seconds total). It cannot use
+missing-face time or advance from repeated cached samples. Missing/stale evidence
+breaks qualification. New poor intervals cannot reuse a previous interval's delay.
+
+A fresh good sample cancels pending lighting speech. Previously usable lighting
+can return immediately after an uninterrupted, unconfirmed dip; confirmed darkness
+and initial admission require two seconds of continuous good samples. A pending
+dark interval or missing evidence is not recovery from an already reported episode.
+The existing thirty-second speech cadence remains shared across attribution changes.
+
+Ambient scene darkness is guidance only. Missing, ambiguous or out-of-area drivers
+use the existing face-unavailable path with its original three-second warning,
+two-second recovery, text and speaker track. UI/setup/service status must agree;
+old reported lighting must not override current face loss or lighting recovery.
+Before sending delayed lighting speech or posting its notification, the runtime
+rechecks fresh confirmed poor lighting, the same poor-interval timestamp, driver
+lock/alignment, stream and session. Good light, a new interval or interruption
+invalidates the request. No new warning type, recording or firmware is involved.
+
+## Calibration lighting gaps (2026-11-16)
+
+Startup and each phase's admission still require fresh usable lighting. During
+collection, CalibrationLightingGrace permits up to two seconds since the last
+admitted usable lighting sample when lighting is absent but fresh (<=1s) locked,
+aligned face measurements continue. The five-second timer uses only actual valid
+facial measurements. No absent-face samples are invented. Measured poor light,
+recovery, target/alignment/connection changes and camera stalls cancel grace;
+longer gaps pause collection. Monitoring retains its strict lighting freshness.
+The calibration screen stays In progress during eligible grace and shows checking
+lighting. Sampling frequency and visibility warning timing are unchanged.
+
 ## Visibility episode continuity
 
 Once a sustained visibility problem has been reported, a change between mouth,
@@ -184,9 +225,11 @@ invalidate unfinished calibration as before.
 Missing/stale lighting samples never enable assessment. A new explicitly usable
 sample may restore a previously usable lighting decision within two seconds of
 the previous sample, avoiding repeated recovery loops during brief processing
-delays. Initial lighting, actual poor pixels, borderline pixels after a gap and
-longer interruptions still require the normal two-second recovery. The one-second
-sample freshness bound and all pixel thresholds remain unchanged.
+delays. Initial lighting, confirmed poor pixels, borderline pixels after a gap and
+longer interruptions still require normal two-second recovery. An uninterrupted
+unconfirmed dark dip can end on a new good sample if light was previously usable.
+The one-second sample freshness bound remains unchanged; current pixel thresholds
+and poor-light confirmation are documented above.
 
 Calibration follows `NEUTRAL -> EYES_CLOSED -> MOUTH_OPEN -> HEAD_DOWN`. Each phase accumulates five seconds of valid contiguous intervals. Invalid observations break timing continuity and are not stored as zero. Completed results are persisted in Room per Firebase Driver ID; history is retained and one record is active per Driver for offline monitoring.
 

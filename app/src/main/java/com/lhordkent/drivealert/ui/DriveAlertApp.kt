@@ -139,10 +139,15 @@ object PostAuthRoutes {
     fun trustedAlert(driverId: String, eventId: String) = "trusted/drivers/$driverId/alerts/$eventId"
 }
 
-internal fun restoredRoleDestination(role: UserRole?, driverSetupComplete: Boolean): String = when (role) {
-    UserRole.TRUSTED_CONTACT -> PostAuthRoutes.TRUSTED_DRIVERS
-    UserRole.DRIVER, UserRole.BOTH -> if (driverSetupComplete) PostAuthRoutes.DRIVER_HOME else PostAuthRoutes.DRIVER_SETUP
-    null -> PostAuthRoutes.ROLE_CHOICE
+internal fun restoredRoleDestination(
+    role: UserRole?,
+    driverSetupComplete: Boolean,
+    rememberedView: UserView? = null,
+): String = when {
+    role == null -> PostAuthRoutes.ROLE_CHOICE
+    com.lhordkent.drivealert.postauth.restoredUserView(role, rememberedView) == UserView.TRUSTED_CONTACT -> PostAuthRoutes.TRUSTED_DRIVERS
+    driverSetupComplete -> PostAuthRoutes.DRIVER_HOME
+    else -> PostAuthRoutes.DRIVER_SETUP
 }
 
 private val driverNavItems = listOf(
@@ -192,6 +197,9 @@ fun DriveAlertApp() {
             application.container.stageSyncRepository,
             application.container.sharedStage3Repository,
             application.container.historyRepository,
+            userViewPreferenceStore = com.lhordkent.drivealert.postauth.SharedPreferencesUserViewStore(
+                application.getSharedPreferences("post_auth_view_preferences", android.content.Context.MODE_PRIVATE),
+            ),
         ),
     )
     val historyLifecycle = LocalLifecycleOwner.current.lifecycle
@@ -437,7 +445,7 @@ fun DriveAlertApp(
             val destination = when (sessionState.entry) {
                 AuthenticationEntry.ACCOUNT_CREATED -> PostAuthRoutes.ROLE_CHOICE
                 AuthenticationEntry.FRESH, AuthenticationEntry.RESTORED, AuthenticationEntry.NONE ->
-                    if (postAuthState.isProfileLoading) null else restoredRoleDestination(postAuthState.userRole, postAuthState.driverSetupComplete)
+                    if (postAuthState.isProfileLoading) null else restoredRoleDestination(postAuthState.userRole, postAuthState.driverSetupComplete, postAuthState.activeView)
             }
             destination?.let {
                 navController.navigate(it) {

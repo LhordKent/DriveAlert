@@ -54,10 +54,9 @@ class DriveAlertMonitoringService : Service() {
                         !state.alignmentConfirmed -> "Monitoring paused; confirm driver area"
                         state.insufficientLighting -> "Monitoring paused; insufficient lighting"
                         !state.driverTracking.locked -> "Monitoring paused; ${state.driverTracking.label.lowercase()}"
-                        state.lighting.recovering -> "Monitoring paused; checking visibility"
+                        state.lighting.recovering || state.lighting.quality == LightingQuality.UNKNOWN -> "Monitoring paused; checking visibility"
                         state.visibilityIssue == VisibilityIssue.INSUFFICIENT_LIGHTING ||
                             state.lighting.quality == LightingQuality.INSUFFICIENT -> "Monitoring paused; insufficient lighting"
-                        state.lighting.quality == LightingQuality.UNKNOWN -> "Monitoring paused; checking visibility"
                         else -> "connected"
                     }
                     showForegroundNotification(status)

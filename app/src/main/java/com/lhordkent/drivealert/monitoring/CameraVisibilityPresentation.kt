@@ -42,30 +42,23 @@ fun cameraVisibilityPresentation(
         )
         StreamConnectionState.CONNECTED -> Unit
     }
-    val darkMissingFace = lowLight == true &&
-        (driverTracking?.detectedFaceCount ?: if (scenario == MonitoringScenario.FACE_TRACKING_UNAVAILABLE) 0 else 1) == 0 &&
-        (driverTracking?.locked == false || scenario == MonitoringScenario.FACE_TRACKING_UNAVAILABLE)
-    if (darkMissingFace) return unavailable("Insufficient lighting",
-        "The camera view is too dark or covered. Restore camera visibility when safe. Drowsiness assessment is paused.",
-        CameraVisibilityTone.UNAVAILABLE)
     if (!alignmentConfirmed) return unavailable("Set driver area", "Confirm the driver area in Camera Alignment before monitoring.", CameraVisibilityTone.INFO)
     if (driverTracking != null && !driverTracking.locked) return unavailable(driverTracking.label, driverTracking.guidance, CameraVisibilityTone.UNAVAILABLE)
     if (!hasFreshDetection) return unavailable(
         "Checking view", "Waiting for a fresh face-tracking result. Monitoring is unavailable while the view is being checked.",
         CameraVisibilityTone.INFO,
     )
-    if (lighting?.recovering == true && scenario != MonitoringScenario.FACE_TRACKING_UNAVAILABLE) return unavailable(
-        "Checking visibility", "Checking visibility. Monitoring resumes after two seconds of usable facial lighting.", CameraVisibilityTone.INFO,
+    if ((lighting?.recovering == true || lighting?.quality == LightingQuality.UNKNOWN) &&
+        scenario != MonitoringScenario.FACE_TRACKING_UNAVAILABLE) return unavailable(
+        "Checking visibility", "Checking facial lighting. Drowsiness assessment is paused until usable readings return.", CameraVisibilityTone.INFO,
     )
-    if (pendingIssue == VisibilityIssue.INSUFFICIENT_LIGHTING || lighting?.quality == LightingQuality.INSUFFICIENT) {
+    if (scenario != MonitoringScenario.FACE_TRACKING_UNAVAILABLE &&
+        (lighting?.quality == LightingQuality.INSUFFICIENT || lighting == null && pendingIssue == VisibilityIssue.INSUFFICIENT_LIGHTING)) {
         val detail = "Insufficient lighting. Restore camera visibility when safe. Drowsiness assessment is paused."
         return unavailable("Insufficient lighting", detail, CameraVisibilityTone.UNAVAILABLE).let {
             it.copy(monitoring = it.monitoring.copy(headline = "Monitoring paused—insufficient lighting"))
         }
     }
-    if (lighting?.quality == LightingQuality.UNKNOWN && scenario != MonitoringScenario.FACE_TRACKING_UNAVAILABLE) return unavailable(
-        "Checking visibility", "Waiting for usable facial lighting. Drowsiness assessment is paused.", CameraVisibilityTone.INFO,
-    )
     val effectiveScenario = when {
         scenario == MonitoringScenario.FACE_TRACKING_UNAVAILABLE || pendingIssue == VisibilityIssue.FACE_UNAVAILABLE ->
             MonitoringScenario.FACE_TRACKING_UNAVAILABLE

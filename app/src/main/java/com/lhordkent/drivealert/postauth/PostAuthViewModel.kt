@@ -45,10 +45,12 @@ class PostAuthViewModel(
     initialState: PostAuthUiState = seedState(),
     private val todayProvider: () -> LocalDate = LocalDate::now,
     private val historyRepository: HistoryRepository? = null,
+    private val userViewPreferenceStore: UserViewPreferenceStore? = null,
 ) : ViewModel() {
     private var accountEmail: String = ""
     private var boundDriverUserId: String? = null
     private var boundProfileUserId: String? = null
+    private var selectedViewForBoundAccount: UserView? = null
     private var boundConnectionUserId: String? = null
     private var localDataJob: Job? = null
     private var profileJob: Job? = null
@@ -96,6 +98,7 @@ class PostAuthViewModel(
 
     fun bindCloudProfile(userId: String, displayName: String, email: String) {
         val repository = userProfileRepository ?: return
+        if (boundProfileUserId != userId) selectedViewForBoundAccount = userViewPreferenceStore?.read(userId)
         boundProfileUserId = userId
         profileJob?.cancel()
         state = state.copy(isProfileLoading = true)
@@ -117,7 +120,7 @@ class PostAuthViewModel(
                                 profileLastName = profile.lastName,
                                 profilePhoneNumber = profile.phoneNumber.orEmpty(),
                                 userRole = profile.userRole,
-                                activeView = if (profile.userRole == UserRole.TRUSTED_CONTACT) UserView.TRUSTED_CONTACT else UserView.DRIVER,
+                                activeView = restoredUserView(profile.userRole, selectedViewForBoundAccount),
                                 connectionCode = profile.connectionCode,
                                 isProfileLoading = false,
                                 profileErrorMessage = null,
@@ -386,7 +389,9 @@ class PostAuthViewModel(
 
     fun chooseView(view: UserView) {
         state = state.copy(activeView = view)
-        val userId = boundDriverUserId ?: return
+        val userId = boundProfileUserId ?: boundDriverUserId ?: return
+        selectedViewForBoundAccount = view
+        userViewPreferenceStore?.write(userId, view)
         val repository = userProfileRepository ?: return
         val selectedRole = when (view) {
             UserView.DRIVER -> UserRole.DRIVER
@@ -394,7 +399,7 @@ class PostAuthViewModel(
         }
         viewModelScope.launch {
             runCatching { repository.selectRole(userId, selectedRole) }
-                .onSuccess { role -> state = state.copy(userRole = role) }
+                .onSuccess { role -> if (boundProfileUserId == userId) state = state.copy(userRole = role) }
         }
     }
 
@@ -619,6 +624,7 @@ class PostAuthViewModel(
         sharedViewStateJobs.clear()
         boundDriverUserId = null
         boundProfileUserId = null
+        selectedViewForBoundAccount = null
         boundConnectionUserId = null
         accountEmail = ""
         state = if (alertRepository == null) seedState() else PostAuthUiState()
@@ -678,6 +684,7 @@ class PostAuthViewModelFactory(
     private val stageSyncRepository: StageSyncRepository,
     private val sharedStage3Repository: SharedStage3Repository,
     private val historyRepository: HistoryRepository? = null,
+    private val userViewPreferenceStore: UserViewPreferenceStore? = null,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -691,6 +698,7 @@ class PostAuthViewModelFactory(
             stageSyncRepository = stageSyncRepository,
             sharedStage3Repository = sharedStage3Repository,
             historyRepository = historyRepository,
+            userViewPreferenceStore = userViewPreferenceStore,
             initialState = PostAuthUiState(isLocalDataLoading = true),
         ) as T
     }

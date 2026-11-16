@@ -27,13 +27,15 @@ class CameraVisibilityScreenTest {
         val scenario = mutableStateOf(MonitoringScenario.NORMAL)
         val lowLight = mutableStateOf(false)
         val stream = mutableStateOf(StreamConnectionState.CONNECTED)
+        val lighting = mutableStateOf<FaceLightingAssessment?>(null)
         composeRule.setContent {
             DriveAlertTheme {
                 MonitoringPreviewScreen(
                     scenario = scenario.value,
                     monitoring = ActiveMonitoringState(isActive = true),
                     onExit = {},
-                    cameraVisibility = cameraVisibilityPresentation(stream.value, scenario.value, true, lowLight.value),
+                    cameraVisibility = cameraVisibilityPresentation(stream.value, scenario.value, true, lowLight.value,
+                        lighting = lighting.value),
                 )
             }
         }
@@ -49,10 +51,19 @@ class CameraVisibilityScreenTest {
         composeRule.onNodeWithText("Camera visibility").performScrollTo()
         capture("low-light")
 
-        // A confirmed dark scene with no face is treated as a dark or covered camera, not a missing driver.
-        composeRule.runOnIdle { scenario.value = MonitoringScenario.FACE_TRACKING_UNAVAILABLE }
+        composeRule.runOnIdle { lighting.value = FaceLightingAssessment(0, poorSinceMs = 0) }
+        composeRule.onNodeWithText("Checking visibility").assertIsDisplayed()
+        composeRule.runOnIdle {
+            lighting.value = FaceLightingAssessment(2_000, LightingQuality.INSUFFICIENT, 10.0, 0.0, poorSinceMs = 0)
+        }
         composeRule.onNodeWithText("Insufficient lighting").assertIsDisplayed()
-        composeRule.onNodeWithText("too dark or covered", substring = true).assertIsDisplayed()
+        capture("confirmed-poor-light")
+
+        // Missing face must use the existing face warning, even in a dim cabin
+        // with a previously confirmed lighting problem.
+        composeRule.runOnIdle { scenario.value = MonitoringScenario.FACE_TRACKING_UNAVAILABLE }
+        composeRule.onNodeWithText("Face not visible").assertIsDisplayed()
+        composeRule.onNodeWithText("Low light may", substring = true).assertIsDisplayed()
         capture("dark-face-missing")
 
         composeRule.runOnIdle { lowLight.value = false }
@@ -69,6 +80,7 @@ class CameraVisibilityScreenTest {
             stream.value = StreamConnectionState.CONNECTED
             scenario.value = MonitoringScenario.NORMAL
             lowLight.value = false
+            lighting.value = null
         }
         composeRule.onNodeWithText("Clear view").assertIsDisplayed()
         composeRule.onNodeWithText("Monitoring active").performScrollTo().assertIsDisplayed()

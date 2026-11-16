@@ -265,7 +265,7 @@ fun CalibrationScreen(
             when {
                 !vision.calibrationInProgress && vision.activeCalibration != null -> "Calibrated"
                 vision.calibrationInProgress && acknowledged && countdown > 0 -> "Preparing"
-                vision.calibrationInProgress && (!vision.driverTracking.locked || vision.lighting.quality != LightingQuality.USABLE || vision.detection == null) -> "Paused"
+                vision.calibrationInProgress && (!vision.driverTracking.locked || (vision.lighting.quality != LightingQuality.USABLE && !vision.calibrationLightingGraceActive) || vision.detection == null) -> "Paused"
                 vision.calibrationInProgress -> "In progress"
                 else -> "Not calibrated"
             },
@@ -306,7 +306,7 @@ fun CalibrationScreen(
                 PrimaryButton(if (acknowledged && countdown > 0) { if (countdownStarted) "Get ready: $countdown" else "Starting audio countdown…" } else "Waiting for clear driver visibility", {}, enabled = false)
             else -> PrimaryButton(when {
                 !vision.driverTracking.locked -> "Waiting for driver tracking"
-                vision.lighting.quality != LightingQuality.USABLE -> "Waiting for usable lighting"
+                vision.lighting.quality != LightingQuality.USABLE && !vision.calibrationLightingGraceActive -> "Waiting for usable lighting"
                 else -> "Collecting valid measurements"
             }, {}, enabled = false)
         }
@@ -344,6 +344,7 @@ private fun LightingGuidance(vision: DriverVisionUiState) {
                 "Restore camera visibility when safe. Calibration and drowsiness assessment pause until facial lighting recovers."
             else if (!vision.driverTracking.locked)
                 "Keep one face inside the driver area. Measurements pause until driver tracking returns."
+            else if (vision.calibrationLightingGraceActive) "Keep your face visible while lighting is checked."
             else "Keep your face visible. Checking lighting before collecting measurements.",
             style = MaterialTheme.typography.bodySmall, color = TextSecondary,
         )

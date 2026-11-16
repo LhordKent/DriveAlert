@@ -13,16 +13,29 @@ data class FaceLightingAssessment(
     val luminance: Double? = null,
     val contrast: Double? = null,
     val recovering: Boolean = false,
+    val poorSinceMs: Long? = null,
 ) {
     val statusLabel: String get() = when {
         recovering -> "Checking lighting"
         quality == LightingQuality.USABLE -> "Usable"
         quality == LightingQuality.INSUFFICIENT -> "Insufficient lighting"
+        timestampMs != null -> "Checking lighting"
         else -> "Waiting for lighting sample"
     }
 
     fun allowsAssessment(nowMs: Long): Boolean = quality == LightingQuality.USABLE &&
         timestampMs?.let { nowMs - it in 0L..FRESHNESS_MS } == true
+
+    fun hasConfirmedPoorLighting(nowMs: Long): Boolean = quality == LightingQuality.INSUFFICIENT &&
+        !recovering && poorSinceMs != null && timestampMs?.let { nowMs - it in 0L..FRESHNESS_MS } == true
+
+    fun hasFreshGoodSample(nowMs: Long): Boolean = poorSinceMs == null &&
+        (quality == LightingQuality.USABLE || recovering) &&
+        timestampMs?.let { nowMs - it in 0L..FRESHNESS_MS } == true
+
+    /** A delayed speech request cannot outlive the particular dark interval that qualified it. */
+    fun matchesPoorEpisode(nowMs: Long, expectedSinceMs: Long?): Boolean =
+        expectedSinceMs != null && poorSinceMs == expectedSinceMs && hasConfirmedPoorLighting(nowMs)
 
     companion object {
         const val FRESHNESS_MS = 1_000L
@@ -31,17 +44,27 @@ data class FaceLightingAssessment(
 
 /** Pixel-quality heuristic, not an ML confidence score. Thresholds need camera validation. */
 class FaceLightingTracker(
-    private val severeDarkThreshold: Double = 25.0,
-    private val darkThreshold: Double = 45.0,
+    private val severeDarkThreshold: Double = 15.0,
+    private val darkThreshold: Double = 35.0,
     // One binary threshold: all fresh samples not classified poor can establish
     // usability. Separate admission/release thresholds previously left a dead zone.
     private val poorContrastThreshold: Double = 20.0,
     private val recoveryMs: Long = 2_000L,
     private val resumeWindowMs: Long = 2_000L,
+    private val poorConfirmationMs: Long = 2_000L,
 ) {
     private var latest = FaceLightingAssessment()
     private var usableSinceMs: Long? = null
     private var interrupted = false
+    private var poorSinceMs: Long? = null
+    private var usableBeforePoor = false
+    private var confirmedDarkness = false
+
+    init {
+        require(severeDarkThreshold >= 0 && severeDarkThreshold <= darkThreshold && darkThreshold <= 255)
+        require(poorContrastThreshold in 0.0..255.0)
+        require(recoveryMs >= 0 && resumeWindowMs >= 0 && poorConfirmationMs >= 0)
+    }
 
     fun update(nowMs: Long, sample: FaceLightingSample?): FaceLightingAssessment {
         if (sample == null || nowMs - sample.timestampMs !in 0L..FaceLightingAssessment.FRESHNESS_MS) {
@@ -49,6 +72,8 @@ class FaceLightingTracker(
             // Only a NEW, explicitly usable sample can restore a recent usable decision.
             interrupted = true
             usableSinceMs = null
+            poorSinceMs = null
+            usableBeforePoor = false
             return FaceLightingAssessment()
         }
         require(sample.luminance.isFinite() && sample.luminance in 0.0..255.0)
@@ -71,17 +96,38 @@ class FaceLightingTracker(
         var quality = latest.quality
         when {
             poor -> {
-                quality = LightingQuality.INSUFFICIENT
+                val since = poorSinceMs ?: sample.timestampMs.also {
+                    poorSinceMs = it
+                    usableBeforePoor = quality == LightingQuality.USABLE
+                }
+                // A dark crop pauses assessment immediately. A sustained run is
+                // needed before attributing the problem to facial lighting.
+                quality = if (sample.timestampMs - since >= poorConfirmationMs) {
+                    confirmedDarkness = true
+                    usableBeforePoor = false
+                    LightingQuality.INSUFFICIENT
+                } else LightingQuality.UNKNOWN
                 usableSinceMs = null
             }
             usable -> {
+                if (usableBeforePoor && !confirmedDarkness) quality = LightingQuality.USABLE
+                poorSinceMs = null
+                usableBeforePoor = false
                 val since = usableSinceMs ?: sample.timestampMs.also { usableSinceMs = it }
-                if (sample.timestampMs - since >= recoveryMs) quality = LightingQuality.USABLE
+                quality = when {
+                    quality == LightingQuality.USABLE || sample.timestampMs - since >= recoveryMs -> {
+                        confirmedDarkness = false
+                        LightingQuality.USABLE
+                    }
+                    confirmedDarkness -> LightingQuality.INSUFFICIENT
+                    else -> LightingQuality.UNKNOWN
+                }
             }
         }
         latest = FaceLightingAssessment(
             sample.timestampMs, quality, sample.luminance, sample.contrast,
             recovering = quality != LightingQuality.USABLE && usableSinceMs != null,
+            poorSinceMs = poorSinceMs,
         )
         return latest
     }
@@ -90,36 +136,33 @@ class FaceLightingTracker(
         latest = FaceLightingAssessment()
         usableSinceMs = null
         interrupted = false
+        poorSinceMs = null
+        usableBeforePoor = false
+        confirmedDarkness = false
     }
 }
 
-/** Missing-face darkness is only a possible cause; it never enables assessment. */
+/** Without a selected face, ambient darkness cannot establish the cause of face loss. */
 fun lightingVisibilityIssue(
     faceDetected: Boolean,
     lighting: FaceLightingAssessment,
-    sceneDark: Boolean,
-    detectedFaceCount: Int = if (faceDetected) 1 else 0,
 ): VisibilityIssue? = when {
-    !faceDetected && detectedFaceCount == 0 && sceneDark -> VisibilityIssue.INSUFFICIENT_LIGHTING
     !faceDetected -> VisibilityIssue.FACE_UNAVAILABLE
     lighting.quality == LightingQuality.INSUFFICIENT && !lighting.recovering -> VisibilityIssue.INSUFFICIENT_LIGHTING
     else -> null
 }
 
-/** Resolve one issue for a frame; darkness can explain a missing driver, but a
- * passenger/out-of-area face must not turn association loss into a light claim. */
+/** Resolve the current driver issue without guessing why the face disappeared. */
 fun monitoringVisibilityIssue(
     faceDetected: Boolean,
     lighting: FaceLightingAssessment,
-    sceneDark: Boolean,
     tracking: DriverTrackingState,
     alignmentConfirmed: Boolean,
     regionalVisibility: RegionalVisibility,
 ): VisibilityIssue? {
-    val lightingIssue = lightingVisibilityIssue(faceDetected, lighting, sceneDark, tracking.detectedFaceCount)
+    val lightingIssue = lightingVisibilityIssue(faceDetected, lighting)
     return when {
         !alignmentConfirmed -> VisibilityIssue.FACE_UNAVAILABLE
-        lightingIssue == VisibilityIssue.INSUFFICIENT_LIGHTING -> lightingIssue
         !tracking.locked -> VisibilityIssue.FACE_UNAVAILABLE
         lightingIssue != null -> lightingIssue
         lighting.quality != LightingQuality.USABLE -> null
