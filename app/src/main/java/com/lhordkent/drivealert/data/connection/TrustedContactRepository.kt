@@ -27,12 +27,6 @@ interface TrustedContactRepository {
         driverEmail: String,
         targetCode: String,
     )
-    suspend fun sendDriverRequest(
-        trustedContactUserId: String,
-        trustedContactName: String,
-        trustedContactEmail: String,
-        targetCode: String,
-    )
     suspend fun acceptRequest(connectionId: String)
     suspend fun declineRequest(connectionId: String)
     suspend fun cancelRequest(connectionId: String)
@@ -48,6 +42,7 @@ data class ConnectionCodeTarget(
 class ConnectionCodeNotFoundException : Exception()
 class SelfConnectionException : Exception()
 class ExistingConnectionException : Exception()
+class ConnectionChangedException : Exception()
 
 class FirestoreTrustedContactRepository(
     private val firestore: FirebaseFirestore,
@@ -98,33 +93,6 @@ class FirestoreTrustedContactRepository(
         driverName: String,
         driverEmail: String,
         targetCode: String,
-    ) = sendRequest(
-        requesterUserId = driverUserId,
-        requesterName = driverName,
-        requesterEmail = driverEmail,
-        targetCode = targetCode,
-        requesterSide = RequesterSide.DRIVER,
-    )
-
-    override suspend fun sendDriverRequest(
-        trustedContactUserId: String,
-        trustedContactName: String,
-        trustedContactEmail: String,
-        targetCode: String,
-    ) = sendRequest(
-        requesterUserId = trustedContactUserId,
-        requesterName = trustedContactName,
-        requesterEmail = trustedContactEmail,
-        targetCode = targetCode,
-        requesterSide = RequesterSide.TRUSTED_CONTACT,
-    )
-
-    private suspend fun sendRequest(
-        requesterUserId: String,
-        requesterName: String,
-        requesterEmail: String,
-        targetCode: String,
-        requesterSide: RequesterSide,
     ) {
         val normalized = ConnectionCode.normalize(targetCode)
         if (!ConnectionCode.isValid(normalized)) throw ConnectionCodeNotFoundException()
@@ -133,19 +101,19 @@ class FirestoreTrustedContactRepository(
             if (!codeSnapshot.exists() || codeSnapshot.getBoolean("active") != true) {
                 throw ConnectionCodeNotFoundException()
             }
-            val targetUserId = codeSnapshot.getString("ownerUserId") ?: throw ConnectionCodeNotFoundException()
-            if (targetUserId == requesterUserId) throw SelfConnectionException()
+            val trustedContactUserId = codeSnapshot.getString("ownerUserId") ?: throw ConnectionCodeNotFoundException()
+            if (trustedContactUserId == driverUserId) throw SelfConnectionException()
             val targetName = codeSnapshot.getString("displayName").orEmpty().ifBlank { "DriveAlert user" }
-            val driverUserId = if (requesterSide == RequesterSide.DRIVER) requesterUserId else targetUserId
-            val trustedContactUserId = if (requesterSide == RequesterSide.TRUSTED_CONTACT) requesterUserId else targetUserId
             val connectionId = "${driverUserId}__${trustedContactUserId}"
             val reference = connections.document(connectionId)
             val existing = transaction.get(reference)
-            if (existing.exists() && existing.getString("status") in listOf(ConnectionStatus.PENDING.name, ConnectionStatus.APPROVED.name)) {
+            val oldContactInvitation = existing.getString("requestedByUserId") == trustedContactUserId
+            val status = existing.getString("status")
+            if (status == ConnectionStatus.APPROVED.name || (status == ConnectionStatus.PENDING.name && !oldContactInvitation)) {
                 throw ExistingConnectionException()
             }
             val requestState = mapOf(
-                "requestedByUserId" to requesterUserId,
+                "requestedByUserId" to driverUserId,
                 "targetConnectionCode" to normalized,
                 "status" to ConnectionStatus.PENDING.name,
                 "requestedAt" to FieldValue.serverTimestamp(),
@@ -154,16 +122,19 @@ class FirestoreTrustedContactRepository(
                 "revokedAt" to null,
             )
             if (existing.exists()) {
-                transaction.update(reference, requestState)
+                val updatedState = if (oldContactInvitation) {
+                    requestState + mapOf("driverName" to driverName, "driverEmail" to driverEmail)
+                } else requestState
+                transaction.update(reference, updatedState)
             } else {
                 transaction.set(reference, mapOf(
                     "connectionId" to connectionId,
                     "driverUserId" to driverUserId,
                     "trustedContactUserId" to trustedContactUserId,
-                    "driverName" to if (requesterSide == RequesterSide.DRIVER) requesterName else targetName,
-                    "driverEmail" to if (requesterSide == RequesterSide.DRIVER) requesterEmail else "",
-                    "trustedContactName" to if (requesterSide == RequesterSide.TRUSTED_CONTACT) requesterName else targetName,
-                    "trustedContactEmail" to if (requesterSide == RequesterSide.TRUSTED_CONTACT) requesterEmail else "",
+                    "driverName" to driverName,
+                    "driverEmail" to driverEmail,
+                    "trustedContactName" to targetName,
+                    "trustedContactEmail" to "",
                 ) + requestState)
             }
         }.await()
@@ -171,8 +142,23 @@ class FirestoreTrustedContactRepository(
 
     override suspend fun acceptRequest(connectionId: String) = updateStatus(connectionId, ConnectionStatus.APPROVED, "approvedAt")
     override suspend fun declineRequest(connectionId: String) = updateStatus(connectionId, ConnectionStatus.DECLINED, "declinedAt")
-    override suspend fun cancelRequest(connectionId: String) = updateStatus(connectionId, ConnectionStatus.REVOKED, "revokedAt")
-    override suspend fun revokeConnection(connectionId: String) = updateStatus(connectionId, ConnectionStatus.REVOKED, "revokedAt")
+    override suspend fun cancelRequest(connectionId: String) = revokeFrom(connectionId, ConnectionStatus.PENDING)
+    override suspend fun revokeConnection(connectionId: String) = revokeFrom(connectionId, ConnectionStatus.APPROVED)
+
+    private suspend fun revokeFrom(connectionId: String, expectedStatus: ConnectionStatus) {
+        val reference = connections.document(connectionId)
+        firestore.runTransaction { transaction ->
+            // Cancel and disconnect both write REVOKED. Check the starting state in the
+            // same transaction so a cancel cannot disconnect a just-approved contact.
+            if (transaction.get(reference).getString("status") != expectedStatus.name) {
+                throw ConnectionChangedException()
+            }
+            transaction.update(reference, mapOf(
+                "status" to ConnectionStatus.REVOKED.name,
+                "revokedAt" to FieldValue.serverTimestamp(),
+            ))
+        }.await()
+    }
 
     suspend fun updateProjection(driverUserId: String, values: List<TrustedContactConnection>) {
         projectionDao.upsertAll(values.map {
@@ -222,5 +208,4 @@ class FirestoreTrustedContactRepository(
         const val CONNECTION_CODES_COLLECTION = "connectionCodes"
     }
 
-    private enum class RequesterSide { DRIVER, TRUSTED_CONTACT }
 }

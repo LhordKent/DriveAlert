@@ -38,7 +38,6 @@ import com.lhordkent.drivealert.postauth.ConnectionInviteUiState
 import com.lhordkent.drivealert.postauth.Contact
 import com.lhordkent.drivealert.postauth.RequestDirection
 import com.lhordkent.drivealert.postauth.Stage3SyncRecord
-import com.lhordkent.drivealert.postauth.UserView
 import com.lhordkent.drivealert.ui.theme.Border
 import com.lhordkent.drivealert.ui.theme.DriveRed
 import com.lhordkent.drivealert.ui.theme.Surface
@@ -46,16 +45,16 @@ import com.lhordkent.drivealert.ui.theme.TextMuted
 import com.lhordkent.drivealert.ui.theme.TextPrimary
 import com.lhordkent.drivealert.ui.theme.TextSecondary
 import java.time.format.DateTimeFormatter
-import java.time.Duration
+import java.time.format.FormatStyle
+
+internal val sharedAlertDateTimeFormatter: DateTimeFormatter
+    get() = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
 
 @Composable
 fun DriverContactsScreen(
     contacts: List<Contact>,
-    incoming: List<ConnectionRequest>,
     outgoing: List<ConnectionRequest>,
     onInvite: () -> Unit,
-    onAccept: (String) -> Unit,
-    onDecline: (String) -> Unit,
     onCancel: (String) -> Unit,
     onRemove: (String) -> Unit,
     isLoading: Boolean = false,
@@ -63,12 +62,11 @@ fun DriverContactsScreen(
     cloudErrorMessage: String? = null,
 ) {
     var pendingRemove by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingAccept by rememberSaveable { mutableStateOf<String?>(null) }
     CloudErrorMessage(cloudErrorMessage)
     PrimaryButton("Invite a Trusted Contact", onInvite)
     Spacer(Modifier.height(26.dp))
     SectionTitle("Approved")
-    if (isLoading && contacts.isEmpty() && incoming.isEmpty() && outgoing.isEmpty()) {
+    if (isLoading && contacts.isEmpty() && outgoing.isEmpty()) {
         LoadingMessage("Loading trusted contacts…")
     } else if (contacts.isEmpty() && cloudErrorMessage == null) {
         EmptyState("No approved contacts", "Invite someone you trust to receive future eligible Stage 3 transition or persistence records.")
@@ -80,18 +78,6 @@ fun DriverContactsScreen(
                 }
             }
         }
-    }
-    Spacer(Modifier.height(20.dp))
-    SectionTitle("Requests to you")
-    if (!isLoading && incoming.isEmpty() && cloudErrorMessage == null) {
-        Text("No incoming requests", style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(vertical = 16.dp))
-    } else incoming.forEach { request ->
-        RequestRow(
-            request,
-            actionInProgress = request.id in actionInProgressIds,
-            onAccept = { pendingAccept = request.id },
-            onDecline = { onDecline(request.id) },
-        )
     }
     Spacer(Modifier.height(20.dp))
     SectionTitle("Sent requests")
@@ -113,22 +99,12 @@ fun DriverContactsScreen(
             onDismiss = { pendingRemove = null },
         )
     }
-    pendingAccept?.let { id ->
-        ConfirmDialog(
-            title = "Approve Trusted Contact?",
-            body = "This approves the connection and future eligible Stage 3 transition or persistence records. Earlier Driver history will not be shared.",
-            confirmLabel = "Approve",
-            onConfirm = { onAccept(id); pendingAccept = null },
-            onDismiss = { pendingAccept = null },
-        )
-    }
 }
 
 @Composable
 fun TrustedDriversScreen(
     drivers: List<ConnectedDriver>,
     onDriverSelected: (String) -> Unit,
-    onInvite: () -> Unit,
     onRemove: (String) -> Unit,
     isLoading: Boolean = false,
     actionInProgressIds: Set<String> = emptySet(),
@@ -141,8 +117,6 @@ fun TrustedDriversScreen(
         style = MaterialTheme.typography.bodyLarge,
         color = TextSecondary,
     )
-    Spacer(Modifier.height(18.dp))
-    SecondaryButton("Invite a Driver", onInvite)
     Spacer(Modifier.height(24.dp))
     if (isLoading && drivers.isEmpty()) {
         LoadingMessage("Loading connected Drivers…")
@@ -193,10 +167,8 @@ fun TrustedDriversScreen(
 @Composable
 fun RequestsScreen(
     incoming: List<ConnectionRequest>,
-    outgoing: List<ConnectionRequest>,
     onAccept: (String) -> Unit,
     onDecline: (String) -> Unit,
-    onCancel: (String) -> Unit,
     isLoading: Boolean = false,
     actionInProgressIds: Set<String> = emptySet(),
     cloudErrorMessage: String? = null,
@@ -212,7 +184,7 @@ fun RequestsScreen(
     if (isLoading && incoming.isEmpty()) {
         LoadingMessage("Loading requests…")
     } else if (incoming.isEmpty() && cloudErrorMessage == null) {
-        EmptyState("No pending requests", "New connection requests will appear here.")
+        EmptyState("No pending requests", "Share the connection code from your Account screen with a Driver so they can invite you.")
     } else incoming.forEach { request ->
         RequestRow(
             request,
@@ -220,13 +192,6 @@ fun RequestsScreen(
             onAccept = { onAccept(request.id) },
             onDecline = { onDecline(request.id) },
         )
-    }
-    Spacer(Modifier.height(24.dp))
-    SectionTitle("Sent requests")
-    if (!isLoading && outgoing.isEmpty() && cloudErrorMessage == null) {
-        Text("No sent requests", style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(vertical = 16.dp))
-    } else outgoing.forEach { request ->
-        RequestRow(request, actionInProgress = request.id in actionInProgressIds, onCancel = { onCancel(request.id) })
     }
     Spacer(Modifier.height(24.dp))
 }
@@ -294,7 +259,6 @@ private fun ConnectionIdentityRow(name: String, email: String, status: String, a
 
 @Composable
 fun InviteConnectionScreen(
-    targetView: UserView,
     inviteState: ConnectionInviteUiState,
     onLookup: (String) -> Unit,
     onSend: () -> Unit,
@@ -303,7 +267,6 @@ fun InviteConnectionScreen(
     senderName: String = "",
     senderEmail: String = "",
 ) {
-    val isDriverView = targetView == UserView.DRIVER
     var code by rememberSaveable { mutableStateOf("") }
     val focus = LocalFocusManager.current
     LaunchedEffect(inviteState.requestSent) {
@@ -317,15 +280,11 @@ fun InviteConnectionScreen(
         onLookup(code)
     }
     ScrollableScreen(
-        title = if (isDriverView) "Invite a Trusted Contact" else "Invite a Driver",
+        title = "Invite a Trusted Contact",
         onBack = onBack,
     ) {
         Text(
-            if (isDriverView) {
-                "Enter the connection code shown in the other person's DriveAlert Account screen. After approval, future eligible Stage 3 records can be shared."
-            } else {
-                "Enter a Driver's connection code. They must approve before future eligible Stage 3 records can be shared."
-            },
+            "Enter the connection code from your Trusted Contact’s DriveAlert Account screen. They must accept before future eligible Stage 3 records can be shared.",
             style = MaterialTheme.typography.bodyLarge,
             color = TextSecondary,
         )
@@ -369,7 +328,7 @@ fun InviteConnectionScreen(
                 Text(inviteState.targetDisplayName.orEmpty(), style = MaterialTheme.typography.titleLarge, color = TextPrimary)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    if (isDriverView) "This person will be invited as your Trusted Contact." else "This person will be invited to connect as a Driver.",
+                    "This person will be invited as your Trusted Contact.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary,
                 )
@@ -400,7 +359,6 @@ fun SharedRecordsScreen(
     historyBusy: Boolean = false,
     historyError: String? = null,
     historyMessage: String? = null,
-    onEventSelected: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     ScrollableScreen(title = "Shared Alerts", onBack = onBack) {
@@ -425,7 +383,7 @@ fun SharedRecordsScreen(
         } else if (driver.sharedRecords.isEmpty() && driver.sharedRecordsErrorMessage == null) {
             EmptyState("No shared records", "Future eligible Stage 3 transition or persistence records will appear after they are received.")
         } else driver.sharedRecords.sortedByDescending { it.receivedAt ?: it.occurredAt }.forEach { record ->
-            Stage3SyncRecordRow(record, onClick = { onEventSelected(record.id) })
+            Stage3SyncRecordRow(record)
             HorizontalDivider(color = Border)
         }
         Spacer(Modifier.height(24.dp))
@@ -433,32 +391,13 @@ fun SharedRecordsScreen(
 }
 
 @Composable
-private fun Stage3SyncRecordRow(record: Stage3SyncRecord, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(vertical = 14.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
-                Text(record.kind.label, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                Text("Warning ${record.occurredAt.format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                record.receivedAt?.let { received ->
-                    Text("Received ${received.format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                }
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                SharingPill(record.sharingState)
-                if (record.isDelayedSynchronization()) {
-                    Spacer(Modifier.height(4.dp))
-                    StatusPill("Delayed sync", StatusTone.INFO)
-                }
-            }
-        }
+private fun Stage3SyncRecordRow(record: Stage3SyncRecord) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
+        Text(record.occurredAt.format(sharedAlertDateTimeFormatter), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
         Spacer(Modifier.height(7.dp))
-        Text("${record.eventCount} event${if (record.eventCount == 1) "" else "s"} counted in this period", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-        Text(record.signs.joinToString { it.label }, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text(record.signs.joinToString { it.label }.ifBlank { "No recognized signs" }, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
     }
 }
-
-private fun Stage3SyncRecord.isDelayedSynchronization(): Boolean =
-    receivedAt?.let { Duration.between(occurredAt, it).toMinutes() > 5 } == true
 
 /** Tells the sender exactly what the other person will see; nothing is typed by the sender. */
 internal fun connectionSharingNotice(name: String, email: String): String {

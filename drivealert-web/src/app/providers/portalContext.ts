@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { HistoryController } from '../../features/settings/useHistoryRetention'
-import type { ConnectionRequestView, DriverRecordState, PortalError, TrustedContactConnection, UserProfile } from '../../models/domain'
+import type { DriverRecordState, PortalError, TrustedContactConnection, UserProfile } from '../../models/domain'
 
 export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 export interface PortalContextValue {
@@ -12,8 +12,7 @@ export interface PortalContextValue {
   connectionsStatus: LoadStatus
   connectionsError: PortalError | null
   approvedDrivers: TrustedContactConnection[]
-  incomingRequests: ConnectionRequestView[]
-  outgoingRequests: ConnectionRequestView[]
+  incomingRequests: TrustedContactConnection[]
   recordsByDriver: Record<string, DriverRecordState>
   markDriverViewed: (driverUid: string) => Promise<void>
   refreshProfile: () => void

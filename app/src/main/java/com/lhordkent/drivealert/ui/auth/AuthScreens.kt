@@ -223,7 +223,7 @@ fun CreateAccountScreen(
         )
         Spacer(Modifier.height(12.dp))
         AuthTextField(
-            phone, { phone = it }, "Phone number (optional)", Modifier.testTag(AuthTestTags.PHONE),
+            phone, { phone = it }, "Phone number", Modifier.testTag(AuthTestTags.PHONE),
             phoneError, !state.isLoading,
             KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next), nextAction,
         )

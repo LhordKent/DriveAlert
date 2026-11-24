@@ -10,9 +10,11 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.WorkManager
 import androidx.work.WorkInfo
 import com.google.firebase.FirebaseApp
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Source
 import com.lhordkent.drivealert.DriveAlertApplication
 import com.lhordkent.drivealert.auth.*
@@ -22,6 +24,8 @@ import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.data.repository.*
 import com.lhordkent.drivealert.data.sync.*
 import com.lhordkent.drivealert.ui.DriveAlertApp
+import com.lhordkent.drivealert.ui.postauth.PostAuthTestTags
+import com.lhordkent.drivealert.ui.postauth.sharedAlertDateTimeFormatter
 import com.lhordkent.drivealert.ui.theme.DriveAlertTheme
 import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
@@ -33,6 +37,7 @@ import org.junit.rules.TestName
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Date
 import java.util.UUID
 
 /** Runs real Room, Firebase SDKs/rules, WorkManager and Compose without camera/BLE input. */
@@ -57,7 +62,7 @@ class SoftwareIntegrationAuditTest {
     private val password = "AuditPassword123!"
     private val fixtureFile get() = File(context.getExternalFilesDir(null), "software-integration-fixtures.json")
 
-    @Before fun prepare() = runBlocking {
+    @Before fun prepare(): Unit = runBlocking {
         Assume.assumeTrue("Requires the isolated audit AVD and Firebase emulators",
             InstrumentationRegistry.getArguments().getString("auditSerial")=="emulator-5556")
         // This isolated AVD is the only device on which this test is authorized to run.
@@ -95,8 +100,14 @@ class SoftwareIntegrationAuditTest {
                 initialState = PostAuthUiState(userRole=UserRole.DRIVER, isProfileLoading=false, driverSetupComplete=true))
             contactVm = PostAuthViewModel(trustedContactRepository = contactConnections,
                 sharedStage3Repository = FirestoreSharedStage3Repository(contactCloud),
-                initialState = PostAuthUiState(userRole=UserRole.TRUSTED_CONTACT, isProfileLoading=false))
+                initialState = PostAuthUiState(
+                    userRole = UserRole.TRUSTED_CONTACT,
+                    activeView = UserView.TRUSTED_CONTACT,
+                    isProfileLoading = false,
+                ))
             driverVm.bindLocalData(driverUid)
+            driverVm.setAccountEmail(driverEmail)
+            driverVm.setProfileDisplayName("Integration Driver")
             driverVm.bindConnections(driverUid)
             driverVm.bindStageSyncRecords(driverUid)
             contactVm.bindConnections(contactUid)
@@ -112,12 +123,23 @@ class SoftwareIntegrationAuditTest {
                             user=AuthenticatedUser(uid, if(contact) "Integration Contact" else "Integration Driver",
                                 if(contact) contactEmail else driverEmail), entry=AuthenticationEntry.RESTORED),
                         postAuthState=vm.state,
+                        onLookupConnectionCode=driverVm::lookupConnectionCode,
+                        onSendTrustedContactRequest=driverVm::sendTrustedContactRequest,
+                        onClearConnectionInvite=driverVm::clearConnectionInvite,
                         onAcceptTrustedIncomingRequest=contactVm::acceptTrustedIncomingRequest,
-                        onAcceptDriverIncomingRequest=driverVm::acceptDriverIncomingRequest)
+                        onDeclineTrustedIncomingRequest=contactVm::declineTrustedIncomingRequest)
                 }
             }
         }
         compose.waitUntil(20_000) { !driverVm.state.driverConnectionsLoading && !contactVm.state.trustedConnectionsLoading }
+        // The first listener result can come from disk. Confirm both test accounts
+        // are online before timing how quickly their request lists update.
+        awaitServerRead {
+            driverCloud.collection("trustedContactConnections").whereEqualTo("driverUserId", driverUid).get(Source.SERVER).await()
+        }
+        awaitServerRead {
+            contactCloud.collection("trustedContactConnections").whereEqualTo("trustedContactUserId", contactUid).get(Source.SERVER).await()
+        }
     }
 
     @After fun finish() = runBlocking {
@@ -165,7 +187,7 @@ class SoftwareIntegrationAuditTest {
     }
 
     @Test fun it06_requestAcceptanceReachesBothLiveMobileViews() = runBlocking {
-        sendRequest()
+        inviteFromDriverScreen()
         compose.waitUntil(15_000) { contactVm.state.trustedIncomingRequests.isNotEmpty() && driverVm.state.driverOutgoingRequests.isNotEmpty() }
         compose.runOnIdle { selectedContact.value=true }
         waitForNode(hasText("Connected Drivers"))
@@ -183,6 +205,248 @@ class SoftwareIntegrationAuditTest {
         compose.onNodeWithText("Integration Contact").performScrollTo().assertIsDisplayed()
         assertEquals("APPROVED",driverCloud.collection("trustedContactConnections").document(connectionId()).get(Source.SERVER).await().getString("status"))
         recordPassed()
+    }
+
+    @Test fun it11_driverCanResendAfterTrustedContactDeclines() = runBlocking {
+        inviteFromDriverScreen()
+        compose.runOnIdle { selectedContact.value = true }
+        waitForNode(hasText("Connected Drivers"))
+        compose.onNodeWithText("Invite a Driver").assertDoesNotExist()
+        compose.onNodeWithText("Requests", substring = true, useUnmergedTree = true).performClick()
+        waitForNode(hasText("Integration Driver"))
+        compose.onNodeWithText("Sent requests").assertDoesNotExist()
+        compose.onNodeWithText("Decline").performScrollTo().performClick()
+        compose.waitUntil(20_000) {
+            contactVm.state.trustedIncomingRequests.isEmpty() && driverVm.state.driverOutgoingRequests.isEmpty()
+        }
+        val reference = driverCloud.collection("trustedContactConnections").document(connectionId())
+        assertEquals("DECLINED", reference.get(Source.SERVER).await().getString("status"))
+
+        compose.runOnIdle { selectedContact.value = false }
+        inviteFromDriverScreen()
+        val pending = reference.get(Source.SERVER).await()
+        assertEquals("PENDING", pending.getString("status"))
+        assertEquals(driverUid, pending.getString("requestedByUserId"))
+        assertNull(pending.getTimestamp("declinedAt"))
+        assertNull(pending.getTimestamp("approvedAt"))
+        recordPassed()
+    }
+
+    @Test fun it12_legacyInvitationSurvivesFailedOfflineReplacementAndCanBeReinvited() = runBlocking {
+        driverCloud.collection("users").document(driverUid).update("userRole", "BOTH").await()
+        contactCloud.collection("users").document(contactUid).update("userRole", "BOTH").await()
+        seedLegacyPendingInvitation()
+        val driverReference = driverCloud.collection("trustedContactConnections").document(connectionId())
+        val contactReference = contactCloud.collection("trustedContactConnections").document(connectionId())
+        val original = contactReference.get(Source.SERVER).await()
+        assertEquals(contactUid, original.getString("requestedByUserId"))
+        assertPermissionDenied { driverConnections.acceptRequest(connectionId()) }
+        assertPermissionDenied { driverConnections.declineRequest(connectionId()) }
+        assertPermissionDenied { contactConnections.cancelRequest(connectionId()) }
+
+        compose.runOnIdle { selectedContact.value = true }
+        waitForNode(hasText("Connected Drivers"))
+        compose.onNodeWithText("Requests", substring = true, useUnmergedTree = true).performClick()
+        compose.onNodeWithText("No pending requests").assertIsDisplayed()
+        compose.onNodeWithText("Accept").assertDoesNotExist()
+        compose.runOnIdle { selectedContact.value = false }
+        openDriverInvitation(fixture.getString("contactCode"))
+        waitForNode(hasText("Account found"))
+        val connectivity = context.getSystemService(ConnectivityManager::class.java)
+        shell("svc wifi disable")
+        shell("svc data disable")
+        withTimeout(20_000) { while (connectivity.activeNetwork != null) delay(200) }
+        compose.onNodeWithText("Send connection request").performScrollTo().performClick()
+        compose.waitUntil(50_000) { !driverVm.state.connectionInvite.isSending }
+        compose.onNodeWithText("Connection request could not be sent", substring = true).assertIsDisplayed()
+        shell("svc wifi enable")
+        shell("svc data enable")
+        withTimeout(30_000) { while (connectivity.activeNetwork == null) delay(200) }
+        val afterFailure = awaitServerRead { contactReference.get(Source.SERVER).await() }
+        assertEquals(contactUid, afterFailure.getString("requestedByUserId"))
+        assertEquals(original.getTimestamp("requestedAt"), afterFailure.getTimestamp("requestedAt"))
+        assertNull(afterFailure.getTimestamp("approvedAt"))
+
+        compose.onNodeWithText("Send connection request").performScrollTo().performClick()
+        compose.waitUntil(20_000) { contactVm.state.trustedIncomingRequests.any { it.id == connectionId() } }
+        val replacement = contactReference.get(Source.SERVER).await()
+        assertEquals(original.id, replacement.id)
+        assertEquals(driverUid, replacement.getString("requestedByUserId"))
+        assertEquals(fixture.getString("driverEmail"), replacement.getString("driverEmail"))
+        assertEquals("Integration Driver", replacement.getString("driverName"))
+        assertNull(replacement.getTimestamp("approvedAt"))
+        assertNull(replacement.getTimestamp("revokedAt"))
+        assertTrue(replacement.getTimestamp("requestedAt")!! > original.getTimestamp("requestedAt")!!)
+        assertTrue(runCatching { sendRequest() }.isFailure)
+        contactConnections.acceptRequest(connectionId())
+        val approvedAt = driverReference.get(Source.SERVER).await().getTimestamp("approvedAt")!!
+        assertTrue(runCatching { driverConnections.cancelRequest(connectionId()) }.isFailure)
+        assertEquals(approvedAt, driverReference.get(Source.SERVER).await().getTimestamp("approvedAt"))
+
+        addSharedRecord("before-replacement", Date(approvedAt.toDate().time - 5_000L))
+        addSharedRecord("after-replacement", Date(approvedAt.toDate().time + 5_000L))
+        suspend fun sharedRecord(name: String) = contactCloud.collection("users").document(driverUid)
+            .collection("stageSyncRecords").document(name).get(Source.SERVER).await()
+        assertPermissionDenied { sharedRecord("before-replacement") }
+        assertTrue(sharedRecord("after-replacement").exists())
+        contactConnections.revokeConnection(connectionId())
+        assertPermissionDenied { sharedRecord("after-replacement") }
+        recordPassed()
+    }
+
+    @Test fun it13_duplicateSendsAndCancellationRacesKeepAConsistentRelationship() = runBlocking {
+        val reference = driverCloud.collection("trustedContactConnections").document(connectionId())
+        var acceptedFirst = 0
+        repeat(12) { trial ->
+            val sends = listOf(
+                async { runCatching { sendRequest() } },
+                async { runCatching { sendRequest() } },
+            ).awaitAll()
+            assertEquals(1, sends.count { it.isSuccess })
+            assertEquals("PENDING", reference.get(Source.SERVER).await().getString("status"))
+
+            val decisions = listOf(
+                async { runCatching { driverConnections.cancelRequest(connectionId()) } },
+                async {
+                    // Vary the response timing so both orderings get exercised on the emulator.
+                    if (trial % 2 == 1) delay(500)
+                    runCatching { contactConnections.acceptRequest(connectionId()) }
+                },
+            ).awaitAll()
+            assertEquals(1, decisions.count { it.isSuccess })
+            val settled = reference.get(Source.SERVER).await()
+            if (decisions[1].isSuccess) {
+                acceptedFirst++
+                assertEquals("APPROVED", settled.getString("status"))
+                assertNotNull(settled.getTimestamp("approvedAt"))
+                assertNull(settled.getTimestamp("revokedAt"))
+                driverConnections.revokeConnection(connectionId())
+            } else {
+                assertEquals("REVOKED", settled.getString("status"))
+                assertNull(settled.getTimestamp("approvedAt"))
+                assertNotNull(settled.getTimestamp("revokedAt"))
+            }
+        }
+        // Cover a guaranteed cancel-first ordering even if all simultaneous trials favored acceptance.
+        sendRequest()
+        driverConnections.cancelRequest(connectionId())
+        assertPermissionDenied { contactConnections.acceptRequest(connectionId()) }
+        println("INVITATION_RACE_CHECKS trials=12 acceptedFirst=$acceptedFirst cancelledFirst=${12 - acceptedFirst}")
+        recordPassed()
+    }
+
+    @Test fun it14_driverReceivesActionableErrorsAndCanRetryWithoutReenteringCode() = runBlocking {
+        contactCloud.collection("users").document(contactUid).update("userRole", "DRIVER").await()
+        openDriverInvitation("DA-short")
+        waitForNode(hasText("Enter a complete DriveAlert connection code"))
+        enterInvitationCode(fixture.getString("driverCode"))
+        waitForNode(hasText("Use another person's connection code"))
+        enterInvitationCode(ConnectionCode.generate())
+        waitForNode(hasText("No active DriveAlert account was found for this code"))
+        enterInvitationCode(fixture.getString("contactCode"))
+        waitForNode(hasText("Account found"))
+        compose.onNodeWithText("Send connection request").performScrollTo().performClick()
+        waitForNode(hasText("open Trusted Contact view while online", substring = true))
+        val reference = contactCloud.collection("trustedContactConnections").document(connectionId())
+        assertFalse(reference.get(Source.SERVER).await().exists())
+
+        contactCloud.collection("users").document(contactUid).update("userRole", "BOTH").await()
+        compose.onNodeWithText("Send connection request").performScrollTo().performClick()
+        compose.waitUntil(20_000) { contactVm.state.trustedIncomingRequests.any { it.id == connectionId() } }
+        assertEquals(driverUid, reference.get(Source.SERVER).await().getString("requestedByUserId"))
+        recordPassed()
+    }
+
+    private suspend fun inviteFromDriverScreen() {
+        openDriverInvitation(fixture.getString("contactCode"))
+        waitForNode(hasText("Account found"))
+        compose.onNodeWithText("Send connection request").performScrollTo().performClick()
+        try {
+            compose.waitUntil(20_000) { driverVm.state.driverOutgoingRequests.any { it.id == connectionId() } }
+        } catch (timeout: ComposeTimeoutException) {
+            val serverStatus = runCatching {
+                withTimeout(5_000) {
+                    driverCloud.collection("trustedContactConnections").document(connectionId())
+                        .get(Source.SERVER).await().getString("status")
+                }
+            }.getOrNull()
+            val state = driverVm.state
+            throw AssertionError(
+                "Driver request missing after 20 seconds. Server status=$serverStatus, " +
+                    "sending=${state.connectionInvite.isSending}, " +
+                    "invitation error=${state.connectionInvite.errorMessage}, " +
+                    "connection error=${state.cloudConnectionErrorMessage}.",
+                timeout,
+            )
+        }
+    }
+
+    private fun openDriverInvitation(code: String) {
+        waitForNode(hasText("Driver Home"))
+        compose.onNodeWithText("Contacts", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Requests to you").assertDoesNotExist()
+        compose.onNodeWithText("Invite a Trusted Contact").performScrollTo().performClick()
+        enterInvitationCode(code)
+    }
+
+    private fun enterInvitationCode(code: String) {
+        compose.onNodeWithTag(PostAuthTestTags.INVITE_CODE).performTextReplacement(code)
+        compose.onNodeWithText("Find account").performScrollTo().performClick()
+    }
+
+    private suspend fun assertPermissionDenied(action: suspend () -> Unit) {
+        val error = runCatching { action() }.exceptionOrNull()
+        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, (error as? FirebaseFirestoreException)?.code)
+    }
+
+    private suspend fun <T> awaitServerRead(readFromServer: suspend () -> T): T = withTimeout(35_000) {
+        // Android can report a network before the SDK reconnects its Firestore stream.
+        var result = runCatching { readFromServer() }
+        while ((result.exceptionOrNull() as? FirebaseFirestoreException)?.code == FirebaseFirestoreException.Code.UNAVAILABLE) {
+            delay(250)
+            result = runCatching { readFromServer() }
+        }
+        result.getOrThrow()
+    }
+
+    private fun seedLegacyPendingInvitation() {
+        val fields = JSONObject()
+        for ((key, value) in mapOf(
+            "connectionId" to connectionId(),
+            "driverUserId" to driverUid, "trustedContactUserId" to contactUid,
+            "driverName" to "Previous Driver name", "driverEmail" to "",
+            "trustedContactName" to "Integration Contact", "trustedContactEmail" to fixture.getString("contactEmail"),
+            "requestedByUserId" to contactUid, "targetConnectionCode" to fixture.getString("driverCode"),
+            "status" to "PENDING",
+        )) fields.put(key, JSONObject().put("stringValue", value))
+        fields.put("requestedAt", JSONObject().put("timestampValue", java.time.Instant.now().minusSeconds(60).toString()))
+        for (field in listOf("approvedAt", "declinedAt", "revokedAt")) {
+            fields.put(field, JSONObject().put("nullValue", JSONObject.NULL))
+        }
+        val project = FirebaseApp.getInstance().options.projectId
+        val path = "http://$HOST:$FIRESTORE_PORT/v1/projects/$project/databases/(default)/documents/trustedContactConnections?documentId=${connectionId()}"
+        val connection = URL(path).openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Authorization", "Bearer owner")
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.doOutput = true
+            connection.outputStream.use { it.write(JSONObject().put("fields", fields).toString().toByteArray()) }
+            assertEquals(200, connection.responseCode)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private suspend fun addSharedRecord(recordId: String, startedAt: Date) {
+        driverCloud.collection("users").document(driverUid).collection("stageSyncRecords").document(recordId)
+            .set(mapOf(
+                "stageSyncRecordId" to recordId, "driverUserId" to driverUid, "sessionId" to "invitation-audit",
+                "recordType" to "STAGE_3_TRANSITION", "periodStartedAt" to Timestamp(startedAt),
+                "periodEndedAt" to null, "eventCount" to 1, "signs" to listOf("YAWNING"),
+                "warningStage" to "STAGE_3", "warningStageAtDetection" to 3,
+                "syncStatus" to "SYNCED", "createdAtClient" to Timestamp.now(), "uploadedAt" to FieldValue.serverTimestamp(),
+            )).await()
     }
 
     @Test fun it07_realWorkerUploadsRoomRecordAndMobileReadsIt() = runBlocking {
@@ -301,11 +565,10 @@ class SoftwareIntegrationAuditTest {
         compose.runOnIdle { selectedContact.value=true }
         waitForNode(hasText("Connected Drivers"))
         compose.onNodeWithText("Integration Driver").performScrollTo().performClick()
-        waitForNode(hasText("Stage 3 started"))
-        compose.onNodeWithText("Stage 3 started").performScrollTo().performClick()
-        waitForNode(hasText("Shared by Integration Driver"))
-        compose.onNodeWithText("Shared by Integration Driver").assertIsDisplayed()
-        compose.onNodeWithText("Warning Stage").performScrollTo().assertIsDisplayed()
+        waitForNode(hasText("Yawning", substring = true))
+        compose.onNodeWithText("Yawning", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Head Nodding", substring = true).assertIsDisplayed()
+        compose.onNodeWithText(record.occurredAt.format(sharedAlertDateTimeFormatter)).assert(hasClickAction().not())
         fixture.put("mobileSharedDetailsVerified",true)
     }
     private suspend fun createVerifiedUser(auth:FirebaseAuth,email:String):String {

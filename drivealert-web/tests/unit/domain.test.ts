@@ -1,19 +1,19 @@
 import { Timestamp } from 'firebase/firestore'
 import { describe, expect, it } from 'vitest'
-import { deterministicRelationshipId, nextConnectionStatus, recordTypeLabel, requestDirection, signLabel } from '../../src/lib/domain'
+import { isIncomingDriverInvitation, signLabel } from '../../src/lib/domain'
 import { parseConnection, parseStageSyncRecord, parseUserProfile, trustedRoleAllowed } from '../../src/models/domain'
 import { connection } from '../testData'
 
 describe('domain rules', () => {
-  it('builds deterministic relationship IDs in Driver then Trusted Contact order', () => expect(deterministicRelationshipId('driver', 'trusted')).toBe('driver__trusted'))
-  it.each([
-    ['NONE', 'REQUEST', 'PENDING'], ['DECLINED', 'REQUEST', 'PENDING'], ['REVOKED', 'REQUEST', 'PENDING'], ['PENDING', 'ACCEPT', 'APPROVED'], ['PENDING', 'DECLINE', 'DECLINED'], ['PENDING', 'CANCEL', 'REVOKED'], ['APPROVED', 'REVOKE', 'REVOKED'],
-  ] as const)('%s + %s becomes %s', (from, action, to) => expect(nextConnectionStatus(from, action)).toBe(to))
-  it('rejects invalid transitions', () => expect(() => nextConnectionStatus('APPROVED', 'ACCEPT')).toThrow())
-  it('projects both request directions', () => { expect(requestDirection({ ...connection, requestedByUserId: 'trusted-1' }, 'trusted-1')).toBe('OUTGOING'); expect(requestDirection({ ...connection, requestedByUserId: 'driver-1' }, 'trusted-1')).toBe('INCOMING') })
+  it('shows only pending Driver invitations addressed to the signed-in Trusted Contact', () => {
+    const invitation = { ...connection, status: 'PENDING' as const }
+    expect(isIncomingDriverInvitation(invitation, 'trusted-1')).toBe(true)
+    expect(isIncomingDriverInvitation({ ...invitation, requestedByUserId: 'trusted-1' }, 'trusted-1')).toBe(false)
+    expect(isIncomingDriverInvitation(invitation, 'someone-else')).toBe(false)
+    expect(isIncomingDriverInvitation(connection, 'trusted-1')).toBe(false)
+  })
   it('authorizes only Trusted Contact and BOTH roles', () => { expect(trustedRoleAllowed('TRUSTED_CONTACT')).toBe(true); expect(trustedRoleAllowed('BOTH')).toBe(true); expect(trustedRoleAllowed('DRIVER')).toBe(false); expect(trustedRoleAllowed(null)).toBe(false) })
   it('maps visible sign labels and safe unknown labels', () => { expect(signLabel('PROLONGED_EYE_CLOSURE')).toBe('Prolonged Eye Closure'); expect(signLabel('NEW_SIGN')).toBe('New Sign') })
-  it('uses clear boundary labels', () => { expect(recordTypeLabel('STAGE_3_TRANSITION')).toBe('Alert started'); expect(recordTypeLabel('STAGE_3_PERSISTENCE')).toBe('Alert continued') })
 })
 
 describe('Firestore boundary parsing', () => {

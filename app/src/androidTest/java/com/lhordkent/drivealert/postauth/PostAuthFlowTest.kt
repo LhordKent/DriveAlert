@@ -1,7 +1,9 @@
 package com.lhordkent.drivealert.postauth
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -66,9 +68,11 @@ class PostAuthFlowTest {
         composeRule.onNodeWithText("Connected Drivers").assertIsDisplayed()
         composeRule.onNodeWithText("Adrian Cruz").performScrollTo().performClick()
         composeRule.onNodeWithText("Stage 3 synchronization timeline").assertIsDisplayed()
-        composeRule.onNodeWithText("7:42 AM", substring = true).performScrollTo().performClick()
-        composeRule.onNodeWithText("Warning Stage").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Shared by Adrian Cruz").assertIsDisplayed()
+        val alert = composeRule.onNodeWithText("Prolonged Eye Closure")
+        alert.performScrollTo().assertIsDisplayed()
+        alert.assert(hasClickAction().not())
+        composeRule.onNodeWithText("Clear history").performScrollTo().assertIsDisplayed()
+        captureNavigationScreen("shared-alert-history")
     }
 
     @Test
@@ -209,25 +213,23 @@ class PostAuthFlowTest {
     }
 
     @Test
-    fun stage3DetailSupportsEverySharingState() {
-        val original = com.lhordkent.drivealert.postauth.Stage3SyncRecord(
-            "sync", java.time.LocalDateTime.now(), com.lhordkent.drivealert.postauth.SyncRecordKind.STAGE_3_TRANSITION,
-            setOf(com.lhordkent.drivealert.postauth.VisibleSign.YAWNING), SharingState.PENDING, eventCount = 2,
+    fun sharedAlertDetailShowsDriverTimeAndSigns() {
+        val occurredAt = java.time.LocalDateTime.now()
+        val record = Stage3SyncRecord(
+            "sync", occurredAt, SyncRecordKind.STAGE_3_TRANSITION,
+            setOf(VisibleSign.YAWNING), SharingState.SHARED,
+            sourceDriverName = "Test Driver", receivedAt = occurredAt.plusMinutes(10), eventCount = 2,
         )
-        val selected = mutableStateOf(original.copy(sharingState = SharingState.SHARED))
-        composeRule.setContent { DriveAlertTheme { Stage3SyncRecordDetailScreen(selected.value, {}) } }
-        composeRule.onNodeWithText("This is one Stage 3 record.", substring = true).performScrollTo().assertIsDisplayed()
+        composeRule.setContent { DriveAlertTheme { Stage3SyncRecordDetailScreen(record, {}) } }
+        composeRule.onNodeWithText("Shared alert").assertIsDisplayed()
+        composeRule.onNodeWithText("Test Driver").assertIsDisplayed()
+        composeRule.onNodeWithText("Alert time").assertIsDisplayed()
+        composeRule.onNodeWithText("Detected signs").assertIsDisplayed()
+        composeRule.onNodeWithText("Yawning").assertIsDisplayed()
+        composeRule.onNodeWithText("Events counted in this period").assertDoesNotExist()
+        composeRule.onNodeWithText("Delayed synchronization").assertDoesNotExist()
+        composeRule.onNodeWithText("Record type").assertDoesNotExist()
         captureNavigationScreen("sharing-record-detail")
-
-        listOf(
-            SharingState.NO_CONTACT to "No approved contact",
-            SharingState.PENDING to "Pending",
-            SharingState.SHARED to "Shared",
-            SharingState.FAILED to "Failed",
-        ).forEach { (state, expectedText) ->
-            composeRule.runOnIdle { selected.value = original.copy(sharingState = state) }
-            composeRule.onNodeWithText(expectedText).performScrollTo().assertIsDisplayed()
-        }
     }
 
     @Test
@@ -235,7 +237,7 @@ class PostAuthFlowTest {
         composeRule.setContent {
             DriveAlertTheme {
                 RequestsScreen(
-                    incoming = emptyList(), outgoing = emptyList(), onAccept = {}, onDecline = {}, onCancel = {}, isLoading = true,
+                    incoming = emptyList(), onAccept = {}, onDecline = {}, isLoading = true,
                 )
             }
         }
@@ -329,13 +331,9 @@ class PostAuthFlowTest {
                     onCompleteSetup = postAuthViewModel::completeDriverSetup,
                     onFilterChange = postAuthViewModel::selectAlertFilter,
                     onSendTrustedContactRequest = postAuthViewModel::sendTrustedContactRequest,
-                    onSendDriverRequest = postAuthViewModel::sendDriverRequest,
-                    onAcceptDriverIncomingRequest = postAuthViewModel::acceptDriverIncomingRequest,
                     onAcceptTrustedIncomingRequest = postAuthViewModel::acceptTrustedIncomingRequest,
-                    onDeclineDriverIncomingRequest = postAuthViewModel::declineDriverIncomingRequest,
                     onDeclineTrustedIncomingRequest = postAuthViewModel::declineTrustedIncomingRequest,
                     onCancelDriverOutgoingRequest = postAuthViewModel::cancelDriverOutgoingRequest,
-                    onCancelTrustedOutgoingRequest = postAuthViewModel::cancelTrustedOutgoingRequest,
                     onRevokeDriverContact = postAuthViewModel::revokeDriverContact,
                     onDisconnectDriver = postAuthViewModel::disconnectDriver,
                     onWarningSoundChange = postAuthViewModel::selectWarningSound,

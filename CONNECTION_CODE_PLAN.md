@@ -1,24 +1,25 @@
 # DriveAlert Free Connection-Code Plan
 
-Status: implemented in Android and covered by local Firestore emulator tests. The checked-in Firebase rules remain intentionally undeployed until the project owner explicitly approves deployment.
+Status: the one-way invitation portal and Firestore rules went live on 2026-11-24. The tested Android APK was installed in place on the TECNO LE6h.
 
 ## Goal
 
-Replace the undeployed email-lookup Cloud Function with a Cloud Firestore-only connection-code workflow that works on Firebase's free Spark plan. Either a Driver or a Trusted Contact can initiate a relationship. Room, Stage 3 synchronization, and the future-only sharing boundary remain unchanged.
+Use Cloud Firestore on Firebase's free Spark plan. The Driver invites a Trusted Contact. Eligible Stage 3 sharing starts after the contact accepts.
 
 ## User flow
 
 1. After its Firestore profile exists, every account receives a random DriveAlert connection code.
 2. Account displays `My connection code` with copy and system-share actions.
-3. Driver view offers `Connect a Trusted Contact`; Trusted Contact view offers `Connect a Driver`.
-4. The initiator enters the other account's code.
+3. Driver view offers `Invite a Trusted Contact`.
+4. The Driver enters the Trusted Contact's code.
 5. DriveAlert resolves that exact code and displays the target name for confirmation.
-6. The initiator sends an in-app request.
-7. The recipient accepts or declines. Only the initiator can cancel a pending request.
+6. The Driver sends an in-app request.
+7. The contact accepts or declines in Android Trusted Contact view or on the web. The Driver can cancel while the request is pending.
 8. Either participant can disconnect an approved relationship.
 9. Approval shares only eligible Stage 3 records with `periodStartedAt >= approvedAt` while the connection remains approved.
 
 Users can share a code through Messenger, SMS, email, or any other existing app. DriveAlert itself does not send external messages.
+Driver accounts keep their codes for the separate additional-driver camera access flow.
 
 ## Code format
 
@@ -53,46 +54,28 @@ Authenticated clients may fetch one exact code document. Collection listing must
 
 ### `trustedContactConnections/{driverUid}__{trustedContactUid}`
 
-Retain the current connection fields and add `targetConnectionCode` so rules can verify that the entered code belongs to the other participant.
-
-Relationship sides are determined by the initiator's active view:
-
-- Driver view: current UID is Driver; code owner is Trusted Contact.
-- Trusted Contact view: code owner is Driver; current UID is Trusted Contact.
+The existing `targetConnectionCode` field identifies the code used for the invitation. The sender UID is the Driver UID and the code owner is the Trusted Contact UID.
 
 ## Firestore rule requirements
 
 - A user may create and maintain only their own profile and code mapping.
 - A code mapping must point to the authenticated creator.
 - Allow authenticated exact-document code lookup; deny code collection listing.
-- Connection creation requires `requestedByUserId == request.auth.uid`.
-- The creator must be one participant, and `targetConnectionCode` must resolve to the other participant.
-- Driver UID and Trusted Contact UID are immutable. Either participant may reset a declined or revoked deterministic pair to a new pending request with a new request timestamp.
-- Only the recipient may approve or decline.
-- Only the initiator may cancel a pending request.
+- Creation and re-invitation require a verified sender whose UID is both `requestedByUserId` and `driverUserId`. The sender needs Driver capability and the active target code must belong to the recipient with Trusted Contact capability. `BOTH` grants both capabilities.
+- The participant UIDs stay fixed. The Driver can reuse the existing relationship ID after decline or revocation.
+- The named Trusted Contact may accept or decline a Driver invitation. The Driver may cancel their pending invitation.
 - Either participant may revoke an approved connection.
 - Shared Stage 3 reads continue to require current approval and `approvedAt <= periodStartedAt`.
+- Existing approved relationships keep their original approval dates. An old pending request sent by the contact stays hidden and can be replaced atomically by a fresh Driver invitation. The replacement refreshes the Driver name and email and requires the contact to accept.
 
 No Cloud Function, Blaze plan, service-account key, Realtime Database, or custom server is required.
-
-## Future Android implementation slices
-
-1. Backfill missing Firestore profiles for existing authenticated accounts.
-2. Generate and display connection codes.
-3. Add code lookup rules and Firebase Emulator tests.
-4. Replace email fields with code-entry UI in both views.
-5. Create requests directly through Firestore with both-direction support.
-6. Preserve recipient/sender transition permissions and future-only Stage 3 sharing.
-7. Remove the Firebase Functions Android dependency and callable invitation code.
-8. Remove or archive the Functions workspace after all replacement tests pass.
-9. Deploy only reviewed Firestore rules and indexes after explicit approval.
 
 ## Required tests
 
 - Code generation, normalization, and collision retry.
 - Existing-profile backfill.
 - Invalid, missing, self, and duplicate codes.
-- Driver-initiated and Trusted Contact-initiated requests.
+- Driver-sent invitations, blocked reverse requests, and handling of previously pending or approved contact-sent relationships.
 - Recipient-only approval/decline and initiator-only cancellation.
 - Disconnect behavior.
 - Exact code lookup allowed and code listing denied.
@@ -109,4 +92,4 @@ No Cloud Function, Blaze plan, service-account key, Realtime Database, or custom
 
 ## Completion criteria
 
-Two real Firebase accounts on separate app installs can exchange a code, request and approve a relationship in either direction, and access only eligible future Stage 3 records while remaining on the Spark plan.
+A Driver can use a contact’s code to send an invitation on Android. The Trusted Contact can accept on Android or the web, then access eligible future Stage 3 records while remaining on the Spark plan.

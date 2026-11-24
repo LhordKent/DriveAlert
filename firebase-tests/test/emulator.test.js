@@ -27,7 +27,7 @@ async function clearEmulators() {
   await fetch(`http://${AUTH_ADDRESS}/emulator/v1/projects/${PROJECT_ID}/accounts`, { method: "DELETE" });
 }
 
-async function createClient(name, code) {
+async function createClient(name, code, role = name === "Driver" ? "DRIVER" : "TRUSTED_CONTACT") {
   const app = initializeApp({ projectId: PROJECT_ID, apiKey: "demo-key", appId: `demo-${++appCounter}` }, `test-${appCounter}`);
   const auth = getAuth(app);
   connectAuthEmulator(auth, `http://${AUTH_ADDRESS}`, { disableWarnings: true });
@@ -43,6 +43,7 @@ async function createClient(name, code) {
     email,
     connectionCode: code,
     accountStatus: "ACTIVE",
+    userRole: role,
     registeredAt: serverTimestamp(),
   });
   await setDoc(doc(firestore, "connectionCodes", code), {
@@ -72,6 +73,27 @@ function requestData(driver, trusted, sender, targetCode) {
     declinedAt: null,
     revokedAt: null,
   };
+}
+
+async function seedLegacyInvitation(driver, trusted, approvedAt = null) {
+  const invitation = {
+    ...requestData(driver, trusted, trusted, driver.code),
+    driverName: "Previous Driver name",
+    driverEmail: "",
+    requestedAt: new Date(Date.now() - 60_000),
+    status: approvedAt ? "APPROVED" : "PENDING",
+    approvedAt,
+  };
+  const fields = Object.fromEntries(Object.entries(invitation).map(([key, value]) => [
+    key, value === null ? { nullValue: null } : value instanceof Date
+      ? { timestampValue: value.toISOString() } : { stringValue: value },
+  ]));
+  const response = await fetch(
+    `http://${FIRESTORE_ADDRESS}/v1/projects/${PROJECT_ID}/databases/(default)/documents/trustedContactConnections/${invitation.connectionId}`,
+    { method: "PATCH", headers: { Authorization: "Bearer owner", "Content-Type": "application/json" }, body: JSON.stringify({ fields }) },
+  );
+  assert.equal(response.ok, true, await response.text());
+  return invitation.connectionId;
 }
 
 function stage3Data(driver, id, overrides = {}) {
@@ -121,18 +143,13 @@ describe("DriveAlert Firestore connection codes", () => {
     });
   });
 
-  it("allows a Trusted Contact to request and only the Driver to approve", async () => {
+  it("rejects a Trusted Contact inviting the Driver, including an account with both capabilities", async () => {
     const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
-    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
+    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU", "BOTH");
     apps.push(driver.app, trusted.app);
     const data = requestData(driver, trusted, trusted, driver.code);
     const trustedRef = doc(trusted.firestore, "trustedContactConnections", data.connectionId);
-    await setDoc(trustedRef, data);
-    assert.equal((await getDoc(trustedRef)).data().requestedByUserId, trusted.uid);
-    await assert.rejects(updateDoc(trustedRef, { status: "APPROVED", approvedAt: serverTimestamp() }));
-    await updateDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), {
-      status: "APPROVED", approvedAt: serverTimestamp(),
-    });
+    await assert.rejects(setDoc(trustedRef, data), { code: "permission-denied" });
   });
 
   it("allows a prospective participant to read a missing deterministic connection inside a create transaction", async () => {
@@ -140,17 +157,36 @@ describe("DriveAlert Firestore connection codes", () => {
     const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
     const other = await createClient("Other", "DA456789ABCDEFGHJKLMNPQRSTUV");
     apps.push(driver.app, trusted.app, other.app);
-    const data = requestData(driver, trusted, trusted, driver.code);
-    const trustedRef = doc(trusted.firestore, "trustedContactConnections", data.connectionId);
+    const data = requestData(driver, trusted, driver, trusted.code);
+    const driverRef = doc(driver.firestore, "trustedContactConnections", data.connectionId);
 
-    await runTransaction(trusted.firestore, async (transaction) => {
-      const existing = await transaction.get(trustedRef);
+    await runTransaction(driver.firestore, async (transaction) => {
+      const existing = await transaction.get(driverRef);
       assert.equal(existing.exists(), false);
-      transaction.set(trustedRef, data);
+      transaction.set(driverRef, data);
     });
 
-    assert.equal((await getDoc(trustedRef)).data().requestedByUserId, trusted.uid);
+    assert.equal((await getDoc(driverRef)).data().requestedByUserId, driver.uid);
     await assert.rejects(getDoc(doc(other.firestore, "trustedContactConnections", data.connectionId)));
+  });
+
+  it("requires the right capabilities and supports BOTH on each side", async () => {
+    const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST", "TRUSTED_CONTACT");
+    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU", "DRIVER");
+    apps.push(driver.app, trusted.app);
+    const data = requestData(driver, trusted, driver, trusted.code);
+    const ref = doc(driver.firestore, "trustedContactConnections", data.connectionId);
+    await updateDoc(doc(trusted.firestore, "users", trusted.uid), { userRole: "BOTH" });
+    await assert.rejects(setDoc(ref, data), { code: "permission-denied" });
+    await updateDoc(doc(trusted.firestore, "users", trusted.uid), { userRole: "DRIVER" });
+    await updateDoc(doc(driver.firestore, "users", driver.uid), { userRole: "BOTH" });
+    await assert.rejects(setDoc(ref, data), { code: "permission-denied" });
+    await updateDoc(doc(trusted.firestore, "users", trusted.uid), { userRole: "BOTH" });
+    await setDoc(ref, data);
+    await updateDoc(doc(trusted.firestore, "trustedContactConnections", data.connectionId), {
+      status: "APPROVED", approvedAt: serverTimestamp(),
+    });
+    assert.equal((await getDoc(ref)).data().status, "APPROVED");
   });
 
   it("rejects forged requester identity and self-connection", async () => {
@@ -194,24 +230,32 @@ describe("DriveAlert Firestore connection codes", () => {
     assert.equal(stored.revokedAt, null);
   });
 
-  it("allows the Driver to decline a Trusted Contact request and reverses direction on re-request", async () => {
+  it("retires a pending contact-sent request until the Driver sends a new invitation", async () => {
     const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
     const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
     apps.push(driver.app, trusted.app);
-    const data = requestData(driver, trusted, trusted, driver.code);
-    const trustedRef = doc(trusted.firestore, "trustedContactConnections", data.connectionId);
-    await setDoc(trustedRef, data);
-    await assert.rejects(updateDoc(trustedRef, { status: "DECLINED", declinedAt: serverTimestamp() }));
-    await updateDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), {
-      status: "DECLINED", declinedAt: serverTimestamp(),
-    });
-    await updateDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), {
+    const id = await seedLegacyInvitation(driver, trusted);
+    const driverRef = doc(driver.firestore, "trustedContactConnections", id);
+    const trustedRef = doc(trusted.firestore, "trustedContactConnections", id);
+    await assert.rejects(updateDoc(driverRef, { status: "APPROVED", approvedAt: serverTimestamp() }), { code: "permission-denied" });
+    await assert.rejects(updateDoc(driverRef, { status: "DECLINED", declinedAt: serverTimestamp() }), { code: "permission-denied" });
+    await assert.rejects(updateDoc(trustedRef, { status: "REVOKED", revokedAt: serverTimestamp() }), { code: "permission-denied" });
+    const refresh = {
       status: "PENDING", requestedByUserId: driver.uid, targetConnectionCode: trusted.code,
       requestedAt: serverTimestamp(), approvedAt: null, declinedAt: null, revokedAt: null,
-    });
+      driverName: driver.name, driverEmail: driver.email,
+    };
+    await assert.rejects(updateDoc(driverRef, { ...refresh, trustedContactName: "Changed" }), { code: "permission-denied" });
+    await updateDoc(driverRef, refresh);
     const stored = (await getDoc(trustedRef)).data();
-    assert.equal(stored.connectionId, `${driver.uid}__${trusted.uid}`);
+    assert.equal(stored.connectionId, id);
     assert.equal(stored.requestedByUserId, driver.uid);
+    assert.equal(stored.targetConnectionCode, trusted.code);
+    assert.equal(stored.driverName, driver.name);
+    assert.equal(stored.driverEmail, driver.email);
+    assert.equal(stored.approvedAt, null);
+    await assert.rejects(updateDoc(driverRef, refresh), { code: "permission-denied" });
+    await updateDoc(trustedRef, { status: "APPROVED", approvedAt: serverTimestamp() });
   });
 
   it("allows an approved relationship to be revoked and re-requested by its Driver", async () => {
@@ -232,7 +276,7 @@ describe("DriveAlert Firestore connection codes", () => {
     assert.equal((await getDoc(driverRef)).data().status, "PENDING");
   });
 
-  it("allows either participant to revoke and the Trusted Contact to re-request after revocation", async () => {
+  it("allows the Trusted Contact to disconnect but denies a new contact-sent request", async () => {
     const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
     const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
     apps.push(driver.app, trusted.app);
@@ -241,14 +285,55 @@ describe("DriveAlert Firestore connection codes", () => {
     await setDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), data);
     await updateDoc(trustedRef, { status: "APPROVED", approvedAt: serverTimestamp() });
     await updateDoc(trustedRef, { status: "REVOKED", revokedAt: serverTimestamp() });
-    await updateDoc(trustedRef, {
+    await assert.rejects(updateDoc(trustedRef, {
       status: "PENDING", requestedByUserId: trusted.uid, targetConnectionCode: driver.code,
       requestedAt: serverTimestamp(), approvedAt: null, declinedAt: null, revokedAt: null,
-    });
+    }), { code: "permission-denied" });
     const stored = (await getDoc(trustedRef)).data();
-    assert.equal(stored.requestedByUserId, trusted.uid);
-    assert.equal(stored.approvedAt, null);
-    assert.equal(stored.revokedAt, null);
+    assert.equal(stored.status, "REVOKED");
+    assert.ok(stored.approvedAt);
+    assert.ok(stored.revokedAt);
+  });
+
+  it("allows only the Driver to cancel and makes a concurrent acceptance or cancel win once", async () => {
+    const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
+    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
+    apps.push(driver.app, trusted.app);
+    const data = requestData(driver, trusted, driver, trusted.code);
+    const driverRef = doc(driver.firestore, "trustedContactConnections", data.connectionId);
+    const trustedRef = doc(trusted.firestore, "trustedContactConnections", data.connectionId);
+    await setDoc(driverRef, data);
+    await assert.rejects(updateDoc(trustedRef, { status: "REVOKED", revokedAt: serverTimestamp() }), { code: "permission-denied" });
+    const results = await Promise.allSettled([
+      runTransaction(driver.firestore, async (transaction) => {
+        const snapshot = await transaction.get(driverRef);
+        assert.equal(snapshot.data().status, "PENDING");
+        transaction.update(driverRef, { status: "REVOKED", revokedAt: serverTimestamp() });
+      }),
+      updateDoc(trustedRef, { status: "APPROVED", approvedAt: serverTimestamp() }),
+    ]);
+    assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+    const stored = (await getDoc(driverRef)).data();
+    assert.equal(stored.status, results[0].status === "fulfilled" ? "REVOKED" : "APPROVED");
+  });
+
+  it("preserves the cutoff for a previously approved contact-sent relationship", async () => {
+    const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
+    const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
+    apps.push(driver.app, trusted.app);
+    const approvedAt = new Date(Date.now() - 10_000);
+    const id = await seedLegacyInvitation(driver, trusted, approvedAt);
+    const ref = doc(driver.firestore, "trustedContactConnections", id);
+    for (const [name, offset] of [["before", -1_000], ["after", 1_000]]) {
+      await setDoc(doc(driver.firestore, "users", driver.uid, "stageSyncRecords", name),
+        stage3Data(driver, name, { periodStartedAt: new Date(approvedAt.getTime() + offset) }));
+    }
+    const readShared = (name) => getDoc(doc(trusted.firestore, "users", driver.uid, "stageSyncRecords", name));
+    await assert.rejects(readShared("before"), { code: "permission-denied" });
+    assert.equal((await readShared("after")).exists(), true);
+    assert.equal((await getDoc(ref)).data().approvedAt.toMillis(), approvedAt.getTime());
+    await updateDoc(doc(trusted.firestore, "trustedContactConnections", id), { status: "REVOKED", revokedAt: serverTimestamp() });
+    await assert.rejects(readShared("after"), { code: "permission-denied" });
   });
 
   it("rejects relationship mutation by a non-participant", async () => {
@@ -263,30 +348,25 @@ describe("DriveAlert Firestore connection codes", () => {
     }));
   });
 
-  it("allows only the requester to cancel a pending request in either direction", async () => {
+  it("keeps one invitation when two sends target the same relationship", async () => {
     const driver = await createClient("Driver", "DA23456789ABCDEFGHJKLMNPQRST");
     const trusted = await createClient("Trusted", "DA3456789ABCDEFGHJKLMNPQRSTU");
     apps.push(driver.app, trusted.app);
     const data = requestData(driver, trusted, driver, trusted.code);
-    await setDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), data);
-    await assert.rejects(updateDoc(doc(trusted.firestore, "trustedContactConnections", data.connectionId), {
-      status: "REVOKED", revokedAt: serverTimestamp(),
-    }));
-    await updateDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), {
+    const reference = doc(driver.firestore, "trustedContactConnections", data.connectionId);
+    const send = () => runTransaction(driver.firestore, async (transaction) => {
+      assert.equal((await transaction.get(reference)).exists(), false);
+      transaction.set(reference, data);
+    });
+    const results = await Promise.allSettled([send(), send()]);
+    assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+    assert.equal((await getDoc(reference)).data().status, "PENDING");
+    await updateDoc(reference, {
       status: "REVOKED", revokedAt: serverTimestamp(),
     });
-
-    const reverse = requestData(driver, trusted, trusted, driver.code);
-    await updateDoc(doc(trusted.firestore, "trustedContactConnections", data.connectionId), {
-      status: "PENDING", requestedByUserId: trusted.uid, targetConnectionCode: driver.code,
-      requestedAt: serverTimestamp(), approvedAt: null, declinedAt: null, revokedAt: null,
-    });
-    await assert.rejects(updateDoc(doc(driver.firestore, "trustedContactConnections", data.connectionId), {
-      status: "REVOKED", revokedAt: serverTimestamp(),
-    }));
-    await updateDoc(doc(trusted.firestore, "trustedContactConnections", reverse.connectionId), {
-      status: "REVOKED", revokedAt: serverTimestamp(),
-    });
+    await setDoc(reference, requestData(driver, trusted, driver, trusted.code));
+    assert.equal((await getDoc(reference)).data().status, "PENDING");
+    assert.equal((await getDoc(reference)).data().revokedAt, null);
   });
 
   it("accepts only authenticated-owner Stage 3 synchronization records", async () => {

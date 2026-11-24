@@ -118,11 +118,11 @@ cd firebase-tests
 npm run test:emulator
 ```
 
-Either a Driver or Trusted Contact can initiate a relationship using the other participant's exact connection code. The target account is shown before sending; the recipient may approve or decline, and the requester may cancel a pending request. Either participant may revoke an approved relationship.
+A Driver sends a request using the Trusted Contact's exact connection code. The target account is shown before sending. The Trusted Contact may accept or decline on Android or the web, and the Driver may cancel a pending request. Either participant may revoke an approved relationship.
 
 Firestore Security Rules validate ownership, schema shape, status transitions, and the Stage 3 synchronization boundary. They cannot independently attest that on-device MediaPipe detection was genuine; detection evidence remains Driver-client input, so backend attestation would require a separate trusted service.
 
-Do not deploy from normal build or test workflows. Rules or indexes deployment requires an explicit project-owner decision and `firebase deploy --only firestore` must be run manually. The currently deployed test-mode Firestore rules are not suitable for real user data and must be replaced with the checked-in reviewed rules before cloud data is used outside controlled development.
+Do not deploy from normal build or test workflows. Rules or indexes deployment requires an explicit project-owner decision. Use `firebase deploy --only firestore:rules` when releasing rules alone. The one-way invitation rules went live on 2026-11-24 and were verified against the checked-in file.
 
 ## Inspect Room/SQLite
 
@@ -159,6 +159,6 @@ For connection-code work, preserve the implemented architecture in `CONNECTION_C
 - Real monitoring sessions, live duration/event state, and the three-stage 60-second warning controller
 - Android warning notifications and a local HTTP physical speaker gateway
 - Room-backed production Alert History, Alert Detail, monitoring-session summaries, preferences, and Stage 3 synchronization queue
-- Firestore-backed profiles, bidirectional connection requests, shared Stage 3 timelines, and background WorkManager synchronization
+- Firestore-backed profiles, Driver-sent Trusted Contact invitations, shared Stage 3 timelines, and background WorkManager synchronization
 
 Production Room starts empty; preview fixtures and UI-test fakes do not seed production data. The ESP32/DFPlayer software path is implemented but not yet physically verified end to end; external email delivery is not implemented.

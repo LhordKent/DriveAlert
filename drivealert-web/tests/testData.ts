@@ -21,7 +21,7 @@ export function portalValue(overrides: Partial<PortalContextValue> = {}): Portal
       save: vi.fn().mockResolvedValue(undefined), dismiss: vi.fn().mockResolvedValue(undefined) },
     profile, profileStatus: 'ready', profileError: null,
     connections: [connection], connectionsStatus: 'ready', connectionsError: null,
-    approvedDrivers: [connection], incomingRequests: [], outgoingRequests: [],
+    approvedDrivers: [connection], incomingRequests: [],
     recordsByDriver: { 'driver-1': { status: 'ready', records: [record], error: null, lastViewedAt: null, unreadCount: 1 } },
     markDriverViewed: vi.fn().mockResolvedValue(undefined), refreshProfile: vi.fn(), ...overrides,
   }

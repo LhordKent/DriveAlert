@@ -27,11 +27,25 @@ service cloud.firestore {
     function isConnectionParticipant(data) {
       return signedIn() && (request.auth.uid == data.driverUserId || request.auth.uid == data.trustedContactUserId);
     }
-    function isConnectionRecipient(data) {
-      return isConnectionParticipant(data) && request.auth.uid != data.requestedByUserId;
+    function hasConnectionRole(uid, role) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.get('userRole', '') in [role, 'BOTH'];
     }
-    function isConnectionSender(data) {
-      return isConnectionParticipant(data) && request.auth.uid == data.requestedByUserId;
+    function isDriverInvitation(data) {
+      return data.requestedByUserId == data.driverUserId;
+    }
+    function isInvitationRecipient(data) {
+      return isDriverInvitation(data) && isSelf(data.trustedContactUserId)
+        && hasConnectionRole(data.trustedContactUserId, 'TRUSTED_CONTACT');
+    }
+    function validDriverInvitation(data) {
+      let targetCode = get(/databases/$(database)/documents/connectionCodes/$(data.targetConnectionCode));
+      return isSelf(data.driverUserId) && isDriverInvitation(data)
+        && hasConnectionRole(data.driverUserId, 'DRIVER')
+        && hasConnectionRole(data.trustedContactUserId, 'TRUSTED_CONTACT')
+        && data.status == 'PENDING' && data.requestedAt == request.time
+        && data.approvedAt == null && data.declinedAt == null && data.revokedAt == null
+        && data.targetConnectionCode.matches('^DA[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{26}$')
+        && targetCode.data.active == true && targetCode.data.ownerUserId == data.trustedContactUserId;
     }
     function connectionIdIncludesCaller(connectionId) {
       return signedIn()
@@ -62,44 +76,31 @@ service cloud.firestore {
     function connectionParticipantsUnchanged() {
       return request.resource.data.connectionId == resource.data.connectionId
         && request.resource.data.driverUserId == resource.data.driverUserId
-        && request.resource.data.trustedContactUserId == resource.data.trustedContactUserId
-        && request.resource.data.driverName == resource.data.driverName
-        && request.resource.data.driverEmail == resource.data.driverEmail
-        && request.resource.data.trustedContactName == resource.data.trustedContactName
-        && request.resource.data.trustedContactEmail == resource.data.trustedContactEmail;
+        && request.resource.data.trustedContactUserId == resource.data.trustedContactUserId;
     }
     function validConnectionCreate(connectionId) {
       let data = request.resource.data;
-      let targetCode = get(/databases/$(database)/documents/connectionCodes/$(data.targetConnectionCode));
-      let expectedTarget = data.requestedByUserId == data.driverUserId
-        ? data.trustedContactUserId
-        : data.driverUserId;
       return connectionKeysValid(data)
         && data.connectionId == connectionId
         && connectionId == data.driverUserId + '__' + data.trustedContactUserId
         && data.driverUserId != data.trustedContactUserId
-        && data.requestedByUserId == request.auth.uid
-        && isConnectionParticipant(data)
-        && data.status == 'PENDING' && data.requestedAt == request.time
-        && data.approvedAt == null && data.declinedAt == null && data.revokedAt == null
-        && data.targetConnectionCode.matches('^DA[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{26}$')
-        && targetCode.data.active == true && targetCode.data.ownerUserId == expectedTarget;
+        && validDriverInvitation(data);
     }
     function recipientApproves() {
       return resource.data.status == 'PENDING' && request.resource.data.status == 'APPROVED'
-        && isConnectionRecipient(resource.data)
+        && isInvitationRecipient(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedAt'])
         && request.resource.data.approvedAt == request.time;
     }
     function recipientDeclines() {
       return resource.data.status == 'PENDING' && request.resource.data.status == 'DECLINED'
-        && isConnectionRecipient(resource.data)
+        && isInvitationRecipient(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'declinedAt'])
         && request.resource.data.declinedAt == request.time;
     }
     function senderCancels() {
       return resource.data.status == 'PENDING' && request.resource.data.status == 'REVOKED'
-        && isConnectionSender(resource.data)
+        && isDriverInvitation(resource.data) && isSelf(resource.data.driverUserId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revokedAt'])
         && request.resource.data.revokedAt == request.time;
     }
@@ -110,22 +111,15 @@ service cloud.firestore {
         && request.resource.data.revokedAt == request.time;
     }
     function driverReRequests() {
-      let targetCode = get(/databases/$(database)/documents/connectionCodes/$(request.resource.data.targetConnectionCode));
-      return resource.data.status in ['DECLINED', 'REVOKED']
-        && isConnectionParticipant(resource.data)
-        && request.resource.data.status == 'PENDING'
-        && request.resource.data.requestedByUserId == request.auth.uid
-        && request.resource.data.requestedAt == request.time
-        && request.resource.data.approvedAt == null
-        && request.resource.data.declinedAt == null
-        && request.resource.data.revokedAt == null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'requestedByUserId', 'targetConnectionCode', 'requestedAt', 'approvedAt', 'declinedAt', 'revokedAt'
-        ])
-        && targetCode.data.active == true
-        && targetCode.data.ownerUserId == (request.auth.uid == resource.data.driverUserId
-          ? resource.data.trustedContactUserId
-          : resource.data.driverUserId);
+      let oldContactInvitation = resource.data.requestedByUserId == resource.data.trustedContactUserId;
+      let requestFields = [
+        'status', 'requestedByUserId', 'targetConnectionCode', 'requestedAt', 'approvedAt', 'declinedAt', 'revokedAt'
+      ];
+      return (resource.data.status in ['DECLINED', 'REVOKED']
+          || (resource.data.status == 'PENDING' && oldContactInvitation))
+        && validDriverInvitation(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          oldContactInvitation ? requestFields.concat(['driverName', 'driverEmail']) : requestFields);
     }
 
     match /users/{userId} {

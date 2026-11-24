@@ -1,6 +1,6 @@
 import { deleteApp, getApps, initializeApp } from 'firebase/app'
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, reload } from 'firebase/auth'
-import { connectFirestoreEmulator, doc, getFirestore, serverTimestamp, setDoc } from 'firebase/firestore'
+import { connectFirestoreEmulator, doc, getDocFromServer, getFirestore, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 
 const PROJECT_ID = 'drivealert-lhordkent'
 const FIRESTORE_ADDRESS = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'
@@ -91,27 +91,26 @@ export async function requestFromDriver(driver: EmulatorUser, trusted: EmulatorU
 }
 
 export async function approveTrustedRequest(driver: EmulatorUser, trusted: EmulatorUser) {
-  const collectionUrl = `http://${FIRESTORE_ADDRESS}/v1/projects/${PROJECT_ID}/databases/(default)/documents/trustedContactConnections`
-  const listResponse = await fetch(collectionUrl, { headers: { Authorization: 'Bearer owner' } })
-  if (!listResponse.ok) throw new Error(`Unable to inspect connection fixtures: ${listResponse.status}`)
-  const listed = await listResponse.json() as { documents?: Array<{ name: string; fields?: Record<string, { stringValue?: string }> }> }
-  const relationship = listed.documents?.find((item) => item.fields?.driverUserId?.stringValue === driver.uid && item.fields?.trustedContactUserId?.stringValue === trusted.uid)
-  if (!relationship) throw new Error('The Trusted Contact request was not persisted before Driver approval.')
-  const connectionId = relationship.name.split('/').at(-1) as string
-  if (connectionId !== relationshipId(driver, trusted)) throw new Error(`Unexpected relationship ID: ${connectionId}`)
-  const approvedAt = Date.now()
-  const documentUrl = `http://${FIRESTORE_ADDRESS}/v1/projects/${PROJECT_ID}/databases/(default)/documents/trustedContactConnections/${connectionId}`
-  const response = await fetch(`${documentUrl}?updateMask.fieldPaths=status&updateMask.fieldPaths=approvedAt`, {
+  const connectionId = relationshipId(driver, trusted)
+  const reference = doc(trusted.firestore, 'trustedContactConnections', connectionId)
+  await updateDoc(reference, { status: 'APPROVED', approvedAt: serverTimestamp() })
+  const approvedAt = (await getDocFromServer(reference)).data()?.approvedAt?.toMillis()
+  if (typeof approvedAt !== 'number') throw new Error('Approval timestamp is missing')
+  return { connectionId, approvedAt }
+}
+
+export async function seedLegacyPendingInvitation(driver: EmulatorUser, trusted: EmulatorUser) {
+  const id = await requestFromDriver(driver, trusted)
+  const documentUrl = `http://${FIRESTORE_ADDRESS}/v1/projects/${PROJECT_ID}/databases/(default)/documents/trustedContactConnections/${id}`
+  const response = await fetch(`${documentUrl}?updateMask.fieldPaths=requestedByUserId&updateMask.fieldPaths=targetConnectionCode`, {
     method: 'PATCH',
     headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields: { status: { stringValue: 'APPROVED' }, approvedAt: { timestampValue: new Date(approvedAt).toISOString() } } }),
+    body: JSON.stringify({ fields: {
+      requestedByUserId: { stringValue: trusted.uid },
+      targetConnectionCode: { stringValue: driver.code },
+    } }),
   })
-  if (!response.ok) throw new Error(`Unable to simulate Driver approval: ${response.status} ${await response.text()}`)
-  const updated = await response.json() as { fields?: Record<string, { stringValue?: string }> }
-  if (updated.fields?.driverUserId?.stringValue !== driver.uid || updated.fields?.trustedContactUserId?.stringValue !== trusted.uid) {
-    throw new Error(`Driver approval fixture returned an incomplete relationship: ${JSON.stringify(updated)}`)
-  }
-  return { connectionId, approvedAt }
+  if (!response.ok) throw new Error(`Unable to seed the legacy invitation: ${response.status}`)
 }
 
 export async function addStageRecord(driver: EmulatorUser, approvedAt: number, id = 'stage-record-1') {

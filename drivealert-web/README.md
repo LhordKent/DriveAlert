@@ -80,4 +80,4 @@ npm run preview
 
 ## Security status
 
-The checked-in `firestore.rules` file is the portal's authorization contract and is verified locally with the Firebase Emulator Suite. This repository documents that the live project still has test-mode rules. Neither the portal nor the Firestore rules are deployed automatically, and the live environment must not be described as production-secure until the reviewed rules are explicitly deployed and verified by the project owner.
+The checked-in `firestore.rules` file is the portal's authorization contract and is verified locally with the Firebase Emulator Suite. The one-way invitation web bundle and rules went live on 2026-11-24. The deployed files and active rules were verified against the tested versions. Future deployments require project-owner approval.

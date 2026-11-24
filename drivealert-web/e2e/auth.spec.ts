@@ -8,6 +8,7 @@ test('registers a Trusted Contact, restores the session, logs out, and signs bac
   await page.goto('/auth/register')
   await page.getByLabel('First name').fill('Mara')
   await page.getByLabel('Last name').fill('Santos')
+  await page.getByLabel('Phone number').fill('09000000000')
   await page.getByLabel('Email').fill('mara.portal@example.com')
   await page.getByLabel('Password', { exact: true }).fill('Password123!')
   await page.getByLabel('Confirm password').fill('Password123!')

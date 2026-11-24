@@ -49,24 +49,14 @@ class DriveAlertMonitoringService : Service() {
         stateJob = serviceScope.launch {
             runtime.state.collectLatest { state ->
                 if (wakeLock?.isHeld == true) {
-                    val status = when {
-                        state.streamState != StreamConnectionState.CONNECTED -> state.streamState.name.lowercase()
-                        !state.alignmentConfirmed -> "Monitoring paused; confirm driver area"
-                        state.insufficientLighting -> "Monitoring paused; insufficient lighting"
-                        !state.driverTracking.locked -> "Monitoring paused; ${state.driverTracking.label.lowercase()}"
-                        state.lighting.recovering || state.lighting.quality == LightingQuality.UNKNOWN -> "Monitoring paused; checking visibility"
-                        state.visibilityIssue == VisibilityIssue.INSUFFICIENT_LIGHTING ||
-                            state.lighting.quality == LightingQuality.INSUFFICIENT -> "Monitoring paused; insufficient lighting"
-                        else -> "connected"
-                    }
-                    showForegroundNotification(status)
+                    showForegroundNotification(monitoringNotificationContent(state))
                 }
             }
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        showForegroundNotification("starting")
+        showForegroundNotification(startingMonitoringNotification)
         acquireWakeLock()
         when (intent?.action) {
             ACTION_START -> startFromIntent(intent)
@@ -199,10 +189,7 @@ class DriveAlertMonitoringService : Service() {
                         bootCount = recoveryStore.currentBootCount(),
                     ),
                 )
-                showForegroundNotification(
-                    if (runtime.state.value.alignmentConfirmed && runtime.state.value.driverTracking.locked && runtime.state.value.lighting.quality == LightingQuality.USABLE) "active"
-                    else "Monitoring paused; checking visibility",
-                )
+                showForegroundNotification(monitoringNotificationContent(runtime.state.value))
             },
             onFailure = { error ->
                 startInProgress = false
@@ -254,7 +241,7 @@ class DriveAlertMonitoringService : Service() {
     }
 
     private fun failStart(message: String) {
-        showForegroundNotification(message)
+        showForegroundNotification(MonitoringNotificationContent("DriveAlert monitoring unavailable", message))
         finishService(clearRecovery = true)
     }
 
@@ -289,18 +276,18 @@ class DriveAlertMonitoringService : Service() {
         wakeLock = null
     }
 
-    private fun showForegroundNotification(status: String) {
+    private fun showForegroundNotification(content: MonitoringNotificationContent) {
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
-            buildNotification(status),
+            buildNotification(content),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
             } else 0,
         )
     }
 
-    private fun buildNotification(status: String): Notification {
+    private fun buildNotification(content: MonitoringNotificationContent): Notification {
         val openIntent = PendingIntent.getActivity(
             this,
             0,
@@ -313,17 +300,10 @@ class DriveAlertMonitoringService : Service() {
             Intent(this, DriveAlertMonitoringService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val text = when (status) {
-            "connected", "active" -> "Camera connected and monitoring is active"
-            "reconnecting", "connecting" -> "Monitoring is active; reconnecting to the camera"
-            "unavailable" -> "Monitoring is active; camera is unavailable"
-            "starting" -> "Starting camera monitoring"
-            else -> status.replaceFirstChar { it.uppercase() }
-        }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(if (status.startsWith("Monitoring paused")) "DriveAlert monitoring paused" else "DriveAlert monitoring active")
-            .setContentText(text)
+            .setContentTitle(content.title)
+            .setContentText(content.text)
             .setContentIntent(openIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

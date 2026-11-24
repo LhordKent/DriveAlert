@@ -14,8 +14,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DirectionsCar
@@ -25,6 +28,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Mail
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.AlertDialog
@@ -44,6 +48,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -125,7 +131,6 @@ object PostAuthRoutes {
     const val TRUSTED_SHARED = "trusted/drivers/{driverId}"
     const val TRUSTED_ALERT_DETAIL = "trusted/drivers/{driverId}/alerts/{eventId}"
     const val TRUSTED_REQUESTS = "trusted/requests"
-    const val TRUSTED_INVITE = "trusted/requests/invite"
     const val TRUSTED_SETTINGS = "trusted/settings"
     const val ACCOUNT = "post-auth/account"
     const val HISTORY_STORAGE = "post-auth/history-storage"
@@ -136,7 +141,6 @@ object PostAuthRoutes {
 
     fun driverAlert(eventId: String) = "driver/alerts/$eventId"
     fun trustedDriver(driverId: String) = "trusted/drivers/$driverId"
-    fun trustedAlert(driverId: String, eventId: String) = "trusted/drivers/$driverId/alerts/$eventId"
 }
 
 internal fun restoredRoleDestination(
@@ -292,14 +296,10 @@ fun DriveAlertApp() {
         onFilterChange = postAuthViewModel::selectAlertFilter,
         onLookupConnectionCode = postAuthViewModel::lookupConnectionCode,
         onSendTrustedContactRequest = postAuthViewModel::sendTrustedContactRequest,
-        onSendDriverRequest = postAuthViewModel::sendDriverRequest,
         onClearConnectionInvite = postAuthViewModel::clearConnectionInvite,
-        onAcceptDriverIncomingRequest = postAuthViewModel::acceptDriverIncomingRequest,
         onAcceptTrustedIncomingRequest = postAuthViewModel::acceptTrustedIncomingRequest,
-        onDeclineDriverIncomingRequest = postAuthViewModel::declineDriverIncomingRequest,
         onDeclineTrustedIncomingRequest = postAuthViewModel::declineTrustedIncomingRequest,
         onCancelDriverOutgoingRequest = postAuthViewModel::cancelDriverOutgoingRequest,
-        onCancelTrustedOutgoingRequest = postAuthViewModel::cancelTrustedOutgoingRequest,
         onRevokeDriverContact = postAuthViewModel::revokeDriverContact,
         onDisconnectDriver = postAuthViewModel::disconnectDriver,
         onMarkSharedRecordsViewed = postAuthViewModel::markSharedRecordsViewed,
@@ -391,14 +391,10 @@ fun DriveAlertApp(
     onFilterChange: (com.lhordkent.drivealert.postauth.WarningStage?) -> Unit = {},
     onLookupConnectionCode: (String) -> Unit = {},
     onSendTrustedContactRequest: () -> Unit = {},
-    onSendDriverRequest: () -> Unit = {},
     onClearConnectionInvite: () -> Unit = {},
-    onAcceptDriverIncomingRequest: (String) -> Unit = {},
     onAcceptTrustedIncomingRequest: (String) -> Unit = {},
-    onDeclineDriverIncomingRequest: (String) -> Unit = {},
     onDeclineTrustedIncomingRequest: (String) -> Unit = {},
     onCancelDriverOutgoingRequest: (String) -> Unit = {},
-    onCancelTrustedOutgoingRequest: (String) -> Unit = {},
     onRevokeDriverContact: (String) -> Unit = {},
     onDisconnectDriver: (String) -> Unit = {},
     onMarkSharedRecordsViewed: (String) -> Unit = {},
@@ -430,6 +426,16 @@ fun DriveAlertApp(
     val navController = rememberNavController()
     val user = sessionState.user
     var accountCreationNavigationHandled by rememberSaveable(user?.uid, sessionState.entry) { mutableStateOf(false) }
+    var logoutInProgress by remember(user?.uid) { mutableStateOf(false) }
+
+    fun logOut() {
+        if (logoutInProgress || operationState.isLoading) return
+        logoutInProgress = true
+        onPrepareSignOut {
+            onClearPostAuth()
+            callbacks.onSignOut()
+        }
+    }
 
     LaunchedEffect(user?.uid, sessionState.entry, postAuthState.userRole, postAuthState.isProfileLoading, postAuthState.driverSetupComplete) {
         // Profile/setup updates must not reopen role choice after the new account has entered the app.
@@ -634,11 +640,8 @@ fun DriveAlertApp(
                 DriverRoot(navController, PostAuthRoutes.DRIVER_CONTACTS, "Trusted Contacts") {
                     DriverContactsScreen(
                         contacts = postAuthState.approvedContacts,
-                        incoming = postAuthState.driverIncomingRequests,
                         outgoing = postAuthState.driverOutgoingRequests,
                         onInvite = { navController.navigate(PostAuthRoutes.DRIVER_INVITE) },
-                        onAccept = onAcceptDriverIncomingRequest,
-                        onDecline = onDeclineDriverIncomingRequest,
                         onCancel = onCancelDriverOutgoingRequest,
                         onRemove = onRevokeDriverContact,
                         isLoading = postAuthState.driverConnectionsLoading,
@@ -649,7 +652,6 @@ fun DriveAlertApp(
             }
             composable(PostAuthRoutes.DRIVER_INVITE) {
                 InviteConnectionScreen(
-                    targetView = UserView.DRIVER,
                     inviteState = postAuthState.connectionInvite,
                     onLookup = onLookupConnectionCode,
                     onSend = onSendTrustedContactRequest,
@@ -678,12 +680,7 @@ fun DriveAlertApp(
                         onMonitoringLogs = { navController.navigate(PostAuthRoutes.MONITORING_LOGS) },
                         onWarningSound = { navController.navigate(PostAuthRoutes.WARNING_SOUND) },
                         onAbout = { navController.navigate(PostAuthRoutes.ABOUT) },
-                        onLogout = {
-                            onPrepareSignOut {
-                                onClearPostAuth()
-                                callbacks.onSignOut()
-                            }
-                        },
+                        onLogout = ::logOut,
                     )
                 }
             }
@@ -692,7 +689,6 @@ fun DriveAlertApp(
                     TrustedDriversScreen(
                         drivers = postAuthState.connectedDrivers,
                         onDriverSelected = { navController.navigate(PostAuthRoutes.trustedDriver(it)) },
-                        onInvite = { navController.navigate(PostAuthRoutes.TRUSTED_INVITE) },
                         onRemove = onDisconnectDriver,
                         isLoading = postAuthState.trustedConnectionsLoading,
                         actionInProgressIds = postAuthState.connectionActionInProgressIds,
@@ -714,7 +710,6 @@ fun DriveAlertApp(
                     historyBusy = postAuthState.historyBusy,
                     historyError = postAuthState.historyError,
                     historyMessage = postAuthState.historyMessage,
-                    onEventSelected = { navController.navigate(PostAuthRoutes.trustedAlert(driver.id, it)) },
                     onBack = navController::popBackStack,
                 )
             }
@@ -738,27 +733,13 @@ fun DriveAlertApp(
                 TrustedRoot(navController, postAuthState, PostAuthRoutes.TRUSTED_REQUESTS, "Requests") {
                     RequestsScreen(
                         incoming = postAuthState.trustedIncomingRequests,
-                        outgoing = postAuthState.trustedOutgoingRequests,
                         onAccept = onAcceptTrustedIncomingRequest,
                         onDecline = onDeclineTrustedIncomingRequest,
-                        onCancel = onCancelTrustedOutgoingRequest,
                         isLoading = postAuthState.trustedConnectionsLoading,
                         actionInProgressIds = postAuthState.connectionActionInProgressIds,
                         cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,
                     )
                 }
-            }
-            composable(PostAuthRoutes.TRUSTED_INVITE) {
-                InviteConnectionScreen(
-                    targetView = UserView.TRUSTED_CONTACT,
-                    inviteState = postAuthState.connectionInvite,
-                    onLookup = onLookupConnectionCode,
-                    onSend = onSendDriverRequest,
-                    senderName = postAuthState.profileDisplayName,
-                    senderEmail = postAuthState.accountEmail,
-                    onClear = onClearConnectionInvite,
-                    onBack = navController::popBackStack,
-                )
             }
             composable(PostAuthRoutes.TRUSTED_SETTINGS) {
                 TrustedRoot(navController, postAuthState, PostAuthRoutes.TRUSTED_SETTINGS, "Trusted Contact Settings") {
@@ -776,12 +757,7 @@ fun DriveAlertApp(
                         onHistory = { navController.navigate(PostAuthRoutes.HISTORY_STORAGE) },
                         onWarningSound = {},
                         onAbout = { navController.navigate(PostAuthRoutes.ABOUT) },
-                        onLogout = {
-                            onPrepareSignOut {
-                                onClearPostAuth()
-                                callbacks.onSignOut()
-                            }
-                        },
+                        onLogout = ::logOut,
                     )
                 }
             }
@@ -838,12 +814,30 @@ fun DriveAlertApp(
             composable(PostAuthRoutes.ABOUT) { AboutDriveAlertScreen(navController::popBackStack) }
         }
     }
-    visionState.visibilityAcknowledgementRequired?.let { issue ->
-        VisibilityAcknowledgementDialog(
-            issue = issue,
-            onContinueLimited = onContinueDegradedMonitoring,
-            onRestoreVisibility = onDismissVisibilityAcknowledgement,
-        )
+    if (logoutInProgress) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        ) {
+            Surface(shape = MaterialTheme.shapes.large) {
+                Row(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Text("Logging out…", style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    } else {
+        visionState.visibilityAcknowledgementRequired?.let { issue ->
+            VisibilityAcknowledgementDialog(
+                issue = issue,
+                onContinueLimited = onContinueDegradedMonitoring,
+                onRestoreVisibility = onDismissVisibilityAcknowledgement,
+            )
+        }
     }
 }
 

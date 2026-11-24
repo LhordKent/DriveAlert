@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.lhordkent.drivealert.data.repository.AlertRepository
 import com.lhordkent.drivealert.data.repository.MonitoringSessionRepository
 import com.lhordkent.drivealert.data.repository.DriverPreferenceRepository
@@ -15,6 +16,7 @@ import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.data.connection.TrustedContactRepository
 import com.lhordkent.drivealert.data.connection.TrustedContactConnection
 import com.lhordkent.drivealert.data.connection.ConnectionCode
+import com.lhordkent.drivealert.data.connection.ConnectionChangedException
 import com.lhordkent.drivealert.data.connection.ConnectionCodeNotFoundException
 import com.lhordkent.drivealert.data.connection.ExistingConnectionException
 import com.lhordkent.drivealert.data.connection.SelfConnectionException
@@ -428,6 +430,7 @@ class PostAuthViewModel(
     }
 
     fun lookupConnectionCode(code: String) {
+        if (state.activeView != UserView.DRIVER) return
         val normalized = ConnectionCode.normalize(code)
         if (!ConnectionCode.isValid(normalized)) {
             state = state.copy(connectionInvite = ConnectionInviteUiState(errorMessage = "Enter a complete DriveAlert connection code"))
@@ -459,49 +462,37 @@ class PostAuthViewModel(
         state = state.copy(connectionInvite = ConnectionInviteUiState())
     }
 
-    fun sendTrustedContactRequest() = sendConnectionRequest(RequesterSide.DRIVER)
-
-    fun sendDriverRequest() = sendConnectionRequest(RequesterSide.TRUSTED_CONTACT)
-
-    private fun sendConnectionRequest(requesterSide: RequesterSide) {
+    fun sendTrustedContactRequest() {
+        if (state.activeView != UserView.DRIVER || state.connectionInvite.isSending) return
         val repository = trustedContactRepository ?: return
         val userId = boundDriverUserId ?: return
         val code = state.connectionInvite.normalizedCode ?: return
+        if (state.userRole != UserRole.DRIVER && state.userRole != UserRole.BOTH) {
+            state = state.copy(connectionInvite = state.connectionInvite.copy(
+                errorMessage = "Open Driver view while connected to the internet, then try again.",
+            ))
+            return
+        }
         state = state.copy(connectionInvite = state.connectionInvite.copy(isSending = true, errorMessage = null))
         viewModelScope.launch {
             runCatching {
                 val name = state.profileDisplayName.ifBlank { "DriveAlert user" }
-                when (requesterSide) {
-                    RequesterSide.DRIVER -> repository.sendTrustedContactRequest(userId, name, accountEmail, code)
-                    RequesterSide.TRUSTED_CONTACT -> repository.sendDriverRequest(userId, name, accountEmail, code)
-                }
+                repository.sendTrustedContactRequest(userId, name, accountEmail, code)
             }.onSuccess {
                 state = state.copy(connectionInvite = state.connectionInvite.copy(isSending = false, requestSent = true))
             }.onFailure { error ->
+                if (error is CancellationException) throw error
                 val message = when (error) {
                     is ConnectionCodeNotFoundException -> CODE_NOT_FOUND_MESSAGE
                     is SelfConnectionException -> "Use another person's connection code"
                     is ExistingConnectionException -> "A connection or pending request already exists"
-                    else -> "Connection request could not be sent. Check your internet connection and try again."
+                    else -> if ((error as? FirebaseFirestoreException)?.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        "Check that the code is current and ask this person to open Trusted Contact view while online, then try again."
+                    } else "Connection request could not be sent. Check your internet connection and try again."
                 }
                 state = state.copy(connectionInvite = state.connectionInvite.copy(isSending = false, errorMessage = message))
             }
         }
-    }
-
-    fun acceptDriverIncomingRequest(requestId: String) {
-        if (state.driverIncomingRequests.none { it.id == requestId }) return
-        trustedContactRepository?.let { repository ->
-            launchConnectionAction(requestId) { repository.acceptRequest(requestId) }
-            return
-        }
-        val request = state.driverIncomingRequests.first { it.id == requestId }
-        state = state.copy(
-            driverIncomingRequests = state.driverIncomingRequests.filterNot { it.id == requestId },
-            approvedContacts = state.approvedContacts + Contact(
-                request.id, request.name, request.email, LocalDateTime.now(),
-            ),
-        )
     }
 
     fun acceptTrustedIncomingRequest(requestId: String) {
@@ -520,15 +511,6 @@ class PostAuthViewModel(
         )
     }
 
-    fun declineDriverIncomingRequest(requestId: String) {
-        if (state.driverIncomingRequests.none { it.id == requestId }) return
-        trustedContactRepository?.let { repository ->
-            launchConnectionAction(requestId) { repository.declineRequest(requestId) }
-            return
-        }
-        state = state.copy(driverIncomingRequests = state.driverIncomingRequests.filterNot { it.id == requestId })
-    }
-
     fun declineTrustedIncomingRequest(requestId: String) {
         if (state.trustedIncomingRequests.none { it.id == requestId }) return
         trustedContactRepository?.let { repository ->
@@ -545,15 +527,6 @@ class PostAuthViewModel(
             return
         }
         state = state.copy(driverOutgoingRequests = state.driverOutgoingRequests.filterNot { it.id == requestId })
-    }
-
-    fun cancelTrustedOutgoingRequest(requestId: String) {
-        if (state.trustedOutgoingRequests.none { it.id == requestId }) return
-        trustedContactRepository?.let { repository ->
-            launchConnectionAction(requestId) { repository.cancelRequest(requestId) }
-            return
-        }
-        state = state.copy(trustedOutgoingRequests = state.trustedOutgoingRequests.filterNot { it.id == requestId })
     }
 
     fun revokeDriverContact(id: String) {
@@ -576,7 +549,13 @@ class PostAuthViewModel(
         state = state.copy(connectionActionInProgressIds = state.connectionActionInProgressIds + id)
         viewModelScope.launch {
             runCatching { action() }
-                .onFailure { state = state.copy(cloudConnectionErrorMessage = CLOUD_CONNECTION_ERROR) }
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    val message = if (error is ConnectionChangedException) {
+                        "This connection has already changed. Check its current status."
+                    } else CLOUD_CONNECTION_ERROR
+                    state = state.copy(cloudConnectionErrorMessage = message)
+                }
             state = state.copy(connectionActionInProgressIds = state.connectionActionInProgressIds - id)
         }
     }
@@ -672,7 +651,6 @@ class PostAuthViewModel(
         }
     }
 
-    private enum class RequesterSide { DRIVER, TRUSTED_CONTACT }
 }
 
 class PostAuthViewModelFactory(
@@ -736,14 +714,6 @@ internal fun PostAuthUiState.withDriverConnections(
     }
     return copy(
         approvedContacts = approved,
-        driverIncomingRequests = connections.filter {
-            it.status == ConnectionStatus.PENDING && it.requestedByUserId == it.trustedContactUserId
-        }.map { connection ->
-            ConnectionRequest(
-                connection.connectionId, connection.trustedContactName, connection.trustedContactEmail,
-                RequestDirection.INCOMING, connection.requestedAtEpochMillis.toLocalDateTime(),
-            )
-        },
         driverOutgoingRequests = outgoing,
     )
 }
@@ -770,8 +740,9 @@ internal fun PostAuthUiState.withTrustedConnections(
             unreadRecordCount = previous?.unreadRecordCount ?: 0,
         )
     }
-    val pending = connections.filter { it.status == ConnectionStatus.PENDING }
-    val incoming = pending.filter { it.requestedByUserId != it.trustedContactUserId }.map { connection ->
+    val incoming = connections.filter {
+        it.status == ConnectionStatus.PENDING && it.requestedByUserId == it.driverUserId
+    }.map { connection ->
         ConnectionRequest(
             id = connection.connectionId,
             name = connection.driverName,
@@ -783,12 +754,6 @@ internal fun PostAuthUiState.withTrustedConnections(
     return copy(
         connectedDrivers = drivers,
         trustedIncomingRequests = incoming,
-        trustedOutgoingRequests = pending.filter { it.requestedByUserId == it.trustedContactUserId }.map { connection ->
-            ConnectionRequest(
-                connection.connectionId, connection.driverName, connection.driverEmail,
-                RequestDirection.OUTGOING, connection.requestedAtEpochMillis.toLocalDateTime(),
-            )
-        },
     )
 }
 

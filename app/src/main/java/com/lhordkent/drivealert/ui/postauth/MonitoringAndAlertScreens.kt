@@ -526,37 +526,14 @@ fun AlertDetailScreen(
 
 @Composable
 fun Stage3SyncRecordDetailScreen(record: Stage3SyncRecord, onBack: () -> Unit, onDelete: () -> Unit = {}, deleteEnabled: Boolean = true) {
-    ScrollableScreen(title = "Shared Record", onBack = onBack) {
-        HistoryDeleteButton("Delete record", "Remove this shared record only from your history on this phone? The driver's record and other contacts' history are kept.", enabled = deleteEnabled, onConfirm = onDelete)
+    ScrollableScreen(title = "Shared alert", onBack = onBack) {
+        GroupSurface {
+            KeyValueRow("Driver", record.sourceDriverName.orEmpty().ifBlank { "DriveAlert Driver" })
+            KeyValueRow("Alert time", record.occurredAt.format(sharedAlertDateTimeFormatter))
+            KeyValueRow("Detected signs", record.signs.joinToString { it.label }.ifBlank { "No recognized signs" })
+        }
         Spacer(Modifier.height(20.dp))
-        Text(record.occurredAt.format(DateTimeFormatter.ofPattern("MMMM d, yyyy 'at' h:mm a")), style = MaterialTheme.typography.titleLarge, color = TextPrimary)
-        record.sourceDriverName?.let {
-            Spacer(Modifier.height(4.dp))
-            Text("Shared by $it", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-        }
-        Spacer(Modifier.height(24.dp))
-        SectionTitle("Stage 3 synchronization")
-        Spacer(Modifier.height(8.dp))
-        KeyValueRow("Record type", record.kind.label)
-        KeyValueRow("Events counted in this period", record.eventCount.toString())
-        Text("This is one Stage 3 record. The event count covers its warning period; it is not the number of shares or all alerts in the session.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-        KeyValueRow("Detected visible sign(s)", record.signs.joinToString { it.label })
-        Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Warning Stage", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-            StagePill(WarningStage.STAGE_3)
-        }
-        Spacer(Modifier.height(18.dp))
-        SharingPill(record.sharingState)
-        record.receivedAt?.let {
-            Spacer(Modifier.height(8.dp))
-            Text("Received ${it.format(DateTimeFormatter.ofPattern("MMMM d, yyyy 'at' h:mm a"))}", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-            if (java.time.Duration.between(record.occurredAt, it).toMinutes() > 5) {
-                Spacer(Modifier.height(6.dp))
-                StatusPill("Delayed synchronization", StatusTone.INFO)
-            }
-        }
-        Spacer(Modifier.height(18.dp))
-        Text("This record reports a Stage 3 transition or continued Stage 3 period. It is an intervention record, not a diagnosis or measurement of drowsiness severity.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        HistoryDeleteButton("Delete record", "Remove this shared record only from your history on this phone? The driver's record and other contacts' history are kept.", enabled = deleteEnabled, onConfirm = onDelete)
         Spacer(Modifier.height(24.dp))
     }
 }

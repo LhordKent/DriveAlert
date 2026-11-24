@@ -67,6 +67,10 @@ class AuthViewModel(
 
     private fun signUp(input: SignUpInput) {
         if (state.isLoading) return
+        AuthValidation.phoneError(input.phoneNumber)?.let {
+            state = AuthOperationState(errorMessage = it)
+            return
+        }
         state = AuthOperationState(isLoading = true)
         signingUp = true
         pendingEntry = AuthenticationEntry.ACCOUNT_CREATED

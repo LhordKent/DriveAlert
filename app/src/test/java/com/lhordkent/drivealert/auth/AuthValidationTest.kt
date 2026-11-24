@@ -33,9 +33,20 @@ class AuthValidationTest {
     }
 
     @Test
-    fun optionalFieldsMayBeBlankAndValidateWhenPresent() {
-        assertNull(AuthValidation.phoneError(""))
-        assertNull(AuthValidation.phoneError("+63 917 123 4567"))
-        assertEquals("Enter a valid phone number", AuthValidation.phoneError("call-me"))
+    fun phoneNumberIsRequired() {
+        assertEquals("Phone number is required", AuthValidation.phoneError(""))
+        assertEquals("Phone number is required", AuthValidation.phoneError("   "))
+    }
+
+    @Test
+    fun phoneNumberRequiresExactlyElevenAsciiDigits() {
+        assertNull(AuthValidation.phoneError("09171234567"))
+        assertNull(AuthValidation.phoneError(" 09171234567 "))
+        assertNull(AuthValidation.phoneError("08171234567"))
+        assertNull(AuthValidation.phoneError("12345678901"))
+        for (number in listOf("0917123456", "091712345678", "+639171234567",
+            "0917 1234567", "0917-1234567", "call-me", "09abcdefghi", "09١٢٣٤٥٦٧٨٩")) {
+            assertEquals(number, "Enter exactly 11 digits", AuthValidation.phoneError(number))
+        }
     }
 }

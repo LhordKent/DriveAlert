@@ -1,6 +1,71 @@
 # DriveAlert System Audit — 2026-11-11
 
-## Current status (plain English) — last updated 2026-11-16
+## Current status (plain English) - last updated 2026-11-25
+
+### 2026-11-25 — Conditional hotspot prompt after Bluetooth setup
+- Restored the **Turn on your hotspot** popup after Bluetooth setup completes, when Android reports the tethered hotspot is off. Confirmed on or unknown states keep the popup hidden. Cancel allows another Wi-Fi network.
+- Android build and all three focused setup unit tests passed. Candidate is `output/DriveAlert-2026-11-25-conditional-hotspot-prompt.apk`. All four Android 35 emulator UI tests passed. The real Android hotspot was toggled, and camera Bluetooth completion was simulated. Confirmed no popup before Bluetooth completion, a popup after setup with the hotspot off, and no popup with the hotspot on. TECNO-only installation and physical validation are pending USB access.
+
+### 2026-11-25 — Read-only Trusted Contact alert rows
+- Shared alerts display the time and detected signs as plain rows on Android and on the web dashboard and driver history. The rows have no arrows, links, or tap actions. Clear history is still available, and existing direct web record links work.
+- Verification passed for 61 scoped web unit/component tests, seven browser checks, 343 Android unit tests, and two Android emulator checks. Firebase Hosting version e9896e186845298c went live at 00:34 Manila. Verified all four published assets and the live history. Installed the matching APK on both phones in place and verified both original alert databases, settings directories, and signed-in accounts.
+
+### 2026-11-25 — Simpler Trusted Contact alert records
+- Web and Android now show the driver, one alert time, and detected signs. Shared history rows show the alert time and signs. Removed record type, period start/end rows, event count, session ID, delivery and sync indicators, and the repeated detail explanations. The record data and sync behavior are preserved.
+- Both builds passed. Verified desktop and phone-width web layouts, 65 web unit and component tests, seven browser checks with one startup timeout passing on rerun, 343 Android unit tests, and two Android emulator checks. Installed the verified APK on both the TECNO LE6h and Huawei JLN-LX1 as in-place updates. Both retained the original installation identity, alert database, app settings, and signed-in account. Deployed the shared-alert changes to Firebase Hosting at 00:23 Manila. All four published files matched the tested Hosting build, and an existing live alert showed the three simplified fields.
+
+### 2026-11-24 — Live Stage 3 sync to Huawei and web
+- The live Stage 3 record reached Firestore at 23:56:41.321 Manila and was visible in the Trusted Contact portal by 23:56:41.603. The TECNO generated it and acknowledged upload about 1.4 seconds after queuing it. The Huawei cached the same record through DriveAlert, with a Firestore snapshot time of 23:56:41.388 Manila, about 67 ms after upload. The user saw it in the Huawei app. The Huawei was signed in as the contact and lacks Google Play services. Firebase rejected the only push attempt with an invalid token. A phone push retest requires the Huawei signed in as Driver and the TECNO registered under the approved contact account.
+
+### 2026-11-24: latest APK installed fresh on Huawei
+- Installed the actual latest tested APK, output/DriveAlert-2026-11-24-one-way-trusted-contact-invitations.apk, on the newly connected HUAWEI JLN-LX1 (serial U4YYD22408513458, Android API31) at22:01 Manila. Its SHA-256 BFA98017341F3F5B3D7F3889206C5A32AF0AF2A1ABE03F99248A25D24B5874AC matches both the current app-debug.apk and installed Huawei base.apk. User explicitly requested clearing data: targeted Huawei-only adb install -r and pm clear com.lhordkent.drivealert both returned Success. App-private directory was empty before first launch; MainActivity then opened, process23596 ran, and its crash buffer was empty. No account created or monitoring started. TECNO LE6h was connected simultaneously but was not installed to, cleared or otherwise changed. No source changes, new build/tests, cloud changes, commit or push in this delivery.
+
+### 2026-11-24 — One-way Trusted Contact invitations
+- Released the scoped portal bundle and invitation rules to Firebase production at 18:43 Manila. Live Hosting version `4ad407e440abc8e3` serves the four tested assets byte for byte. The active Firestore rules match the emulator-tested source. A signed-out browser loaded both the home and former invitation URLs and reached sign-in. Production verification was read-only.
+- Installed the emulator-tested APK on the TECNO LE6h at 18:39 Manila with an in-place update. Verified the installed hash and preserved app UID, original installation date, Room database file, and preferences directory.
+- Hard emulator retest used the exact candidate APK. All 11 selected Android instrumentation checks, 35 Firebase emulator tests, and two Android-to-browser checks passed. Twelve duplicate-send and accept-versus-cancel trials kept one valid outcome each. Switching off both Android networks left a legacy request intact, and re-inviting after reconnection succeeded. The retest covered the Stage 3 sharing cutoff and separate camera-driver access.
+- One earlier mixed run saved the invitation on the server but timed out waiting for the Driver’s pending list. The rerun passed after the test fixture confirmed both accounts were online before timing the lists. Application code and the candidate APK were unchanged during the retest.
+- In the local candidate, the Driver sends an invitation using the Trusted Contact’s code. The contact accepts or declines on Android or the web. The Driver can cancel a pending invitation, and either side can disconnect an approved relationship.
+- Existing approvals keep their original dates. A fresh Driver invitation can replace an old pending request sent by the contact. Additional-driver camera invitations still use their separate workflow and codes.
+- All 343 Android unit tests, 35 Firebase emulator tests, 67 workspace web unit and component tests, and 13 standard browser tests passed. Two Android instrumentation tests and two cross-platform browser tests passed. The web accepted the fresh invite sent from Android after the contact declined the previous request on Android.
+- The APK is `output/DriveAlert-2026-11-24-one-way-trusted-contact-invitations.apk`. The published web bundle at `output/DriveAlert-2026-11-24-one-way-trusted-contact-web` was built from the committed web baseline plus the invitation change. All 63 unit and component tests and four connection browser tests passed on that baseline.
+
+### 2026-11-24 — Logout progress and monitoring notifications
+- Confirming logout shows a blocking **Logging out…** spinner while camera and account cleanup finishes. On the TECNO phone, a Home tap and Back did not interrupt the flow. The welcome screen appeared automatically and the existing account was signed back in.
+- The Android monitoring notification shows **Paused** while reconnecting or waiting for fresh camera readings. It shows **Active** when monitoring can assess the driver. Four focused monitoring-policy unit tests passed, and the APK built successfully. The notification fix was not retested in a live camera outage.
+- Installed the update as `output/DriveAlert-2026-11-24-logout-and-monitoring-status.apk` with app identity and first-install time preserved. The installed SHA-256 is `dcfc4c10155a914bee3306b445a29bde885f6daa95aac053c7b03d600f708f3c`.
+
+### 2026-11-24: latest combined APK built and installed
+- Built from the latest C:/DriveAlert working tree, combining lighting/calibration grace/view memory, mandatory exactly11-digit signup with any prefix, and the November24 hotspot-popup removal. All341 unit tests pass (0 failures/errors/skips), APK build and Android-test compilation pass. Inspected the packaged APK: phone-required error and ^[0-9]{11}$ present, lighting15/35 and2s confirmation present, automatic hotspot popup absent, saved-network action retained. Installed output/DriveAlert-2026-11-24-latest-combined.apk on TECNO LE6h with adb install -r (Success), no uninstall/data reset. Installed SHA-256 DE6EEA35B5890823BE5BB8985F6ED90C4A62731A84B9BA17B727D7BC31DED1D4 matches the candidate; UID10545 and firstInstallTime2026-11-12 21:41:49 unchanged, lastUpdateTime2026-11-24 16:00:14. MainActivity launched and app process verified. No account creation, monitoring manually started, camera accuracy/sign-up UI retest, firmware flash, web deployment, commit or push in this delivery. Private build/installation proof and source fingerprints are in ignored tmp/latest-combined-verification-2026-11-24.json.
+- Updated shared project/cloud/detection/camera/functions/continuation/timeline notes. The earlier focused hotspot APK is superseded; required-number signup is now installed on Android. Website deployment remains pending.
+
+### 2026-11-24: reconnecting during active monitoring
+- On the TECNO phone with a driver in view, turning off Bluetooth alone kept fresh driver tracking and the monitoring service active.
+- With the hotspot off for about 15 seconds, fresh camera readings stopped whether Bluetooth was on or off. After restoring the hotspot, fresh locked tracking and active assessment returned automatically in the same session for both outage cases. Bluetooth remained off during the second recovery.
+- The Android notification said “Monitoring is active; reconnecting to the camera” while fresh camera readings were unavailable. A separate monitoring session was started for the hotspot checks after the Bluetooth-only check. Stopped monitoring after the test and left the hotspot on and Bluetooth off.
+
+### 2026-11-24: misleading hotspot prompt fixed and retested
+- Removed the automatic hotspot popup from Android Bluetooth setup. Setup still explains how to enter Wi-Fi details when needed.
+- Built the Android update from the installed November 16 app baseline plus this one fix. Installed it on the TECNO phone as an update and verified its hash, app identity, original install time, and existing sign-in.
+- Retested with Android reporting the hotspot on throughout setup. The saved-network button was directly available after Bluetooth connected, the popup stayed absent, and the live connection returned. The retest covered only this fault.
+
+### 2026-11-24: real camera connection test
+- Tested the installed Android app on the TECNO phone with the ESP32 camera. Video continued with phone Bluetooth off after Wi-Fi setup. A roughly 16-second hotspot outage interrupted the feed, which returned automatically after the hotspot was restored.
+- After 107 seconds without the hotspot, turning it back on alone did not restore the feed. The camera appeared in Bluetooth setup and reconnected using its saved network without a power cycle or re-entering Wi-Fi details.
+- The app prompted to turn on the hotspot even though Android confirmed it was on. Dismissing the prompt allowed the saved-network connection. The app was left connected over the hotspot with Bluetooth off. This test covered connectivity only.
+
+### 2026-11-24: password reset minimum
+- Firebase Authentication now requires at least 8 characters when setting a password, matching Android and web sign-up. Forced upgrades at sign-in are off.
+- Verified the live Firebase policy. The emailed reset flow has yet to be tested with a test account.
+
+### 2026-11-17: required sign-up phone number, any11 digits
+- New account creation now requires exactly11 ASCII digits with any prefix (^[0-9]{11}$), after trimming surrounding whitespace. User explicitly removed the earlier09-prefix requirement. Android AuthValidation/CreateAccountScreen and AuthViewModel guard reject blank or malformed numbers before Firebase account creation. Web registration form/schema and authRepository.register use the same required rule via registrationPhoneSchema. Existing form fields only; no popup/new screen. Profile editing, peer contact display, Firestore rules and existing account data were not changed.
+- Fresh341 Android unit tests pass (0 failures/errors/skips), assembleDebug and compileDebugAndroidTestSources succeed. Web check passes typecheck, lint, all78 unit/component tests and production build. Regression coverage includes blank/10/12-digit/nondigit values, valid non09 prefixes, form submission blocking, direct auth guard and trimmed pending-profile persistence without password storage. Updated native UI and browser emulator fixtures; instrumentation/browser end-to-end tests were not run.
+- Candidate output/DriveAlert-2026-11-17-required-phone.apk built, not installed; website production bundle built, not deployed. Phone still has2026-11-16 view-memory/calibration-grace APK. No new commit/push or live account creation. Firebase deployment requires the existing ask-first project rule. Shared Claude project/cloud/functions/continuation/timeline notes updated.
+
+### 2026-11-16: plain-language PDF reference guides
+- Created matching monitoring (3 pages) and full tech-stack (4 pages) PDFs in `output/pdf/`. Covered thresholds, timing, stages, visibility, limitations, technologies and their roles. Monitoring includes current15/35 lighting thresholds,2s poor confirmation +3s lighting-warning qualification and2s calibration missing-lighting grace.
+- Rendered and visually checked every page; verified page counts, readable text and content bounds. This was document work only: no monitoring behavior changed or new app/hardware tests performed.
 
 ### 2026-11-16: authorized main checkpoint
 - User authorized committing and pushing all pending source, tests, tools and documentation to main. This checkpoint includes lighting tolerance, existing face-unavailable attribution, bounded calibration lighting grace and per-account Driver/Trusted Contact view memory.

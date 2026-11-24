@@ -29,7 +29,7 @@ async function register(page: Page) {
   await page.goto('/auth/register')
   await page.getByLabel('First name').fill('Mara')
   await page.getByLabel('Last name').fill('Santos')
-  await page.getByLabel(/Phone/).fill('+63 900 000 0000')
+  await page.getByLabel(/Phone/).fill('09000000000')
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
   await page.getByLabel('Confirm password').fill(PASSWORD)
@@ -120,6 +120,6 @@ test.describe('sign up in Chrome, finish in Brave', () => {
     await expect(brave.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 
     const [profile] = await storedProfiles()
-    expect(profile).toMatchObject({ firstName: 'Mara', lastName: 'Santos', phoneNumber: '+63 900 000 0000' })
+    expect(profile).toMatchObject({ firstName: 'Mara', lastName: 'Santos', phoneNumber: '09000000000' })
   })
 })

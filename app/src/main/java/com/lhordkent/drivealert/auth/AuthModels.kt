@@ -50,7 +50,7 @@ data class AuthSessionState(
 
 object AuthValidation {
     private val emailPattern = Regex("^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$")
-    private val phonePattern = Regex("^[+() 0-9-]{7,20}$")
+    private val phonePattern = Regex("^[0-9]{11}$")
 
     fun requiredError(value: String, fieldName: String): String? =
         if (value.isBlank()) "$fieldName is required" else null
@@ -77,8 +77,8 @@ object AuthValidation {
     }
 
     fun phoneError(value: String): String? = when {
-        value.isBlank() -> null
-        !phonePattern.matches(value.trim()) -> "Enter a valid phone number"
+        value.isBlank() -> "Phone number is required"
+        !phonePattern.matches(value.trim()) -> "Enter exactly 11 digits"
         else -> null
     }
 }

@@ -8,7 +8,7 @@ import { profileRepository } from '../../repositories/profileRepository'
 import { connectionRepository } from '../../repositories/connectionRepository'
 import { stageRecordRepository } from '../../repositories/stageRecordRepository'
 import { trustedDriverStateRepository } from '../../repositories/trustedDriverStateRepository'
-import { requestDirection } from '../../lib/domain'
+import { isIncomingDriverInvitation } from '../../lib/domain'
 import {
   type DriverRecordState,
   type PortalError,
@@ -180,9 +180,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     await trustedDriverStateRepository.markViewed(user.uid, driverUid)
   }, [user])
 
-  const requests = useMemo(() => connections
-    .filter((connection) => connection.status === 'PENDING')
-    .map((connection) => ({ connection, direction: requestDirection(connection, user?.uid ?? '') })), [connections, user?.uid])
+  const incomingRequests = useMemo(() => connections
+    .filter((connection) => isIncomingDriverInvitation(connection, user?.uid)), [connections, user?.uid])
 
   const value = useMemo<PortalContextValue>(() => ({
     profile,
@@ -192,13 +191,12 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     connectionsStatus,
     connectionsError,
     approvedDrivers,
-    incomingRequests: requests.filter((request) => request.direction === 'INCOMING'),
-    outgoingRequests: requests.filter((request) => request.direction === 'OUTGOING'),
+    incomingRequests,
     recordsByDriver,
     history,
     markDriverViewed,
     refreshProfile,
-  }), [profile, profileStatus, profileError, connections, connectionsStatus, connectionsError, approvedDrivers, requests, recordsByDriver, history, markDriverViewed, refreshProfile])
+  }), [profile, profileStatus, profileError, connections, connectionsStatus, connectionsError, approvedDrivers, incomingRequests, recordsByDriver, history, markDriverViewed, refreshProfile])
 
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>
 }

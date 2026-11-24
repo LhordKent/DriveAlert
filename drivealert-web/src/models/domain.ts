@@ -36,15 +36,6 @@ export const userProfileSchema = z.object({
 
 export type UserProfile = z.infer<typeof userProfileSchema>
 
-export const connectionCodeMappingSchema = z.object({
-  ownerUserId: z.string().min(1),
-  displayName: z.string(),
-  createdAt: timestampSchema.nullable().optional(),
-  active: z.boolean(),
-})
-
-export type ConnectionCodeMapping = z.infer<typeof connectionCodeMappingSchema>
-
 export const trustedContactConnectionSchema = z.object({
   connectionId: z.string().min(1),
   driverUserId: z.string().min(1),
@@ -82,13 +73,6 @@ export const stageSyncRecordSchema = z.object({
 
 export type StageSyncRecord = Omit<z.infer<typeof stageSyncRecordSchema>, 'recordType'> & {
   recordType: StageSyncRecordType
-}
-
-export type RequestDirection = 'INCOMING' | 'OUTGOING'
-
-export interface ConnectionRequestView {
-  connection: TrustedContactConnection
-  direction: RequestDirection
 }
 
 export interface DriverRecordState {

@@ -12,6 +12,7 @@ import com.lhordkent.drivealert.auth.AuthenticatedUser
 import com.lhordkent.drivealert.auth.AuthenticationEntry
 import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.ui.DriveAlertApp
+import com.lhordkent.drivealert.ui.postauth.sharedAlertDateTimeFormatter
 import com.lhordkent.drivealert.ui.theme.DriveAlertTheme
 import org.junit.Rule
 import org.junit.Test
@@ -19,8 +20,9 @@ import org.junit.Test
 class SharedRecordRevocationAuditTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun u582_openRecordIsRemovedWhenApprovedConnectionDisappears() {
+    @Test fun u582_historyIsRemovedWhenApprovedConnectionDisappears() {
         val state = mutableStateOf(PostAuthViewModel.seedState().copy(userRole = UserRole.BOTH))
+        val record = state.value.connectedDrivers.first { it.name == "Adrian Cruz" }.sharedRecords.first()
         compose.setContent {
             DriveAlertTheme {
                 DriveAlertApp(
@@ -37,11 +39,11 @@ class SharedRecordRevocationAuditTest {
         }
         compose.onNodeWithText("Continue as Trusted Contact").performScrollTo().performClick()
         compose.onNodeWithText("Adrian Cruz").performScrollTo().performClick()
-        compose.onNodeWithText("7:42 AM", substring = true).performScrollTo().performClick()
-        compose.onNodeWithText("Shared by Adrian Cruz").assertIsDisplayed()
+        val alert = compose.onNodeWithText(record.occurredAt.format(sharedAlertDateTimeFormatter))
+        alert.performScrollTo().assertIsDisplayed()
         // Apply the same production projection used when the online connection listener removes approval.
         compose.runOnIdle { state.value = state.value.withTrustedConnections(emptyList()) }
-        compose.onNodeWithText("This record is no longer in your history.").assertIsDisplayed()
-        compose.onNodeWithText("Shared by Adrian Cruz").assertDoesNotExist()
+        alert.assertDoesNotExist()
+        compose.onNodeWithText("Adrian Cruz").assertDoesNotExist()
     }
 }

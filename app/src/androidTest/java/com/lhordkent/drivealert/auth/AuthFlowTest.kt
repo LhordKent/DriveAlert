@@ -110,7 +110,7 @@ class AuthFlowTest {
     }
 
     @Test
-    fun validSignUpInvokesCallbackWithOptionalFieldsBlank() {
+    fun validSignUpRequiresPhoneAndAllowsBlankMiddleName() {
         var received: SignUpInput? = null
         launch(AuthCallbacks(onSignUp = { received = it }))
         composeRule.onNodeWithText("Create Account").performClick()
@@ -121,10 +121,15 @@ class AuthFlowTest {
         composeRule.onNodeWithTag(AuthTestTags.CONFIRM_PASSWORD).performTextInput("safe-drive")
         composeRule.onNodeWithTag(AuthTestTags.PRIMARY_ACTION).performScrollTo().performClick()
 
+        composeRule.onNodeWithText("Phone number is required").performScrollTo().assertIsDisplayed()
+        composeRule.runOnIdle { assertEquals(null, received) }
+        composeRule.onNodeWithTag(AuthTestTags.PHONE).performScrollTo().performTextInput("12345678901")
+        composeRule.onNodeWithTag(AuthTestTags.PRIMARY_ACTION).performScrollTo().performClick()
+
         composeRule.runOnIdle {
             assertEquals("Lhord", received?.firstName)
             assertEquals("", received?.middleName)
-            assertEquals("", received?.phoneNumber)
+            assertEquals("12345678901", received?.phoneNumber)
         }
     }
 

@@ -9,7 +9,6 @@ import { DriversPage } from '../../features/drivers/DriversPage'
 import { DriverDetailPage } from '../../features/drivers/DriverDetailPage'
 import { RecordDetailPage } from '../../features/records/RecordDetailPage'
 import { RequestsPage } from '../../features/requests/RequestsPage'
-import { InviteDriverPage } from '../../features/requests/InviteDriverPage'
 import { AccountPage } from '../../features/account/AccountPage'
 import { HistorySettingsPage } from '../../features/settings/HistorySettingsPage'
 import { SettingsPage } from '../../features/settings/SettingsPage'
@@ -36,7 +35,7 @@ const router = createBrowserRouter([
         { path: '/drivers/:driverId', element: <DriverDetailPage /> },
         { path: '/drivers/:driverId/records/:recordId', element: <RecordDetailPage /> },
         { path: '/requests', element: <RequestsPage /> },
-        { path: '/requests/invite', element: <InviteDriverPage /> },
+        { path: '/requests/invite', element: <Navigate to="/requests" replace /> },
         { path: '/account', element: <AccountPage /> },
         { path: '/settings', element: <SettingsPage /> },
         { path: '/settings/history', element: <HistorySettingsPage /> },

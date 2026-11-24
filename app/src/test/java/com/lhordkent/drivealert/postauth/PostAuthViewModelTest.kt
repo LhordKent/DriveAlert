@@ -76,7 +76,7 @@ class PostAuthViewModelTest {
     }
 
     @Test
-    fun productionProjectionsExposeBothPendingRequestDirections() {
+    fun productionProjectionsExposeOnlyDriverInvitationsAndRetainLegacyApprovals() {
         fun connection(requestedBy: String) = com.lhordkent.drivealert.data.connection.TrustedContactConnection(
             connectionId = "driver__trusted",
             driverUserId = "driver",
@@ -99,8 +99,14 @@ class PostAuthViewModelTest {
         assertEquals(1, PostAuthUiState().withTrustedConnections(listOf(driverOriginated)).trustedIncomingRequests.size)
 
         val trustedOriginated = connection("trusted")
-        assertEquals(1, PostAuthUiState().withDriverConnections(listOf(trustedOriginated)).driverIncomingRequests.size)
-        assertEquals(1, PostAuthUiState().withTrustedConnections(listOf(trustedOriginated)).trustedOutgoingRequests.size)
+        assertTrue(PostAuthUiState().withDriverConnections(listOf(trustedOriginated)).driverOutgoingRequests.isEmpty())
+        assertTrue(PostAuthUiState().withTrustedConnections(listOf(trustedOriginated)).trustedIncomingRequests.isEmpty())
+        val approved = trustedOriginated.copy(
+            status = com.lhordkent.drivealert.data.local.entity.ConnectionStatus.APPROVED,
+            approvedAtEpochMillis = 2L,
+        )
+        assertEquals(1, PostAuthUiState().withDriverConnections(listOf(approved)).approvedContacts.size)
+        assertEquals(1, PostAuthUiState().withTrustedConnections(listOf(approved)).connectedDrivers.size)
     }
 
     @Test

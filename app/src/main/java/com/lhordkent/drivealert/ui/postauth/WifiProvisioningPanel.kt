@@ -2,8 +2,12 @@ package com.lhordkent.drivealert.ui.postauth
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
-import android.content.pm.PackageManager
+import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -22,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,6 +48,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lhordkent.drivealert.provisioning.BlePermissionPolicy
+import com.lhordkent.drivealert.provisioning.PhoneHotspotSignal
+import com.lhordkent.drivealert.provisioning.PhoneHotspotState
 import com.lhordkent.drivealert.provisioning.ProvisioningState
 import com.lhordkent.drivealert.provisioning.ProvisioningStage
 import com.lhordkent.drivealert.provisioning.WifiProvisioningViewModel
@@ -73,8 +80,8 @@ fun WifiProvisioningPanel(
     val authorization by provisioningViewModel.authorization.collectAsState()
     var ssid by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    var showHotspotPrompt by rememberSaveable { mutableStateOf(false) }
     var showLocationPrompt by rememberSaveable { mutableStateOf(false) }
+    var hotspotPromptDismissed by rememberSaveable(state.selectedDeviceId) { mutableStateOf(false) }
     var showRestartRecovery by rememberSaveable { mutableStateOf(false) }
     val permissions = remember { BlePermissionPolicy.runtimePermissions() }
     val streamState = vision?.streamState
@@ -83,6 +90,7 @@ fun WifiProvisioningPanel(
         SavedCameraConnectionPanel(checkNotNull(vision), onDisconnect, onRetryConnection, onReturnToBleSetup, onOpenBleSetup)
         return
     }
+    val hotspotState = rememberPhoneHotspotState(context)
     fun locationServicesRequiredAndOff(): Boolean =
         BlePermissionPolicy.requiresLocationServices() &&
             !LocationManagerCompat.isLocationEnabled(locationManager)
@@ -149,12 +157,6 @@ fun WifiProvisioningPanel(
         if (state.stage == ProvisioningStage.IDLE || state.stage == ProvisioningStage.PROVISIONED) {
             ssid = ""
             password = ""
-        }
-    }
-
-    LaunchedEffect(state.stage, state.credentialStatusKnown) {
-        if (state.stage == ProvisioningStage.CONNECTED_BLE && state.credentialStatusKnown) {
-            showHotspotPrompt = true
         }
     }
 
@@ -383,6 +385,25 @@ fun WifiProvisioningPanel(
             onDismiss = { showRestartRecovery = false }, actionColor = TextPrimary)
     }
 
+    if (!showLocationPrompt && !showRestartRecovery && !authorization.claimable &&
+        shouldPromptForHotspot(state, hotspotState, hotspotPromptDismissed)
+    ) {
+        ConfirmDialog(
+            title = "Turn on your hotspot",
+            body = "If you use this phone's hotspot, turn it on before connecting the camera. You can cancel to use another Wi-Fi network.",
+            confirmLabel = "Open hotspot settings",
+            onConfirm = {
+                hotspotPromptDismissed = true
+                try {
+                    context.startActivity(Intent("android.settings.TETHER_SETTINGS"))
+                } catch (_: ActivityNotFoundException) {
+                    context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+                }
+            },
+            onDismiss = { hotspotPromptDismissed = true },
+        )
+    }
+
     if (authorization.claimable) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { provisioningViewModel.dismissClaim() },
@@ -399,26 +420,34 @@ fun WifiProvisioningPanel(
             dismissButton = { androidx.compose.material3.TextButton(onClick = provisioningViewModel::dismissClaim, enabled = !authorization.checking, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = TextSecondary)) { Text("Cancel") } },
         )
     }
-
-    if (showHotspotPrompt) {
-        ConfirmDialog(
-            title = "Turn on your hotspot",
-            body = "Before connecting the DriveAlert Device, turn on this phone's mobile hotspot and keep it enabled. Then return to DriveAlert and enter the hotspot name and password.",
-            confirmLabel = "Open hotspot settings",
-            onConfirm = {
-                showHotspotPrompt = false
-                val hotspotSettings = Intent("android.settings.TETHER_SETTINGS")
-                val destination = if (hotspotSettings.resolveActivity(context.packageManager) != null) {
-                    hotspotSettings
-                } else {
-                    Intent(Settings.ACTION_WIRELESS_SETTINGS)
-                }
-                context.startActivity(destination)
-            },
-            onDismiss = { showHotspotPrompt = false },
-        )
-    }
 }
+
+@Composable
+private fun rememberPhoneHotspotState(context: Context): PhoneHotspotState {
+    var hotspotState by remember(context) { mutableStateOf(PhoneHotspotState.UNKNOWN) }
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                hotspotState = PhoneHotspotSignal.read(intent)
+            }
+        }
+        val initial = ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(PhoneHotspotSignal.ACTION),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
+        hotspotState = PhoneHotspotSignal.read(initial)
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+    return hotspotState
+}
+
+internal fun shouldPromptForHotspot(
+    state: ProvisioningState,
+    hotspotState: PhoneHotspotState,
+    dismissed: Boolean,
+): Boolean = wifiCredentialFieldsAvailable(state) && hotspotState == PhoneHotspotState.OFF && !dismissed
 
 internal fun wifiCredentialFieldsAvailable(state: ProvisioningState): Boolean =
     state.stage == ProvisioningStage.CONNECTED_BLE && state.credentialStatusKnown

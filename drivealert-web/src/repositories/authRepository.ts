@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth'
 import { auth } from '../firebase/client'
 import { profileRepository } from './profileRepository'
+import { registrationPhoneSchema } from '../lib/phoneNumber'
 
 export interface RegistrationInput {
   firstName: string
@@ -70,10 +71,13 @@ export const authRepository = {
   async signIn(email: string, password: string) {
     return signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password)
   },
-  async register(input: RegistrationInput) {
+  async register(input: RegistrationInput & { phoneNumber: string }) {
+    const phone = registrationPhoneSchema.safeParse(input.phoneNumber)
+    if (!phone.success) throw new Error(phone.error.issues[0].message)
     const credential = await createUserWithEmailAndPassword(auth, input.email.trim().toLowerCase(), input.password)
     // Persist profile details only, never passwords.
-    const { firstName, middleName, lastName, phoneNumber, email } = input
+    const { firstName, middleName, lastName, email } = input
+    const phoneNumber = phone.data
     localStorage.setItem('drivealert.pending-registration.' + credential.user.uid,
       JSON.stringify({ firstName, middleName, lastName, phoneNumber, email }))
     const name = [input.firstName, input.middleName, input.lastName].filter(Boolean).join(' ')

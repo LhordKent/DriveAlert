@@ -7,7 +7,7 @@ import { usePortal } from '../../app/providers/portalContext'
 import { formatRelativeTime } from '../../lib/date'
 
 export function DashboardPage() {
-  const { approvedDrivers, incomingRequests, outgoingRequests, recordsByDriver, connectionsStatus, connectionsError } = usePortal()
+  const { approvedDrivers, incomingRequests, recordsByDriver, connectionsStatus, connectionsError } = usePortal()
   const allRecords = approvedDrivers.flatMap((driver) => recordsByDriver[driver.driverUserId]?.records ?? []).sort((a, b) => b.periodStartedAt.toMillis() - a.periodStartedAt.toMillis())
   const unreadCount = approvedDrivers.reduce((sum, driver) => sum + (recordsByDriver[driver.driverUserId]?.unreadCount ?? 0), 0)
   if (connectionsStatus === 'loading') return <><PageHeader title="Dashboard" description="Your Trusted Contact overview." /><PageSkeleton rows={4} /></>
@@ -16,7 +16,7 @@ export function DashboardPage() {
   const latestRecord = allRecords[0]
   const summaries = [
     { label: 'Connected Drivers', value: approvedDrivers.length, icon: UsersRound, to: '/drivers' },
-    { label: 'Pending requests', value: incomingRequests.length + outgoingRequests.length, icon: Clock3, to: '/requests' },
+    { label: 'Pending requests', value: incomingRequests.length, icon: Clock3, to: '/requests' },
     { label: 'Shared alerts', value: allRecords.length, icon: FileText, to: '/drivers' },
     {
       label: 'Latest Shared Activity',
@@ -35,11 +35,11 @@ export function DashboardPage() {
     <div className="mt-9 grid gap-8 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
       <section>
         <div className="mb-3 flex items-center justify-between"><h2 className="section-title">Recent shared activity</h2>{allRecords.length > 0 && <Link to="/drivers" className="text-sm font-semibold text-secondary hover:text-primary">All Drivers</Link>}</div>
-        {allRecords.length === 0 ? <EmptyState title="No shared records yet" message="Alerts will appear here after an approved Driver shares them." /> : <div className="surface px-4 sm:px-5"><RecordList driverId={allRecords[0].driverUserId} records={allRecords} limit={6} /></div>}
+        {allRecords.length === 0 ? <EmptyState title="No shared records yet" message="Alerts will appear here after an approved Driver shares them." /> : <div className="surface px-4 sm:px-5"><RecordList records={allRecords} limit={6} /></div>}
       </section>
       <aside>
         <h2 className="section-title">Next actions</h2>
-        <div className="mt-3 surface divide-y divide-border-soft"><Link to="/requests" className="block min-h-16 p-4 hover:bg-strong"><span className="font-semibold text-primary">Review requests</span><span className="mt-1 block text-sm text-secondary">{incomingRequests.length ? `${incomingRequests.length} waiting for your response` : 'No incoming requests'}</span></Link><Link to="/requests/invite" className="block min-h-16 p-4 hover:bg-strong"><span className="font-semibold text-primary">Invite a Driver</span><span className="mt-1 block text-sm text-secondary">Use their DriveAlert connection code</span></Link></div>
+        <div className="mt-3 surface"><Link to="/requests" className="block min-h-16 p-4 hover:bg-strong"><span className="font-semibold text-primary">Review requests</span><span className="mt-1 block text-sm text-secondary">{incomingRequests.length ? `${incomingRequests.length} waiting for your response` : 'No incoming requests'}</span></Link></div>
       </aside>
     </div>
     <p className="mt-8 text-xs leading-5 text-muted">DriveAlert provides secondary awareness only. It is not medical confirmation, emergency response, or a substitute for contacting the Driver when appropriate.</p>
