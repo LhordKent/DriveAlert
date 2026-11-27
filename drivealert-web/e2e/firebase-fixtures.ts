@@ -27,7 +27,12 @@ export async function disposeFixtureApps() {
   await Promise.all(getApps().filter((app) => app.name.startsWith('e2e-')).map(deleteApp))
 }
 
-export async function createEmulatorUser(name: string, role: 'DRIVER' | 'TRUSTED_CONTACT', code: string): Promise<EmulatorUser> {
+export async function createEmulatorUser(
+  name: string,
+  role: 'DRIVER' | 'TRUSTED_CONTACT',
+  code: string,
+  password = 'Password123!',
+): Promise<EmulatorUser> {
   const index = ++clientCounter
   const app = initializeApp({ projectId: PROJECT_ID, apiKey: 'demo-key', appId: `e2e-${index}` }, `e2e-${index}`)
   const auth = getAuth(app)
@@ -35,7 +40,6 @@ export async function createEmulatorUser(name: string, role: 'DRIVER' | 'TRUSTED
   const firestore = getFirestore(app)
   connectFirestoreEmulator(firestore, '127.0.0.1', Number(FIRESTORE_ADDRESS.split(':').at(-1)))
   const email = `${name.toLowerCase()}-${index}@example.com`
-  const password = 'Password123!'
   const credential = await createUserWithEmailAndPassword(auth, email, password)
   const response = await fetch(`http://${AUTH_ADDRESS}/identitytoolkit.googleapis.com/v1/accounts:update`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },

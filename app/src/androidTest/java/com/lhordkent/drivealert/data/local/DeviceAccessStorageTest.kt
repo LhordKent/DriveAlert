@@ -57,4 +57,21 @@ class DeviceAccessStorageTest {
         restored.setRevocation("storage-test-a", credential.deviceId, credential.accountId, 2)
         assertEquals(listOf(credential.accountId to 4L), restored.revocations("storage-test-a", credential.deviceId))
     }
+
+    @Test fun additionalDriverNoticePersistsUntilAcknowledgedAndIsScopedToAccountAndDevice() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val driver = java.util.UUID.randomUUID().toString()
+        val first = "AABBCCDDEEFF"
+        val second = "112233445566"
+        val token = "CD".repeat(32)
+        val store = DeviceCredentialStore(context)
+        assertTrue(store.saveSession(driver, first, token, additionalDriver = true))
+        val restored = DeviceCredentialStore(context)
+        assertTrue(restored.saveSession(driver, first, token, additionalDriver = true))
+        restored.acknowledgeAdditionalDriverNotice(driver, first)
+        assertFalse(DeviceCredentialStore(context).saveSession(driver, first, token, additionalDriver = true))
+        assertFalse(restored.saveSession("owner-$driver", first, token))
+        assertTrue(restored.saveSession(driver, second, token, additionalDriver = true))
+        assertTrue(restored.saveSession("another-$driver", first, token, additionalDriver = true))
+    }
 }

@@ -18,7 +18,7 @@ describe('email verification access gate', () => {
     connectFirestoreEmulator(db, FIRESTORE.split(':')[0], Number(FIRESTORE.split(':')[1]));
     const { user } = await createUserWithEmailAndPassword(auth, `unverified-${Date.now()}@gmail.com`, 'Password123!');
     const profile = doc(db, 'users', user.uid);
-    const data = { uid: user.uid, email: user.email, firstName: 'Pending', lastName: 'User', accountStatus: 'ACTIVE', registeredAt: serverTimestamp() };
+    const data = { uid: user.uid, email: user.email, firstName: 'Pending', lastName: 'User', suffix: '3rd', accountStatus: 'ACTIVE', registeredAt: serverTimestamp() };
     const denied = error => error.code === 'permission-denied';
     await assert.rejects(setDoc(profile, data), denied);
     await assert.rejects(getDoc(profile), denied);
@@ -27,7 +27,10 @@ describe('email verification access gate', () => {
     assert.equal(user.emailVerified, false);
     await verifyEmail(auth, user);
     assert.equal(user.emailVerified, true);
+    await assert.rejects(setDoc(profile, { ...data, suffix: 3 }), denied);
     await setDoc(profile, data);
-    assert.equal((await getDoc(profile)).data().uid, user.uid);
+    const saved = (await getDoc(profile)).data();
+    assert.equal(saved.uid, user.uid);
+    assert.equal(saved.suffix, '3rd');
   });
 });

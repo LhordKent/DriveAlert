@@ -1,6 +1,8 @@
 import { verifyFirebaseToken } from './auth'
 import { approvedConnections, readStageRecord } from './firestore'
 import { contentFor, sendFcm } from './fcm'
+import { trustedContactEmailRequest } from './emailLookup'
+import { CONNECTION_DETAILS_PATH, DEVICE_DRIVER_DETAILS_PATH, connectionDetailsRequest } from './connectionDetails'
 import type { DispatchRequest, Env, StageRecord } from './types'
 
 const ID_PATTERN = /^[A-Za-z0-9:_-]{1,160}$/
@@ -171,11 +173,19 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === 'PUT' && url.pathname === '/v1/devices') return registerDevice(request, env, user.uid)
   if (request.method === 'DELETE' && url.pathname.startsWith('/v1/devices/')) return deleteDevice(request, env, user.uid)
   if (request.method === 'POST' && url.pathname === '/v1/stage3-notifications') return dispatchStage3(request, env, user.uid)
+  if (request.method === 'POST' && url.pathname === '/v1/trusted-contact-email-lookup') return trustedContactEmailRequest(request, env, user, 'lookup')
+  if (request.method === 'POST' && url.pathname === '/v1/trusted-contact-email-invites') return trustedContactEmailRequest(request, env, user, 'invite')
+  if (request.method === 'POST' && url.pathname === '/v1/device-driver-email-lookup') return trustedContactEmailRequest(request, env, user, 'device-lookup')
+  if (request.method === 'POST' && url.pathname === '/v1/device-driver-email-target') return trustedContactEmailRequest(request, env, user, 'device-resolve')
   return json(404, { status: 'NOT_FOUND' })
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const path = new URL(request.url).pathname
+    if (path === CONNECTION_DETAILS_PATH || path === DEVICE_DRIVER_DETAILS_PATH) {
+      return connectionDetailsRequest(request, env)
+    }
     try {
       await env.DB.prepare("DELETE FROM dispatch_groups WHERE completed_at IS NOT NULL AND completed_at < ?")
         .bind(Date.now() - COMPLETED_RETENTION_MS).run()

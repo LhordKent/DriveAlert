@@ -78,6 +78,7 @@ fun WifiProvisioningPanel(
     val locationManager = remember { context.getSystemService(LocationManager::class.java) }
     val state by provisioningViewModel.state.collectAsState()
     val authorization by provisioningViewModel.authorization.collectAsState()
+    val additionalDriverNotice by provisioningViewModel.additionalDriverNotice.collectAsState()
     var ssid by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var showLocationPrompt by rememberSaveable { mutableStateOf(false) }
@@ -86,6 +87,9 @@ fun WifiProvisioningPanel(
     val permissions = remember { BlePermissionPolicy.runtimePermissions() }
     val streamState = vision?.streamState
     val connectionVerified = streamState == StreamConnectionState.CONNECTED
+    if (additionalDriverNotice != null) {
+        AdditionalDriverConnectionNotice(provisioningViewModel::acknowledgeAdditionalDriverNotice)
+    }
     if (showsSavedCameraConnection(vision)) {
         SavedCameraConnectionPanel(checkNotNull(vision), onDisconnect, onRetryConnection, onReturnToBleSetup, onOpenBleSetup)
         return
@@ -385,7 +389,7 @@ fun WifiProvisioningPanel(
             onDismiss = { showRestartRecovery = false }, actionColor = TextPrimary)
     }
 
-    if (!showLocationPrompt && !showRestartRecovery && !authorization.claimable &&
+    if (additionalDriverNotice == null && !showLocationPrompt && !showRestartRecovery && !authorization.claimable &&
         shouldPromptForHotspot(state, hotspotState, hotspotPromptDismissed)
     ) {
         ConfirmDialog(
@@ -409,7 +413,7 @@ fun WifiProvisioningPanel(
             onDismissRequest = { provisioningViewModel.dismissClaim() },
             title = { Text("Register as primary driver?") },
             text = { Column {
-                Text("Register ${authorization.name} to your account. One primary driver is included. Additional drivers need an invitation from you.")
+                Text("Register ${authorization.name} to your account. As the primary driver, you can add other drivers.")
                 Spacer(Modifier.height(12.dp))
                 Text("Registration needs internet once. Daily monitoring works offline. This cannot be transferred to another owner in this demo.")
                 authorization.message?.let { Text(it, color = DriveRed, modifier = Modifier.padding(top = 12.dp)) }
@@ -420,6 +424,16 @@ fun WifiProvisioningPanel(
             dismissButton = { androidx.compose.material3.TextButton(onClick = provisioningViewModel::dismissClaim, enabled = !authorization.checking, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = TextSecondary)) { Text("Cancel") } },
         )
     }
+}
+
+@Composable
+internal fun AdditionalDriverConnectionNotice(onContinue: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onContinue,
+        title = { Text("You’re connected") },
+        text = { Text("The primary driver added you to this device.") },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onContinue) { Text("Continue") } },
+    )
 }
 
 @Composable

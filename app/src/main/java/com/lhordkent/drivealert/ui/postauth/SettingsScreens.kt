@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.lhordkent.drivealert.BuildConfig
+import com.lhordkent.drivealert.auth.AuthValidation
 import com.lhordkent.drivealert.data.connection.ConnectionCode
 import com.lhordkent.drivealert.monitoring.WarningDeliveryStatus
 import com.lhordkent.drivealert.postauth.NotificationPreferences
@@ -175,7 +176,8 @@ fun AccountScreen(
             AuthTextField(
                 value = draftPhoneNumber,
                 onValueChange = { draftPhoneNumber = it },
-                label = "Phone number (optional)",
+                label = "Phone number",
+                error = if (attemptedSave) AuthValidation.phoneError(draftPhoneNumber) else null,
                 enabled = !isProfileUpdating,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             )
@@ -204,7 +206,9 @@ fun AccountScreen(
                     text = if (isProfileUpdating) "Saving…" else "Save changes",
                     onClick = {
                         attemptedSave = true
-                        if (draftFirstName.isNotBlank() && draftLastName.isNotBlank()) {
+                        if (draftFirstName.isNotBlank() && draftLastName.isNotBlank() &&
+                            AuthValidation.phoneError(draftPhoneNumber) == null
+                        ) {
                             onUpdateProfile(draftFirstName, draftMiddleName, draftLastName, draftPhoneNumber)
                         }
                     },
@@ -217,7 +221,7 @@ fun AccountScreen(
             HorizontalDivider(color = Border)
             KeyValueRow("Email", email.ifBlank { "Not available" })
             HorizontalDivider(color = Border)
-            KeyValueRow("Phone", phoneNumber.ifBlank { "Not provided" })
+            KeyValueRow("Phone number", phoneNumber.ifBlank { "Not provided" })
             Spacer(Modifier.height(18.dp))
             SecondaryButton(
                 text = "Edit profile",
@@ -361,9 +365,15 @@ fun NotificationSettingsScreen(
 }
 
 @Composable
-private fun PreferenceSwitch(title: String, body: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun PreferenceSwitch(
+    title: String,
+    body: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(role = Role.Switch) { onCheckedChange(!checked) }.padding(vertical = 14.dp),
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Switch) { onCheckedChange(!checked) }.padding(vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -375,6 +385,7 @@ private fun PreferenceSwitch(title: String, body: String, checked: Boolean, onCh
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            enabled = enabled,
             colors = SwitchDefaults.colors(checkedThumbColor = TextPrimary, checkedTrackColor = DriveRed),
         )
     }

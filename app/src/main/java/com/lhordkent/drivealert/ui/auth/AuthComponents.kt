@@ -68,6 +68,7 @@ object AuthTestTags {
     const val FIRST_NAME = "auth_first_name"
     const val MIDDLE_NAME = "auth_middle_name"
     const val LAST_NAME = "auth_last_name"
+    const val SUFFIX = "auth_suffix"
     const val PHONE = "auth_phone"
     const val PRIMARY_ACTION = "auth_primary_action"
 }
@@ -180,6 +181,7 @@ fun AuthTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     trailingContent: (@Composable () -> Unit)? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    hint: String? = null,
 ) {
     OutlinedTextField(
         value = value,
@@ -189,7 +191,7 @@ fun AuthTextField(
         enabled = enabled,
         singleLine = true,
         isError = error != null,
-        supportingText = error?.let { message -> { Text(message) } },
+        supportingText = (error ?: hint)?.let { message -> { Text(message) } },
         trailingIcon = trailingContent,
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
@@ -222,6 +224,7 @@ fun PasswordField(
     enabled: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    hint: String? = null,
 ) {
     var visible by remember { mutableStateOf(false) }
     AuthTextField(
@@ -233,6 +236,7 @@ fun PasswordField(
         enabled = enabled,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
+        hint = hint,
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingContent = {
             TextButton(

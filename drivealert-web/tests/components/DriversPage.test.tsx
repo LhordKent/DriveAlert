@@ -2,11 +2,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { PortalContext } from '../../src/app/providers/portalContext'
+import { AuthContext } from '../../src/app/providers/authContext'
 import { DriversPage } from '../../src/features/drivers/DriversPage'
 import { PortalError } from '../../src/models/domain'
 import { portalValue } from '../testData'
 
-function renderPage(value = portalValue()) { return render(<MemoryRouter><PortalContext.Provider value={value}><DriversPage /></PortalContext.Provider></MemoryRouter>) }
+function renderPage(value = portalValue()) { return render(<MemoryRouter><AuthContext.Provider value={{ user: null, loading: false, verified: false, refreshVerification: async () => {} }}><PortalContext.Provider value={value}><DriversPage /></PortalContext.Provider></AuthContext.Provider></MemoryRouter>) }
 describe('DriversPage states', () => {
   it('shows loading skeletons', () => { renderPage(portalValue({ connectionsStatus: 'loading', approvedDrivers: [] })); expect(screen.getByRole('status')).toBeInTheDocument() })
   it('shows an instructive empty state', () => { renderPage(portalValue({ approvedDrivers: [], connections: [], recordsByDriver: {} })); expect(screen.getByText('No connected Drivers')).toBeInTheDocument() })

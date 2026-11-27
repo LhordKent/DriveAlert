@@ -19,10 +19,15 @@ class AuthValidationTest {
     }
 
     @Test
-    fun signUpPasswordRequiresEightCharacters() {
+    fun signUpPasswordRequiresLengthBothCasesAndFirebaseSpecialCharacter() {
         assertEquals("Password is required", AuthValidation.signUpPasswordError(""))
-        assertEquals("Use at least 8 characters", AuthValidation.signUpPasswordError("1234567"))
-        assertNull(AuthValidation.signUpPasswordError("12345678"))
+        for (password in listOf("Short!", "alllower!", "ALLUPPER!", "NoSpecial123", "Space Only", "EmojiOnly🔒")) {
+            assertEquals(password, AuthValidation.SIGN_UP_PASSWORD_REQUIREMENTS, AuthValidation.signUpPasswordError(password))
+        }
+        assertNull(AuthValidation.signUpPasswordError("SafePass!"))
+        assertNull(AuthValidation.signUpPasswordError("Safe-drive"))
+        assertNull(AuthValidation.signUpPasswordError("SafePass`"))
+        assertNull(AuthValidation.signInPasswordError("safe-drive"))
     }
 
     @Test

@@ -4,6 +4,7 @@ const encoder = new TextEncoder()
 type FirebaseJsonWebKey = JsonWebKey & { kid?: string }
 let firebaseKeys: { expiresAt: number; keys: FirebaseJsonWebKey[] } | undefined
 let googleAccessToken: { expiresAt: number; token: string } | undefined
+let lookupAccessToken: { expiresAt: number; token: string } | undefined
 
 function base64UrlDecode(value: string): ArrayBuffer {
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=')
@@ -52,7 +53,7 @@ export async function verifyFirebaseToken(authorization: string | null, env: Env
       typeof payload.exp !== 'number' || payload.exp <= nowSeconds ||
       typeof payload.iat !== 'number' || payload.iat > nowSeconds + 60) throw new Error('AUTH_INVALID')
   if (payload.email_verified !== true) throw new Error('AUTH_EMAIL_UNVERIFIED')
-  return { uid }
+  return { uid, email: typeof payload.email === 'string' ? payload.email : undefined }
 }
 
 function pemToPkcs8(pem: string): ArrayBuffer {
@@ -61,19 +62,35 @@ function pemToPkcs8(pem: string): ArrayBuffer {
 }
 
 export async function serviceAccessToken(env: Env): Promise<string> {
+  if (!googleAccessToken || googleAccessToken.expiresAt <= Date.now() + 300_000) {
+    googleAccessToken = await mintAccessToken(env.FIREBASE_CLIENT_EMAIL, env.FIREBASE_PRIVATE_KEY,
+      'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase.messaging')
+  }
+  return googleAccessToken.token
+}
+
+export async function emailLookupAccessToken(env: Env): Promise<string> {
+  if (!env.FIREBASE_LOOKUP_CLIENT_EMAIL || !env.FIREBASE_LOOKUP_PRIVATE_KEY) throw new Error('EMAIL_LOOKUP_UNAVAILABLE')
+  if (!lookupAccessToken || lookupAccessToken.expiresAt <= Date.now() + 300_000) {
+    lookupAccessToken = await mintAccessToken(env.FIREBASE_LOOKUP_CLIENT_EMAIL, env.FIREBASE_LOOKUP_PRIVATE_KEY,
+      'https://www.googleapis.com/auth/identitytoolkit')
+  }
+  return lookupAccessToken.token
+}
+
+async function mintAccessToken(email: string, privateKey: string, scope: string) {
   const now = Date.now()
-  if (googleAccessToken && googleAccessToken.expiresAt > now + 300_000) return googleAccessToken.token
   const nowSeconds = Math.floor(now / 1000)
   const header = base64UrlEncode(encoder.encode(JSON.stringify({ alg: 'RS256', typ: 'JWT' })))
   const claim = base64UrlEncode(encoder.encode(JSON.stringify({
-    iss: env.FIREBASE_CLIENT_EMAIL,
-    scope: 'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase.messaging',
+    iss: email,
+    scope,
     aud: 'https://oauth2.googleapis.com/token',
     iat: nowSeconds,
     exp: nowSeconds + 3600,
   })))
   const key = await crypto.subtle.importKey(
-    'pkcs8', pemToPkcs8(env.FIREBASE_PRIVATE_KEY), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'],
+    'pkcs8', pemToPkcs8(privateKey), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'],
   )
   const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, encoder.encode(`${header}.${claim}`))
   const assertion = `${header}.${claim}.${base64UrlEncode(signature)}`
@@ -84,6 +101,5 @@ export async function serviceAccessToken(env: Env): Promise<string> {
   })
   if (!response.ok) throw new Error('GOOGLE_OAUTH_FAILED')
   const value = await response.json<{ access_token: string; expires_in: number }>()
-  googleAccessToken = { token: value.access_token, expiresAt: now + value.expires_in * 1000 }
-  return value.access_token
+  return { token: value.access_token, expiresAt: now + value.expires_in * 1000 }
 }

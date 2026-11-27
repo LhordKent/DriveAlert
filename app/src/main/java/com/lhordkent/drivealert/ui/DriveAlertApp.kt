@@ -109,6 +109,9 @@ import com.lhordkent.drivealert.ui.postauth.SetupDeviceScreen
 import com.lhordkent.drivealert.ui.postauth.Stage3SyncRecordDetailScreen
 import com.lhordkent.drivealert.ui.postauth.SharedRecordsScreen
 import com.lhordkent.drivealert.ui.postauth.TrustedDriversScreen
+import com.lhordkent.drivealert.ui.postauth.SentConnectionRequestsScreen
+import com.lhordkent.drivealert.ui.postauth.rememberConnectionDetails
+import com.lhordkent.drivealert.data.connection.ConnectionContactDetails
 import com.lhordkent.drivealert.ui.postauth.WarningSoundScreen
 import com.lhordkent.drivealert.ui.theme.Ink
 
@@ -126,6 +129,7 @@ object PostAuthRoutes {
     const val DRIVER_ALERT_DETAIL = "driver/alerts/{eventId}"
     const val DRIVER_CONTACTS = "driver/contacts"
     const val DRIVER_INVITE = "driver/contacts/invite"
+    const val DRIVER_SENT_REQUESTS = "driver/contacts/sent"
     const val DRIVER_SETTINGS = "driver/settings"
     const val TRUSTED_DRIVERS = "trusted/drivers"
     const val TRUSTED_SHARED = "trusted/drivers/{driverId}"
@@ -201,6 +205,7 @@ fun DriveAlertApp() {
             application.container.stageSyncRepository,
             application.container.sharedStage3Repository,
             application.container.historyRepository,
+            trustedContactEmailDirectory = application.container.trustedContactEmailDirectory,
             userViewPreferenceStore = com.lhordkent.drivealert.postauth.SharedPreferencesUserViewStore(
                 application.getSharedPreferences("post_auth_view_preferences", android.content.Context.MODE_PRIVATE),
             ),
@@ -295,6 +300,8 @@ fun DriveAlertApp() {
         onCompleteSetup = postAuthViewModel::completeDriverSetup,
         onFilterChange = postAuthViewModel::selectAlertFilter,
         onLookupConnectionCode = postAuthViewModel::lookupConnectionCode,
+        onLookupConnectionEmail = postAuthViewModel::lookupConnectionEmail,
+        loadConnectionDetails = application.container.trustedContactEmailDirectory::connectionContactDetails,
         onSendTrustedContactRequest = postAuthViewModel::sendTrustedContactRequest,
         onClearConnectionInvite = postAuthViewModel::clearConnectionInvite,
         onAcceptTrustedIncomingRequest = postAuthViewModel::acceptTrustedIncomingRequest,
@@ -390,6 +397,8 @@ fun DriveAlertApp(
     onCompleteSetup: () -> Unit = {},
     onFilterChange: (com.lhordkent.drivealert.postauth.WarningStage?) -> Unit = {},
     onLookupConnectionCode: (String) -> Unit = {},
+    onLookupConnectionEmail: (String) -> Unit = {},
+    loadConnectionDetails: suspend (String, List<String>) -> Map<String, ConnectionContactDetails> = { _, _ -> emptyMap() },
     onSendTrustedContactRequest: () -> Unit = {},
     onClearConnectionInvite: () -> Unit = {},
     onAcceptTrustedIncomingRequest: (String) -> Unit = {},
@@ -518,7 +527,9 @@ fun DriveAlertApp(
             }
             composable(PostAuthRoutes.DRIVER_SUBSCRIPTIONS) {
                 com.lhordkent.drivealert.ui.postauth.ScrollableScreen("Subscriptions & Drivers", navController::popBackStack) {
-                    deviceDriversViewModel?.let { com.lhordkent.drivealert.ui.postauth.DeviceDriversPanel(it) }
+                    deviceDriversViewModel?.let {
+                        com.lhordkent.drivealert.ui.postauth.DeviceDriversPanel(it, sessionState.user?.uid)
+                    }
                 }
             }
             composable(PostAuthRoutes.DRIVER_ALIGNMENT) {
@@ -640,20 +651,35 @@ fun DriveAlertApp(
                 DriverRoot(navController, PostAuthRoutes.DRIVER_CONTACTS, "Trusted Contacts") {
                     DriverContactsScreen(
                         contacts = postAuthState.approvedContacts,
-                        outgoing = postAuthState.driverOutgoingRequests,
                         onInvite = { navController.navigate(PostAuthRoutes.DRIVER_INVITE) },
-                        onCancel = onCancelDriverOutgoingRequest,
+                        onSentRequests = { navController.navigate(PostAuthRoutes.DRIVER_SENT_REQUESTS) },
                         onRemove = onRevokeDriverContact,
+                        details = rememberConnectionDetails(
+                            sessionState.user?.uid,
+                            postAuthState.approvedContacts.map { it.id },
+                            loadConnectionDetails,
+                        ),
                         isLoading = postAuthState.driverConnectionsLoading,
                         actionInProgressIds = postAuthState.connectionActionInProgressIds,
                         cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,
                     )
                 }
             }
+            composable(PostAuthRoutes.DRIVER_SENT_REQUESTS) {
+                SentConnectionRequestsScreen(
+                    outgoing = postAuthState.driverOutgoingRequests,
+                    onCancel = onCancelDriverOutgoingRequest,
+                    onBack = navController::popBackStack,
+                    isLoading = postAuthState.driverConnectionsLoading,
+                    actionInProgressIds = postAuthState.connectionActionInProgressIds,
+                    cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,
+                )
+            }
             composable(PostAuthRoutes.DRIVER_INVITE) {
                 InviteConnectionScreen(
                     inviteState = postAuthState.connectionInvite,
                     onLookup = onLookupConnectionCode,
+                    onLookupEmail = onLookupConnectionEmail,
                     onSend = onSendTrustedContactRequest,
                     senderName = postAuthState.profileDisplayName,
                     senderEmail = postAuthState.accountEmail,
@@ -690,6 +716,11 @@ fun DriveAlertApp(
                         drivers = postAuthState.connectedDrivers,
                         onDriverSelected = { navController.navigate(PostAuthRoutes.trustedDriver(it)) },
                         onRemove = onDisconnectDriver,
+                        details = rememberConnectionDetails(
+                            sessionState.user?.uid,
+                            postAuthState.connectedDrivers.map { it.connectionId },
+                            loadConnectionDetails,
+                        ),
                         isLoading = postAuthState.trustedConnectionsLoading,
                         actionInProgressIds = postAuthState.connectionActionInProgressIds,
                         cloudErrorMessage = postAuthState.cloudConnectionErrorMessage,

@@ -21,17 +21,23 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
     val state: StateFlow<ProvisioningState> = mutableState.asStateFlow()
     private var authorizedAccount: String? = null
     private var selectedCredential: com.lhordkent.drivealert.device.DeviceCredential? = null
+    private val credentials = (application as DriveAlertApplication).container.deviceCredentialStore
+    private val mutableAdditionalDriverNotice = MutableStateFlow<String?>(null)
+    val additionalDriverNotice = mutableAdditionalDriverNotice.asStateFlow()
     private val client = AndroidBleProvisioningClient(application.applicationContext, ::dispatch, allowCommand = {
         authorizedAccount != null && authorizedAccount == driverUserId &&
             com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid == authorizedAccount
     }, credentialProvider = { selectedCredential }, onSessionAuthorized = { id, token ->
         val uid = authorizedAccount ?: error("Account changed")
         check(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid == uid)
-        (application as DriveAlertApplication).container.deviceCredentialStore.saveSession(uid, id, token)
+        val credential = checkNotNull(selectedCredential?.takeIf { it.deviceId == id })
+        if (credentials.saveSession(uid, id, token, additionalDriver = !credential.owner)) {
+            mutableAdditionalDriverNotice.value = id
+        }
     }, revocationProvider = {
         val uid = authorizedAccount
         val id = selectedCredential?.deviceId
-        if (uid != null && id != null) (application as DriveAlertApplication).container.deviceCredentialStore.revocations(uid, id) else emptyList()
+        if (uid != null && id != null) credentials.revocations(uid, id) else emptyList()
     })
     private val repository = (application as DriveAlertApplication).container.provisionedDeviceRepository
     private val recoveryStore = BleSetupRecoveryStore(application)
@@ -51,6 +57,7 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
         client.retry()
         authorizedAccount = null
         selectedCredential = null
+        mutableAdditionalDriverNotice.value = null
         generation++
         authorizationJob?.cancel()
         mutableAuthorization.value = DeviceSetupAuthorization()
@@ -67,6 +74,7 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
         val expected = generation
         val canonical = DeviceIdentity.canonical(deviceId) ?: return
         val name = state.value.devices.firstOrNull { it.id == deviceId }?.name ?: "DriveAlert device"
+        mutableAdditionalDriverNotice.value = null
         mutableAuthorization.value = DeviceSetupAuthorization(deviceId, name, checking = true)
         authorizationJob = viewModelScope.launch {
             try {
@@ -74,13 +82,13 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
                 if (expected != generation) return@launch
                 if (access.allowed(uid, canonical)) {
                     authorizedAccount = uid
-                    selectedCredential = getApplication<DriveAlertApplication>().container.deviceCredentialStore.load(uid, canonical)
+                    selectedCredential = credentials.load(uid, canonical)
                     mutableAuthorization.value = DeviceSetupAuthorization(deviceId, name)
                     client.connect(deviceId)
                 } else {
                     val claimed = access.isClaimed(uid, canonical)
                     if (expected == generation) mutableAuthorization.value = DeviceSetupAuthorization(deviceId, name,
-                        claimable = !claimed, message = if (claimed) "This device is registered to another account. Ask its primary driver to invite your connection code, then accept in Settings → Subscriptions & Drivers." else null)
+                        claimable = !claimed, message = if (claimed) "This device is registered to another account. Ask the primary driver to add you, then try connecting again." else null)
                 }
             } catch (error: Exception) {
                 if (expected == generation) mutableAuthorization.value = DeviceSetupAuthorization(deviceId, name, message = deviceAccessError(error))
@@ -100,7 +108,7 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
                 access.claim(uid, requireNotNull(DeviceIdentity.canonical(address)), selected.name)
                 if (expected == generation && access.allowed(uid, requireNotNull(DeviceIdentity.canonical(address)))) {
                     authorizedAccount = uid
-                    selectedCredential = getApplication<DriveAlertApplication>().container.deviceCredentialStore.load(uid, requireNotNull(DeviceIdentity.canonical(address)))
+                    selectedCredential = credentials.load(uid, requireNotNull(DeviceIdentity.canonical(address)))
                     mutableAuthorization.value = DeviceSetupAuthorization(address, selected.name)
                     client.connect(address)
                 }
@@ -111,6 +119,13 @@ class WifiProvisioningViewModel(application: Application) : AndroidViewModel(app
     }
 
     fun dismissClaim() { if (!authorization.value.checking) mutableAuthorization.value = DeviceSetupAuthorization() }
+
+    fun acknowledgeAdditionalDriverNotice() {
+        val uid = driverUserId ?: return
+        val deviceId = mutableAdditionalDriverNotice.value ?: return
+        credentials.acknowledgeAdditionalDriverNotice(uid, deviceId)
+        mutableAdditionalDriverNotice.value = null
+    }
 
     private fun authorizedCommand(command: () -> Unit) {
         val uid = driverUserId ?: return

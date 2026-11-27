@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.lhordkent.drivealert.auth.AuthValidation
 import com.lhordkent.drivealert.data.repository.AlertRepository
 import com.lhordkent.drivealert.data.repository.MonitoringSessionRepository
 import com.lhordkent.drivealert.data.repository.DriverPreferenceRepository
@@ -14,6 +15,8 @@ import com.lhordkent.drivealert.data.profile.UserProfileRepository
 import com.lhordkent.drivealert.data.profile.UserProfileUpdate
 import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.data.connection.TrustedContactRepository
+import com.lhordkent.drivealert.data.connection.TrustedContactEmailDirectory
+import com.lhordkent.drivealert.data.connection.TrustedContactEmailException
 import com.lhordkent.drivealert.data.connection.TrustedContactConnection
 import com.lhordkent.drivealert.data.connection.ConnectionCode
 import com.lhordkent.drivealert.data.connection.ConnectionChangedException
@@ -48,6 +51,7 @@ class PostAuthViewModel(
     private val todayProvider: () -> LocalDate = LocalDate::now,
     private val historyRepository: HistoryRepository? = null,
     private val userViewPreferenceStore: UserViewPreferenceStore? = null,
+    private val trustedContactEmailDirectory: TrustedContactEmailDirectory? = null,
 ) : ViewModel() {
     private var accountEmail: String = ""
     private var boundDriverUserId: String? = null
@@ -62,6 +66,7 @@ class PostAuthViewModel(
     private var driverConnectionsJob: Job? = null
     private var trustedConnectionsJob: Job? = null
     private var syncRecordsJob: Job? = null
+    private var inviteLookupJob: Job? = null
     private val sharedRecordJobs = mutableMapOf<String, Job>()
     private val sharedViewStateJobs = mutableMapOf<String, Job>()
 
@@ -100,7 +105,10 @@ class PostAuthViewModel(
 
     fun bindCloudProfile(userId: String, displayName: String, email: String) {
         val repository = userProfileRepository ?: return
-        if (boundProfileUserId != userId) selectedViewForBoundAccount = userViewPreferenceStore?.read(userId)
+        if (boundProfileUserId != userId) {
+            selectedViewForBoundAccount = userViewPreferenceStore?.read(userId)
+            clearConnectionInvite()
+        }
         boundProfileUserId = userId
         profileJob?.cancel()
         state = state.copy(isProfileLoading = true)
@@ -120,6 +128,7 @@ class PostAuthViewModel(
                                 profileFirstName = profile.firstName,
                                 profileMiddleName = profile.middleName.orEmpty(),
                                 profileLastName = profile.lastName,
+                                profileSuffix = profile.suffix,
                                 profilePhoneNumber = profile.phoneNumber.orEmpty(),
                                 userRole = profile.userRole,
                                 activeView = restoredUserView(profile.userRole, selectedViewForBoundAccount),
@@ -150,12 +159,19 @@ class PostAuthViewModel(
             firstName = firstName.trim(),
             middleName = middleName.trim().takeIf(String::isNotBlank),
             lastName = lastName.trim(),
-            phoneNumber = phoneNumber.trim().takeIf(String::isNotBlank),
+            phoneNumber = phoneNumber.trim(),
         )
         if (update.firstName.isBlank() || update.lastName.isBlank()) {
             state = state.copy(
                 profileUpdateSuccessMessage = null,
                 profileUpdateErrorMessage = "First name and last name are required.",
+            )
+            return
+        }
+        AuthValidation.phoneError(phoneNumber)?.let { error ->
+            state = state.copy(
+                profileUpdateSuccessMessage = null,
+                profileUpdateErrorMessage = error,
             )
             return
         }
@@ -169,7 +185,7 @@ class PostAuthViewModel(
             runCatching { repository.update(userId, update) }
                 .onSuccess {
                     state = state.copy(
-                        profileDisplayName = update.fullName,
+                        profileDisplayName = update.fullName(state.profileSuffix),
                         profileFirstName = update.firstName,
                         profileMiddleName = update.middleName.orEmpty(),
                         profileLastName = update.lastName,
@@ -433,64 +449,112 @@ class PostAuthViewModel(
         if (state.activeView != UserView.DRIVER) return
         val normalized = ConnectionCode.normalize(code)
         if (!ConnectionCode.isValid(normalized)) {
+            inviteLookupJob?.cancel()
             state = state.copy(connectionInvite = ConnectionInviteUiState(errorMessage = "Enter a complete DriveAlert connection code"))
             return
         }
         val repository = trustedContactRepository ?: return
         val currentUserId = boundDriverUserId ?: return
-        state = state.copy(connectionInvite = ConnectionInviteUiState(isLookingUp = true))
-        viewModelScope.launch {
-            runCatching { repository.resolveConnectionCode(normalized) }
-                .onSuccess { target ->
-                    state = state.copy(connectionInvite = when {
-                        target == null -> ConnectionInviteUiState(errorMessage = CODE_NOT_FOUND_MESSAGE)
-                        target.userId == currentUserId -> ConnectionInviteUiState(errorMessage = "Use another person's connection code")
-                        else -> ConnectionInviteUiState(
-                            targetUserId = target.userId,
-                            targetDisplayName = target.displayName,
-                            normalizedCode = target.normalizedCode,
-                        )
-                    })
-                }
-                .onFailure {
-                    state = state.copy(connectionInvite = ConnectionInviteUiState(errorMessage = LOOKUP_ERROR_MESSAGE))
-                }
+        startInviteLookup {
+            val target = repository.resolveConnectionCode(normalized)
+            when {
+                target == null -> ConnectionInviteUiState(errorMessage = CODE_NOT_FOUND_MESSAGE)
+                target.userId == currentUserId -> ConnectionInviteUiState(errorMessage = "Use another person's connection code")
+                else -> ConnectionInviteUiState(
+                    targetUserId = target.userId,
+                    targetDisplayName = target.displayName,
+                    normalizedCode = target.normalizedCode,
+                )
+            }
+        }
+    }
+
+    fun lookupConnectionEmail(input: String) {
+        if (state.activeView != UserView.DRIVER) return
+        val userId = boundProfileUserId ?: return
+        val directory = trustedContactEmailDirectory ?: return
+        val email = input.trim()
+        if (email.length > 254 || !EMAIL_FORMAT.matches(email)) {
+            inviteLookupJob?.cancel()
+            state = state.copy(connectionInvite = ConnectionInviteUiState(errorMessage = "Enter a complete email address."))
+            return
+        }
+        startInviteLookup("Email search is unavailable. Try again or use a connection code.") {
+            ConnectionInviteUiState(emailMatch = directory.lookup(userId, email))
+        }
+    }
+
+    private fun startInviteLookup(
+        errorMessage: String = LOOKUP_ERROR_MESSAGE,
+        findMatch: suspend () -> ConnectionInviteUiState,
+    ) {
+        if (state.connectionInvite.isLookingUp || state.connectionInvite.isSending) return
+        inviteLookupJob?.cancel()
+        val pending = ConnectionInviteUiState(isLookingUp = true)
+        state = state.copy(connectionInvite = pending)
+        inviteLookupJob = viewModelScope.launch {
+            val result = runCatching { findMatch() }.getOrElse { error ->
+                if (error is CancellationException) throw error
+                ConnectionInviteUiState(errorMessage = (error as? TrustedContactEmailException)?.lookupMessage() ?: errorMessage)
+            }
+            if (state.connectionInvite === pending) state = state.copy(connectionInvite = result)
         }
     }
 
     fun clearConnectionInvite() {
+        inviteLookupJob?.cancel()
+        inviteLookupJob = null
         state = state.copy(connectionInvite = ConnectionInviteUiState())
     }
 
     fun sendTrustedContactRequest() {
         if (state.activeView != UserView.DRIVER || state.connectionInvite.isSending) return
-        val repository = trustedContactRepository ?: return
-        val userId = boundDriverUserId ?: return
-        val code = state.connectionInvite.normalizedCode ?: return
+        val invite = state.connectionInvite
+        val match = invite.emailMatch
+        val code = invite.normalizedCode
+        if (match == null && code == null) return
+        val userId = (if (match != null) boundProfileUserId else boundDriverUserId) ?: return
         if (state.userRole != UserRole.DRIVER && state.userRole != UserRole.BOTH) {
             state = state.copy(connectionInvite = state.connectionInvite.copy(
                 errorMessage = "Open Driver view while connected to the internet, then try again.",
             ))
             return
         }
-        state = state.copy(connectionInvite = state.connectionInvite.copy(isSending = true, errorMessage = null))
+        val pending = invite.copy(isSending = true, errorMessage = null)
+        state = state.copy(connectionInvite = pending)
         viewModelScope.launch {
             runCatching {
-                val name = state.profileDisplayName.ifBlank { "DriveAlert user" }
-                repository.sendTrustedContactRequest(userId, name, accountEmail, code)
+                if (match != null) {
+                    checkNotNull(trustedContactEmailDirectory).invite(userId, match.matchId)
+                } else {
+                    val name = state.profileDisplayName.ifBlank { "DriveAlert user" }
+                    checkNotNull(trustedContactRepository).sendTrustedContactRequest(userId, name, accountEmail, checkNotNull(code))
+                }
             }.onSuccess {
-                state = state.copy(connectionInvite = state.connectionInvite.copy(isSending = false, requestSent = true))
+                if (state.connectionInvite === pending) {
+                    state = state.copy(connectionInvite = pending.copy(isSending = false, requestSent = true))
+                }
             }.onFailure { error ->
                 if (error is CancellationException) throw error
+                if (state.connectionInvite !== pending) return@onFailure
                 val message = when (error) {
+                    is TrustedContactEmailException -> error.lookupMessage()
                     is ConnectionCodeNotFoundException -> CODE_NOT_FOUND_MESSAGE
                     is SelfConnectionException -> "Use another person's connection code"
                     is ExistingConnectionException -> "A connection or pending request already exists"
                     else -> if ((error as? FirebaseFirestoreException)?.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                         "Check that the code is current and ask this person to open Trusted Contact view while online, then try again."
-                    } else "Connection request could not be sent. Check your internet connection and try again."
+                    } else if (match != null) "The invitation could not be confirmed. Check your requests before trying again."
+                    else "Connection request could not be sent. Check your internet connection and try again."
                 }
-                state = state.copy(connectionInvite = state.connectionInvite.copy(isSending = false, errorMessage = message))
+                val matchUnavailable = (error as? TrustedContactEmailException)?.status in setOf(
+                    "EMAIL_MATCH_EXPIRED", "EMAIL_MATCH_CHANGED", "INVITATION_EXISTS",
+                )
+                state = state.copy(connectionInvite = pending.copy(
+                    isSending = false,
+                    errorMessage = message,
+                    emailMatch = pending.emailMatch.takeUnless { matchUnavailable },
+                ))
             }
         }
     }
@@ -582,6 +646,7 @@ class PostAuthViewModel(
     }
 
     fun clearForSignOut() {
+        clearConnectionInvite()
         historyActionJob?.cancel()
         historyUserId = null
         boundDriverUserId?.let { stageSyncRepository?.cancelPendingWork(it) }
@@ -613,6 +678,7 @@ class PostAuthViewModel(
         private const val CLOUD_CONNECTION_ERROR = "Cloud connection data is unavailable. Check your internet connection and try again."
         private const val CODE_NOT_FOUND_MESSAGE = "No active DriveAlert account was found for this code"
         private const val LOOKUP_ERROR_MESSAGE = "The connection code could not be checked. Connect to the internet and try again."
+        private val EMAIL_FORMAT = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
 
         fun seedState(today: LocalDate = LocalDate.now()): PostAuthUiState {
             fun at(daysAgo: Long, hour: Int, minute: Int) = LocalDateTime.of(today.minusDays(daysAgo), LocalTime.of(hour, minute))
@@ -663,6 +729,7 @@ class PostAuthViewModelFactory(
     private val sharedStage3Repository: SharedStage3Repository,
     private val historyRepository: HistoryRepository? = null,
     private val userViewPreferenceStore: UserViewPreferenceStore? = null,
+    private val trustedContactEmailDirectory: TrustedContactEmailDirectory? = null,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -677,9 +744,21 @@ class PostAuthViewModelFactory(
             sharedStage3Repository = sharedStage3Repository,
             historyRepository = historyRepository,
             userViewPreferenceStore = userViewPreferenceStore,
+            trustedContactEmailDirectory = trustedContactEmailDirectory,
             initialState = PostAuthUiState(isLocalDataLoading = true),
         ) as T
     }
+}
+
+private fun TrustedContactEmailException.lookupMessage(): String = when (status) {
+    "NO_EMAIL_MATCH" -> "No discoverable Trusted Contact found for this email."
+    "INVALID_EMAIL" -> "Enter a complete email address."
+    "EMAIL_SEARCH_LIMIT" -> "Too many searches. Wait a few minutes and try again."
+    "EMAIL_MATCH_EXPIRED", "EMAIL_MATCH_CHANGED" -> "This match is no longer available. Search again."
+    "INVITATION_EXISTS" -> "A connection or pending request already exists."
+    "DRIVER_REQUIRED", "AUTH_REQUIRED", "AUTH_INVALID" -> "Sign in with a verified Driver account to search by email."
+    "EMAIL_INVITE_UNAVAILABLE" -> "The invitation could not be confirmed. Check your requests before trying again."
+    else -> "Email search is unavailable. Try again or use a connection code."
 }
 
 private fun unreadCount(records: List<Stage3SyncRecord>, lastViewedAt: LocalDateTime?): Int {

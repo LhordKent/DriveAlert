@@ -1,18 +1,20 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight, Mail, UserRound } from 'lucide-react'
+import { ChevronRight, Mail, Phone, UserRound } from 'lucide-react'
 import { formatDateTime, formatRelativeTime } from '../lib/date'
 import type { DriverRecordState, TrustedContactConnection } from '../models/domain'
 import { StatusBadge } from './StatusBadge'
+import type { ConnectionContactDetails } from '../features/drivers/useConnectionContactDetails'
 
-export function DriverCard({ connection, recordState, onDisconnect }: { connection: TrustedContactConnection; recordState?: DriverRecordState; onDisconnect: () => void }) {
+export function DriverCard({ connection, details, recordState, onDisconnect }: { connection: TrustedContactConnection; details?: ConnectionContactDetails; recordState?: DriverRecordState; onDisconnect: () => void }) {
   const latest = recordState?.records[0]
   return (
     <article className="surface p-5 sm:p-6">
       <div className="flex items-start gap-4">
         <span className="grid size-11 shrink-0 place-items-center rounded-full bg-strong text-secondary"><UserRound className="size-5" aria-hidden="true" /></span>
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-2"><h2 className="min-w-0 max-w-full break-words text-base font-semibold text-primary">{connection.driverName || 'DriveAlert Driver'}</h2><StatusBadge label="Approved" tone="success" />{!!recordState?.unreadCount && <StatusBadge label={`${recordState.unreadCount} new`} tone="warning" />}</div>
-          {connection.driverEmail && <p className="mt-1 flex min-w-0 max-w-full items-start gap-1.5 break-all text-sm text-secondary"><Mail className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0">{connection.driverEmail}</span></p>}
+          <div className="flex min-w-0 flex-wrap items-center gap-2"><h2 className="min-w-0 max-w-full break-words text-base font-semibold text-primary">{connection.driverName || 'DriveAlert Driver'}</h2>{!!recordState?.unreadCount && <StatusBadge label={`${recordState.unreadCount} new`} tone="warning" />}</div>
+          <p className="mt-1 flex min-w-0 items-start gap-1.5 text-sm text-secondary"><Mail className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 break-all">{details?.email || connection.driverEmail || 'Email unavailable'}</span></p>
+          <p className="mt-1 flex min-w-0 items-start gap-1.5 text-sm text-secondary"><Phone className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 break-words">{details?.phoneNumber || 'Phone number unavailable'}</span></p>
         </div>
       </div>
       <dl className="mt-5 grid gap-4 border-y border-border-soft py-4 sm:grid-cols-2">

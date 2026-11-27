@@ -7,16 +7,18 @@ service cloud.firestore {
 
     function validProfile(data, userId) {
       return data.keys().hasOnly([
-          'uid', 'firstName', 'middleName', 'lastName', 'email', 'phoneNumber',
-          'userRole', 'accountStatus', 'registeredAt', 'deactivatedAt', 'connectionCode'
+          'uid', 'firstName', 'middleName', 'lastName', 'suffix', 'email', 'phoneNumber',
+          'userRole', 'accountStatus', 'registeredAt', 'deactivatedAt', 'connectionCode', 'emailDiscoveryEnabled'
         ])
         && data.uid == userId
         && data.uid is string
         && (!('firstName' in data) || data.firstName is string)
         && (!('middleName' in data) || data.middleName is string)
         && (!('lastName' in data) || data.lastName is string)
+        && (!('suffix' in data) || data.suffix is string)
         && (!('email' in data) || data.email is string)
         && (!('phoneNumber' in data) || data.phoneNumber is string)
+        && (!('emailDiscoveryEnabled' in data) || data.emailDiscoveryEnabled is bool)
         && (!('userRole' in data) || data.userRole in ['DRIVER', 'TRUSTED_CONTACT', 'BOTH'])
         && (!('accountStatus' in data) || data.accountStatus in ['ACTIVE', 'DEACTIVATED'])
         && (!('registeredAt' in data) || data.registeredAt is timestamp)
@@ -275,14 +277,17 @@ service cloud.firestore {
       let event = getAfter(/databases/$(database)/documents/users/$(d.ownerUserId)/deviceSubscriptionEvents/$(d.demoActivationId));
       let ownerProfile = get(/databases/$(database)/documents/users/$(d.ownerUserId));
       return ownsDevice(d.deviceId) && activeDeviceDriver(request.auth.uid) && d.ownerUserId == request.auth.uid
-        && d.status == 'PENDING' && d.requestedAt == request.time && d.acceptedAt == null && d.endedAt == null
+        && d.requestedAt == request.time && d.endedAt == null
+        && ((d.status == 'PENDING' && d.acceptedAt == null)
+          || (d.status == 'ACTIVE' && d.acceptedAt == request.time && activeDeviceDriver(d.driverUserId)))
         && code.data.active == true && code.data.ownerUserId == d.driverUserId
         && d.driverDisplayName == code.data.displayName
         && d.ownerDisplayName == get(/databases/$(database)/documents/connectionCodes/$(ownerProfile.data.connectionCode)).data.displayName
         && d.deviceDisplayName == get(/databases/$(database)/documents/deviceOwnership/$(d.deviceId)).data.displayName
         && !exists(/databases/$(database)/documents/users/$(d.ownerUserId)/deviceSubscriptionEvents/$(d.demoActivationId))
         && event.data.createdAt == request.time && event.data.deviceId == d.deviceId && event.data.driverUserId == d.driverUserId
-        && getAfter(/databases/$(database)/documents/deviceCredentials/$(d.deviceId + '__' + d.driverUserId)).data.serial == d.revision
+        && getAfter(/databases/$(database)/documents/deviceCredentials/$(d.deviceId + '__' + d.driverUserId)).data.serial
+          == d.revision - (d.status == 'ACTIVE' ? 1 : 0)
         && getAfter(/databases/$(database)/documents/deviceCredentials/$(d.deviceId + '__' + d.driverUserId)).data.createdAt == request.time;
     }
     match /deviceDriverAccess/{accessId} {
@@ -291,18 +296,24 @@ service cloud.firestore {
       allow list: if signedIn() && (resource.data.ownerUserId == request.auth.uid || resource.data.driverUserId == request.auth.uid);
       allow create: if deviceAccessShape(request.resource.data)
         && accessId == request.resource.data.deviceId + '__' + request.resource.data.driverUserId
-        && request.resource.data.revision == 1 && validDeviceInvitation(request.resource.data);
+        && request.resource.data.revision == (request.resource.data.status == 'ACTIVE' ? 2 : 1)
+        && validDeviceInvitation(request.resource.data);
       allow update: if deviceAccessShape(request.resource.data)
         && request.resource.data.deviceId == resource.data.deviceId
         && request.resource.data.ownerUserId == resource.data.ownerUserId
         && request.resource.data.driverUserId == resource.data.driverUserId
-        && request.resource.data.revision == resource.data.revision + 1
-        && ((resource.data.status in ['DECLINED', 'CANCELLED', 'REMOVED', 'LEFT'] && validDeviceInvitation(request.resource.data))
+        && ((resource.data.status in ['DECLINED', 'CANCELLED', 'REMOVED', 'LEFT']
+            && request.resource.data.revision == resource.data.revision + (request.resource.data.status == 'ACTIVE' ? 2 : 1)
+            && validDeviceInvitation(request.resource.data))
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revision', 'acceptedAt'])
-            && signedIn() && request.auth.uid == resource.data.driverUserId && activeDeviceDriver(request.auth.uid)
+            && signedIn() && activeDeviceDriver(resource.data.driverUserId)
+            && (request.auth.uid == resource.data.driverUserId
+              || (ownsDevice(resource.data.deviceId) && activeDeviceDriver(request.auth.uid)))
+            && request.resource.data.revision == resource.data.revision + 1
             && resource.data.status == 'PENDING' && request.resource.data.status == 'ACTIVE'
             && request.resource.data.acceptedAt == request.time)
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revision', 'endedAt'])
+            && request.resource.data.revision == resource.data.revision + 1
             && request.resource.data.endedAt == request.time && signedIn()
             && ((request.auth.uid == resource.data.driverUserId
                 && ((resource.data.status == 'PENDING' && request.resource.data.status == 'DECLINED')
@@ -324,7 +335,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time && ownsDevice(request.resource.data.deviceId)
         && getAfter(/databases/$(database)/documents/deviceDriverAccess/$(request.resource.data.deviceId + '__' + request.resource.data.driverUserId)).data.demoActivationId == activationId
         && getAfter(/databases/$(database)/documents/deviceDriverAccess/$(request.resource.data.deviceId + '__' + request.resource.data.driverUserId)).data.requestedAt == request.time
-        && getAfter(/databases/$(database)/documents/deviceDriverAccess/$(request.resource.data.deviceId + '__' + request.resource.data.driverUserId)).data.status == 'PENDING';
+        && getAfter(/databases/$(database)/documents/deviceDriverAccess/$(request.resource.data.deviceId + '__' + request.resource.data.driverUserId)).data.status in ['PENDING', 'ACTIVE'];
     }
     // Secrets/certificates are never stored in publicly readable claim records.
     match /deviceCredentials/{credentialId} {
@@ -340,7 +351,9 @@ service cloud.firestore {
         let member = getAfter(/databases/$(database)/documents/deviceDriverAccess/$(credentialId));
         return ownsDevice(d.deviceId) && d.ownerUserId == request.auth.uid && d.driverUserId != request.auth.uid
           && d.kind == 'DRIVER' && d.certificate.matches('^[0-9A-F]{64}$') && d.serial > 0
-          && member.data.status == 'PENDING' && member.data.revision == d.serial && member.data.requestedAt == request.time;
+          && member.data.status in ['PENDING', 'ACTIVE']
+          && member.data.revision == d.serial + (member.data.status == 'ACTIVE' ? 1 : 0)
+          && member.data.requestedAt == request.time;
       }
       allow get: if signedIn() && (ownsDevice(credentialId.split('__')[0])
         || (resource.data.driverUserId == request.auth.uid && resource.data.kind == 'DRIVER'

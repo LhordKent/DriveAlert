@@ -92,7 +92,7 @@ class DeviceAccessRepository(
     }
 
     /** One owner-scoped operation ID is persisted by the caller before confirmation. */
-    suspend fun invite(uid: String, deviceId: String, code: String, operationId: String) = online(uid) {
+    suspend fun invite(uid: String, deviceId: String, code: String, operationId: String, expectedDriverUid: String? = null) = online(uid) {
         val normalized = ConnectionCode.normalize(code)
         require(ConnectionCode.isValid(normalized)) { "Enter a complete DriveAlert connection code." }
         val codeRef = firestore.collection("connectionCodes").document(normalized)
@@ -106,6 +106,7 @@ class DeviceAccessRepository(
             check(owner.getString("ownerUserId") == uid) { "Only the primary driver can add drivers." }
             check(target.getBoolean("active") == true) { "This connection code is no longer active." }
             val driverUid = target.getString("ownerUserId") ?: error("Account was not found.")
+            check(expectedDriverUid == null || driverUid == expectedDriverUid) { "The matched account changed. Search again." }
             check(driverUid != uid) { "The primary driver is already included." }
             val accessRef = firestore.collection("deviceDriverAccess").document("${deviceId}__$driverUid")
             val existing = tx.get(accessRef)
@@ -122,8 +123,9 @@ class DeviceAccessRepository(
                 tx.set(accessRef, mapOf("deviceId" to deviceId, "ownerUserId" to uid, "driverUserId" to driverUid,
                     "ownerDisplayName" to ownerCode.getString("displayName").orEmpty(),
                     "driverDisplayName" to target.getString("displayName").orEmpty(), "deviceDisplayName" to owner.getString("displayName").orEmpty(),
-                    "status" to "PENDING", "revision" to ((existing.getLong("revision") ?: 0) + 1), "targetConnectionCode" to normalized,
-                    "requestedAt" to FieldValue.serverTimestamp(), "acceptedAt" to null, "endedAt" to null,
+                    // Active access is one revision ahead of the credential serial, as on a legacy acceptance.
+                    "status" to "ACTIVE", "revision" to serial + 1, "targetConnectionCode" to normalized,
+                    "requestedAt" to FieldValue.serverTimestamp(), "acceptedAt" to FieldValue.serverTimestamp(), "endedAt" to null,
                     "billingMode" to "SIMULATED", "demoActivationId" to operationId))
                 tx.set(firestore.collection("deviceCredentials").document("${deviceId}__$driverUid"), credentialValues(certificate, uid, driverUid))
             }
@@ -140,7 +142,7 @@ class DeviceAccessRepository(
             check(current.getString("ownerUserId") == uid || current.getString("driverUserId") == uid)
             if (status != next) {
                 val owner = current.getString("ownerUserId") == uid
-                val valid = if (owner) (status == "PENDING" && next == "CANCELLED") || (status == "ACTIVE" && next == "REMOVED")
+                val valid = if (owner) (status == "PENDING" && next in listOf("ACTIVE", "CANCELLED")) || (status == "ACTIVE" && next == "REMOVED")
                     else (status == "PENDING" && next in listOf("ACTIVE", "DECLINED")) || (status == "ACTIVE" && next == "LEFT")
                 check(valid) { "This invitation changed. Refresh and try again." }
                 tx.update(ref, mapOf("status" to next, "revision" to (requireNotNull(current.getLong("revision")) + 1),

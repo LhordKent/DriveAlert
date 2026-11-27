@@ -7,7 +7,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextInput
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.compose.ui.test.assertTextContains
 import com.lhordkent.drivealert.ui.DriveAlertApp
 import com.lhordkent.drivealert.ui.auth.AuthTestTags
 import com.lhordkent.drivealert.ui.theme.DriveAlertTheme
@@ -110,15 +113,15 @@ class AuthFlowTest {
     }
 
     @Test
-    fun validSignUpRequiresPhoneAndAllowsBlankMiddleName() {
+    fun validSignUpRequiresPhoneAndAllowsBlankMiddleNameAndSuffix() {
         var received: SignUpInput? = null
         launch(AuthCallbacks(onSignUp = { received = it }))
         composeRule.onNodeWithText("Create Account").performClick()
         composeRule.onNodeWithTag(AuthTestTags.FIRST_NAME).performTextInput("Lhord")
         composeRule.onNodeWithTag(AuthTestTags.LAST_NAME).performTextInput("Kent")
-        composeRule.onNodeWithTag(AuthTestTags.EMAIL).performTextInput("lhord@drivealert.app")
-        composeRule.onNodeWithTag(AuthTestTags.PASSWORD).performTextInput("safe-drive")
-        composeRule.onNodeWithTag(AuthTestTags.CONFIRM_PASSWORD).performTextInput("safe-drive")
+        composeRule.onNodeWithTag(AuthTestTags.EMAIL).performScrollTo().performTextInput("lhord@drivealert.app")
+        composeRule.onNodeWithTag(AuthTestTags.PASSWORD).performScrollTo().performTextInput("safe-drive")
+        composeRule.onNodeWithTag(AuthTestTags.CONFIRM_PASSWORD).performScrollTo().performTextInput("safe-drive")
         composeRule.onNodeWithTag(AuthTestTags.PRIMARY_ACTION).performScrollTo().performClick()
 
         composeRule.onNodeWithText("Phone number is required").performScrollTo().assertIsDisplayed()
@@ -126,10 +129,53 @@ class AuthFlowTest {
         composeRule.onNodeWithTag(AuthTestTags.PHONE).performScrollTo().performTextInput("12345678901")
         composeRule.onNodeWithTag(AuthTestTags.PRIMARY_ACTION).performScrollTo().performClick()
 
+        composeRule.runOnIdle { assertEquals(null, received) }
+        composeRule.onNodeWithTag(AuthTestTags.PASSWORD).performScrollTo().performTextReplacement("Safe-drive")
+        composeRule.onNodeWithTag(AuthTestTags.CONFIRM_PASSWORD).performScrollTo().performTextReplacement("Safe-drive")
+        composeRule.onNodeWithTag(AuthTestTags.PRIMARY_ACTION).performScrollTo().performClick()
+
         composeRule.runOnIdle {
             assertEquals("Lhord", received?.firstName)
             assertEquals("", received?.middleName)
+            assertEquals("", received?.suffix)
             assertEquals("12345678901", received?.phoneNumber)
+        }
+    }
+
+    @Test
+    fun signUpRemovesNumbersFromNamesButKeepsThemInTheSavedSuffix() {
+        var received: SignUpInput? = null
+        launch(AuthCallbacks(onSignUp = { received = it }))
+        composeRule.onNodeWithText("Create Account").performClick()
+        composeRule.onNodeWithTag(AuthTestTags.FIRST_NAME).performScrollTo().performTextInput("Mára1")
+        composeRule.onNodeWithTag(AuthTestTags.MIDDLE_NAME).performScrollTo().performTextInput("Anne-Marie٢")
+        composeRule.onNodeWithTag(AuthTestTags.LAST_NAME).performScrollTo().performTextInput("O'Neil3")
+        composeRule.onNodeWithTag(AuthTestTags.SUFFIX).performScrollTo().assertTextContains("Suffix (optional)")
+            .performTextInput(" 3rd ")
+        composeRule.onNodeWithTag(AuthTestTags.PHONE).performScrollTo().performTextInput("12345678901")
+        composeRule.onNodeWithTag(AuthTestTags.EMAIL).performScrollTo().performTextInput("signup@example.test")
+        composeRule.onNodeWithTag(AuthTestTags.PASSWORD).performScrollTo().performTextInput("Safe-drive")
+        composeRule.onNodeWithTag(AuthTestTags.CONFIRM_PASSWORD).performScrollTo().performTextInput("Safe-drive")
+        composeRule.onNodeWithTag(AuthTestTags.PRIMARY_ACTION).performScrollTo().performClick()
+
+        composeRule.runOnIdle {
+            val signup = checkNotNull(received)
+            assertEquals("Mára", signup.firstName)
+            assertEquals("Anne-Marie", signup.middleName)
+            assertEquals("O'Neil", signup.lastName)
+            assertEquals("3rd", signup.suffix)
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            val storeName = "signup-suffix-test"
+            val preferences = context.getSharedPreferences(storeName, 0)
+            try {
+                PendingRegistrationStore(preferences).save("with-suffix", signup)
+                PendingRegistrationStore(preferences).save("without-suffix", signup.copy(suffix = " "))
+                val reopened = PendingRegistrationStore(context.getSharedPreferences(storeName, 0))
+                assertEquals("3rd", reopened.read("with-suffix", signup.email)?.suffix)
+                assertEquals(null, checkNotNull(reopened.read("without-suffix", signup.email)).suffix)
+            } finally {
+                context.deleteSharedPreferences(storeName)
+            }
         }
     }
 

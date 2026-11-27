@@ -78,9 +78,18 @@ class DeviceCredentialStore(context: Context) {
         val json = JSONObject(get("credential/$uid/$deviceId") ?: return null)
         DeviceCredential(json.getString("id"), json.getString("account"), json.getString("secret"), json.getBoolean("owner"), json.getLong("serial"), json.getString("certificate"))
     }.getOrNull()
-    fun saveSession(uid: String, deviceId: String, token: String) {
+    @Synchronized fun saveSession(uid: String, deviceId: String, token: String, additionalDriver: Boolean = false): Boolean {
         require(token.matches(Regex("[0-9A-F]{64}")))
+        val noticeKey = "additional-driver-notice/$uid/$deviceId"
+        if (additionalDriver && session(uid, deviceId) == null) {
+            preferences.edit().putBoolean(noticeKey, true).apply()
+        }
         put("session/$uid/$deviceId", token)
+        return additionalDriver && preferences.getBoolean(noticeKey, false)
+    }
+
+    @Synchronized fun acknowledgeAdditionalDriverNotice(uid: String, deviceId: String) {
+        preferences.edit().remove("additional-driver-notice/$uid/$deviceId").apply()
     }
     fun session(uid: String, deviceId: String): String? = get("session/$uid/$deviceId")
     @Synchronized fun setRevocation(uid: String, deviceId: String, account: String, serial: Long) {

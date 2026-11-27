@@ -153,6 +153,7 @@ fun CreateAccountScreen(
     var firstName by rememberSaveable { mutableStateOf("") }
     var middleName by rememberSaveable { mutableStateOf("") }
     var lastName by rememberSaveable { mutableStateOf("") }
+    var suffix by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
@@ -188,6 +189,7 @@ fun CreateAccountScreen(
                     email = email.trim(),
                     password = password,
                     confirmPassword = confirmation,
+                    suffix = suffix.trim(),
                 ),
             )
         }
@@ -205,20 +207,26 @@ fun CreateAccountScreen(
         AuthStatusBanner(state.errorMessage, state.successMessage)
         if (state.errorMessage != null || state.successMessage != null) Spacer(Modifier.height(16.dp))
         AuthTextField(
-            firstName, { firstName = it }, "First name", Modifier.testTag(AuthTestTags.FIRST_NAME),
+            firstName, { firstName = AuthValidation.removeNameNumbers(it) }, "First name", Modifier.testTag(AuthTestTags.FIRST_NAME),
             firstNameError, !state.isLoading,
             KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words, imeAction = ImeAction.Next), nextAction,
         )
         Spacer(Modifier.height(12.dp))
         AuthTextField(
-            middleName, { middleName = it }, "Middle name (optional)", Modifier.testTag(AuthTestTags.MIDDLE_NAME),
+            middleName, { middleName = AuthValidation.removeNameNumbers(it) }, "Middle name (optional)", Modifier.testTag(AuthTestTags.MIDDLE_NAME),
             null, !state.isLoading,
             KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words, imeAction = ImeAction.Next), nextAction,
         )
         Spacer(Modifier.height(12.dp))
         AuthTextField(
-            lastName, { lastName = it }, "Last name", Modifier.testTag(AuthTestTags.LAST_NAME),
+            lastName, { lastName = AuthValidation.removeNameNumbers(it) }, "Last name", Modifier.testTag(AuthTestTags.LAST_NAME),
             lastNameError, !state.isLoading,
+            KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words, imeAction = ImeAction.Next), nextAction,
+        )
+        Spacer(Modifier.height(12.dp))
+        AuthTextField(
+            suffix, { suffix = it }, "Suffix (optional)", Modifier.testTag(AuthTestTags.SUFFIX),
+            null, !state.isLoading,
             KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words, imeAction = ImeAction.Next), nextAction,
         )
         Spacer(Modifier.height(12.dp))
@@ -238,6 +246,7 @@ fun CreateAccountScreen(
             password, { password = it }, "Password", Modifier.testTag(AuthTestTags.PASSWORD),
             passwordError, !state.isLoading,
             KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next), nextAction,
+            hint = AuthValidation.SIGN_UP_PASSWORD_REQUIREMENTS,
         )
         Spacer(Modifier.height(12.dp))
         PasswordField(

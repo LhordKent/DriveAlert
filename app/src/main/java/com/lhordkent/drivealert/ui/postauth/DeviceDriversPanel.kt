@@ -2,21 +2,35 @@ package com.lhordkent.drivealert.ui.postauth
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.lhordkent.drivealert.device.DeviceDriversState
 import com.lhordkent.drivealert.device.DeviceDriversViewModel
+import com.lhordkent.drivealert.device.DeviceDriverInviteTarget
 import com.lhordkent.drivealert.ui.theme.*
 
+private val visibleDriverAccess = setOf("PENDING", "ACTIVE")
+
 @Composable
-fun DeviceDriversPanel(viewModel: DeviceDriversViewModel) {
+fun DeviceDriversPanel(viewModel: DeviceDriversViewModel, userId: String?) {
     val state by viewModel.state.collectAsState()
-    LaunchedEffect(viewModel) { viewModel.refresh() }
-    DeviceDriversContent(state, viewModel::refresh, viewModel::selectDevice, viewModel::setCode,
-        viewModel::lookup, viewModel::confirmActivation, viewModel::dismissTarget, viewModel::transition)
+    var detailsRefresh by remember { mutableIntStateOf(0) }
+    val accessIds = state.overview.managed.filter {
+        it.ownerUserId == userId && it.deviceId == state.selectedDeviceId && it.status in visibleDriverAccess
+    }.map { it.id }.sorted()
+    val phoneNumbers = rememberConnectionDetails(userId, accessIds, viewModel::loadDriverPhoneNumbers, detailsRefresh)
+    LaunchedEffect(viewModel, userId) { viewModel.refresh() }
+    DeviceDriversContent(
+        state, { detailsRefresh++; viewModel.refresh() }, viewModel::selectDevice, viewModel::setInviteInput,
+        viewModel::lookup, viewModel::confirmActivation, viewModel::dismissTarget, viewModel::transition,
+        viewModel::setInviteByEmail, phoneNumbers,
+    )
 }
 
 @Composable
@@ -24,21 +38,22 @@ internal fun DeviceDriversContent(
     state: DeviceDriversState,
     onRefresh: () -> Unit,
     onSelect: (String) -> Unit,
-    onCode: (String) -> Unit,
+    onInviteInput: (String) -> Unit,
     onLookup: () -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     onTransition: (String, String) -> Unit,
+    onInviteByEmail: (Boolean) -> Unit = {},
+    phoneNumbers: Map<String, String> = emptyMap(),
 ) {
     var removal by remember { mutableStateOf<Pair<String, String>?>(null) }
     val savedOwners = state.grants.filter { it.status == "OWNER" && it.allowed }
+    val sharedDevices = state.overview.incoming.filter { it.status in visibleDriverAccess }
     GroupSurface {
         Text("Your device access", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
         Spacer(Modifier.height(6.dp))
-        Text("Each device includes one primary driver. Additional drivers use their own accounts and need an invitation from the primary driver.", color = TextSecondary)
+        Text("The primary driver can add other drivers to this device. Each driver uses their own account.", color = TextSecondary)
         Spacer(Modifier.height(12.dp))
-        val pendingInvitations = state.overview.incoming.count { it.status == "PENDING" }
-        if (pendingInvitations > 0) Text("$pendingInvitations pending device invitation${if (pendingInvitations == 1) "" else "s"}", color = Info, modifier = Modifier.padding(bottom = 12.dp))
         run {
             Text("Demo subscriptions · No payment is collected", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             Spacer(Modifier.height(12.dp))
@@ -48,12 +63,14 @@ internal fun DeviceDriversContent(
                 Spacer(Modifier.height(20.dp))
                 Text("You are the primary driver", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
                 savedOwners.forEach { Text(it.displayName, style = MaterialTheme.typography.titleMedium, color = TextPrimary, modifier = Modifier.padding(top = 8.dp)) }
-                Text("Primary access is included and saved for offline use. Refresh online to load invitations and manage additional drivers.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
-            } else if (state.overview.owned.isEmpty() && state.overview.incoming.none { it.status in listOf("PENDING", "ACTIVE") }) {
+                Text("Primary access is saved for offline use. Refresh online to manage additional drivers.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
+            } else if (state.overview.owned.isEmpty() && sharedDevices.isEmpty()) {
                 Spacer(Modifier.height(16.dp))
                 Text("No registered device loaded", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                Text("Open Setup & Device → Device Connection to select and register your nearby device. Internet is needed once for registration and invitations; daily monitoring stays offline.", color = TextSecondary)
-                state.grants.filter { it.allowed }.forEach {
+                Text("Open Setup & Device → Device Connection to register a nearby device. Internet is needed to register or add drivers. Daily monitoring works offline.", color = TextSecondary)
+                state.grants.filter { grant ->
+                    grant.allowed && state.overview.incoming.none { it.deviceId == grant.deviceId }
+                }.forEach {
                     Text("${it.displayName} · ${if (it.status == "OWNER") "Primary driver" else "Additional driver"} · Offline access saved", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
                 }
             }
@@ -75,47 +92,85 @@ internal fun DeviceDriversContent(
                 Text("You are the primary driver", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
                 Spacer(Modifier.height(8.dp))
                 Text(device.displayName, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                Text("Your access is included with this device. You can invite and remove additional drivers.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
+                Text("You can add and remove additional drivers.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
                 Spacer(Modifier.height(24.dp))
                 Text("Additional drivers", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                if (state.overview.managed.none { it.deviceId == device.deviceId }) {
+                val additionalDrivers = state.overview.managed.filter {
+                    it.deviceId == device.deviceId && it.status in visibleDriverAccess
+                }
+                if (additionalDrivers.isEmpty()) {
                     Text("No additional drivers yet.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
                 }
-                state.overview.managed.filter { it.deviceId == device.deviceId }.forEach { member ->
+                additionalDrivers.forEach { member ->
                     HorizontalDivider(Modifier.padding(vertical = 16.dp), color = Border)
                     Text(member.driverDisplayName, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                    Text("${member.status.lowercase().replaceFirstChar { it.uppercase() }} · Demo subscription", color = TextSecondary)
-                    if (member.status in listOf("PENDING", "ACTIVE")) {
+                    Text(
+                        phoneNumbers[member.id] ?: "Phone number unavailable",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    if (member.status == "PENDING") {
+                        PrimaryButton("Activate access", { onTransition(member.id, "ACTIVE") }, enabled = !state.busy)
                         Spacer(Modifier.height(8.dp))
-                        SecondaryButton(if (member.status == "PENDING") "Cancel invitation" else "Remove driver",
-                            { removal = member.id to if (member.status == "PENDING") "CANCELLED" else "REMOVED" }, enabled = !state.busy)
+                        SecondaryButton(
+                            "Cancel invitation",
+                            { removal = member.id to "CANCELLED" },
+                            enabled = !state.busy,
+                        )
+                    } else {
+                        PrimaryButton(
+                            "Remove driver",
+                            { removal = member.id to "REMOVED" },
+                            enabled = !state.busy,
+                            containerColor = DriveRedPressed,
+                        )
                     }
                 }
                 Spacer(Modifier.height(20.dp))
-                Text("Invite an additional driver", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                Text("Enter their connection code, check their name, then confirm the demo subscription. They must accept before using the device.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
+                Text("Add an additional driver", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Text(
+                    if (state.inviteByEmail) "Enter the email address the driver uses for DriveAlert."
+                    else "Enter the connection code from the driver’s DriveAlert Account screen.",
+                    color = TextSecondary,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(state.code, onCode, label = { Text("Driver connection code") },
-                    supportingText = { Text("Use the code from their DriveAlert Account screen.") },
-                    singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = state.inviteInput,
+                    onValueChange = onInviteInput,
+                    label = { Text(if (state.inviteByEmail) "Email address" else "Driver connection code") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (state.inviteByEmail) KeyboardType.Email else KeyboardType.Ascii,
+                        capitalization = if (state.inviteByEmail) KeyboardCapitalization.None else KeyboardCapitalization.Characters,
+                        autoCorrect = false,
+                    ),
+                    singleLine = true,
+                    enabled = !state.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Spacer(Modifier.height(12.dp))
-                PrimaryButton("Find Driver", onLookup, enabled = !state.busy && state.code.isNotBlank(), containerColor = DriveRedPressed)
+                PrimaryButton(
+                    if (state.inviteByEmail) "Search" else "Find Driver",
+                    onLookup,
+                    enabled = !state.busy && state.inviteInput.isNotBlank(),
+                    containerColor = DriveRedPressed,
+                )
+                TextButton(onClick = { onInviteByEmail(!state.inviteByEmail) }, enabled = !state.busy) {
+                    Text(if (state.inviteByEmail) "Use a connection code" else "Search by email")
+                }
             }
             Spacer(Modifier.height(24.dp))
-            Text("Invitations to you", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-            if (state.overview.incoming.isEmpty()) {
-                Text("No device invitations loaded. Refresh online to check for new invitations.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
+            Text("Shared devices", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            if (sharedDevices.isEmpty()) {
+                Text("No shared devices loaded. Refresh online to check your access.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
             }
-            state.overview.incoming.forEach { member ->
+            sharedDevices.forEach { member ->
                 HorizontalDivider(Modifier.padding(vertical = 16.dp), color = Border)
                 Text(member.deviceDisplayName, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                 Text("${member.status.lowercase().replaceFirstChar { it.uppercase() }} · Device ${member.deviceId.takeLast(6)}", color = TextSecondary)
                 if (member.status == "PENDING") {
-                    Text("${member.ownerDisplayName} invited your account to use this device. Accept only if you know this primary driver. Your calibration and history stay separate.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
-                    Spacer(Modifier.height(12.dp))
-                    PrimaryButton("Accept device invitation", { onTransition(member.id, "ACTIVE") }, enabled = !state.busy, containerColor = DriveRedPressed)
-                    Spacer(Modifier.height(8.dp))
-                    SecondaryButton("Decline invitation", { onTransition(member.id, "DECLINED") }, enabled = !state.busy)
+                    Text("Ask ${member.ownerDisplayName} to activate your access.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
                 } else if (member.status == "ACTIVE") {
                     Text("Access saved for offline use. Open Setup & Device → Device Connection to pair this phone with the device through Bluetooth.", color = TextSecondary, modifier = Modifier.padding(top = 8.dp))
                     Spacer(Modifier.height(8.dp))
@@ -134,14 +189,15 @@ internal fun DeviceDriversContent(
     }
     state.target?.let { target ->
         AlertDialog(onDismissRequest = { if (!state.busy) onDismiss() },
-            title = { Text("Activate demo subscription?") },
+            title = { Text("Add this driver?") },
             text = { Column {
-                Text("Add ${target.displayName} as an additional driver on this device?")
+                Text(target.displayName, style = MaterialTheme.typography.titleMedium)
+                if (target is DeviceDriverInviteTarget.ByEmail) Text(target.match.email)
                 Spacer(Modifier.height(12.dp))
-                Text("This is a simulated subscription. No payment will be collected. Access begins after they accept your invitation.")
+                Text("They can connect to this device as soon as you add them. This is a simulated subscription. No payment is collected.")
                 state.error?.let { Text(it, color = DriveRed, modifier = Modifier.padding(top = 12.dp)) }
             } },
-            confirmButton = { TextButton(onConfirm, enabled = !state.busy, colors = ButtonDefaults.textButtonColors(contentColor = TextPrimary)) { Text(if (state.busy) "Activating…" else "Confirm Activation") } },
+            confirmButton = { TextButton(onConfirm, enabled = !state.busy, colors = ButtonDefaults.textButtonColors(contentColor = TextPrimary)) { Text(if (state.busy) "Adding…" else "Add driver") } },
             dismissButton = { TextButton(onDismiss, enabled = !state.busy, colors = ButtonDefaults.textButtonColors(contentColor = TextSecondary)) { Text("Cancel") } })
     }
     removal?.let { (id, next) ->

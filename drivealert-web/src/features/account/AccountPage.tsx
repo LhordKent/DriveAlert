@@ -51,8 +51,6 @@ export function AccountPage() {
     ['Full name', fullName(profile) || user?.displayName || 'Not available'],
     ['Email', user?.email || profile.email || 'Not available'],
     ['Phone number', profile.phoneNumber || 'Not provided'],
-    ['User role', profile.userRole?.replace('_', ' ') || 'Not assigned'],
-    ['Account status', profile.accountStatus],
   ]
   const formattedCode = formatConnectionCode(profile.connectionCode)
 
@@ -66,7 +64,7 @@ export function AccountPage() {
             <FormField id="account-first-name" label="First name" required maxLength={60} value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
             <FormField id="account-middle-name" label="Middle name (optional)" maxLength={60} value={form.middleName} onChange={(event) => setForm({ ...form, middleName: event.target.value })} />
             <FormField id="account-last-name" label="Last name" required maxLength={60} value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
-            <FormField id="account-phone" label="Phone number (optional)" type="tel" maxLength={30} value={form.phoneNumber} onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })} />
+            <FormField id="account-phone" label="Phone number" type="tel" inputMode="numeric" autoComplete="tel" required maxLength={30} value={form.phoneNumber} onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })} />
           </div>
           <div className="flex flex-wrap justify-end gap-3 border-t border-border-soft px-5 py-4"><Button type="button" variant="quiet" onClick={() => { setEditing(false); setMessage('') }}>Cancel</Button><Button type="submit" busy={saving}>Save changes</Button></div>
         </form> : <dl className="divide-y divide-border-soft">{fields.map(([label, value]) => <div key={label} className="grid min-w-0 gap-1 px-5 py-4 sm:grid-cols-[11rem_minmax(0,1fr)]"><dt className="text-sm text-muted">{label}</dt><dd className="min-w-0 break-words text-sm font-medium text-primary">{value}</dd></div>)}</dl>}

@@ -73,7 +73,7 @@ object ProvisioningReducer {
             stage = ProvisioningStage.CONNECTED_BLE,
             credentialStatusKnown = false,
             savedNetworkSsid = null,
-            message = "Checking this device for a saved networkâ€¦",
+            message = "Checking this device for a saved network…",
         )
         is ProvisioningEvent.CredentialStatus -> state.copy(
             stage = ProvisioningStage.CONNECTED_BLE,

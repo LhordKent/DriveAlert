@@ -37,7 +37,7 @@ async function claim(owner) {
   batch.set(doc(owner.db, "deviceCredentials", `${DEVICE}__${owner.uid}`), credential(owner, owner));
   return batch.commit();
 }
-async function invite(owner, driver, operation = "activation-1") {
+async function invite(owner, driver, operation = "activation-1", activate = false) {
   const membership = doc(owner.db, "deviceDriverAccess", `${DEVICE}__${driver.uid}`);
   const event = doc(owner.db, "users", owner.uid, "deviceSubscriptionEvents", operation);
   await runTransaction(owner.db, async tx => {
@@ -45,12 +45,12 @@ async function invite(owner, driver, operation = "activation-1") {
     const existingEvent = await tx.get(event);
     if (existingEvent.exists()) return;
     if (["PENDING", "ACTIVE"].includes(old.data()?.status)) throw new Error("Already invited");
-    const revision = (old.data()?.revision || 0) + 1;
+    const serial = (old.data()?.revision || 0) + 1;
     tx.set(event, { deviceId: DEVICE, ownerUserId: owner.uid, driverUserId: driver.uid, mode: "SIMULATED", kind: "ACTIVATION", createdAt: serverTimestamp() });
     tx.set(membership, { deviceId: DEVICE, ownerUserId: owner.uid, ownerDisplayName: owner.name, driverUserId: driver.uid, driverDisplayName: driver.name,
-      deviceDisplayName: "Family DriveAlert", status: "PENDING", revision, targetConnectionCode: driver.code,
-      requestedAt: serverTimestamp(), acceptedAt: null, endedAt: null, billingMode: "SIMULATED", demoActivationId: operation });
-    tx.set(doc(owner.db, "deviceCredentials", `${DEVICE}__${driver.uid}`), credential(owner, driver, revision));
+      deviceDisplayName: "Family DriveAlert", status: activate ? "ACTIVE" : "PENDING", revision: serial + (activate ? 1 : 0), targetConnectionCode: driver.code,
+      requestedAt: serverTimestamp(), acceptedAt: activate ? serverTimestamp() : null, endedAt: null, billingMode: "SIMULATED", demoActivationId: operation });
+    tx.set(doc(owner.db, "deviceCredentials", `${DEVICE}__${driver.uid}`), credential(owner, driver, serial));
   });
 }
 async function transition(actor, driver, status) {
@@ -109,12 +109,46 @@ describe("DriveAlert device ownership and simulated subscriptions", () => {
     await assert.rejects(setDoc(doc(owner.db, "users", owner.uid, "deviceSubscriptionEvents", "orphan"), {
       deviceId: DEVICE, ownerUserId: owner.uid, driverUserId: driver.uid, mode: "SIMULATED", kind: "ACTIVATION", createdAt: serverTimestamp() }));
   });
-  it("prevents outsiders and the owner from accepting for the target", async () => {
+  it("lets the primary driver activate a legacy invitation without a second event and denies outsiders", async () => {
     const owner = await client("Owner"), driver = await client("Driver"), outsider = await client("Outsider");
     await claim(owner); await invite(owner, driver);
-    await assert.rejects(transition(owner, driver, "ACTIVE"));
     await assert.rejects(transition(outsider, driver, "ACTIVE"));
-    await transition(driver, driver, "ACTIVE");
+    await transition(owner, driver, "ACTIVE");
+    const member = (await getDoc(doc(driver.db, "deviceDriverAccess", `${DEVICE}__${driver.uid}`))).data();
+    assert.equal(member.status, "ACTIVE");
+    assert.equal(member.demoActivationId, "activation-1");
+    assert.equal((await getDoc(doc(driver.db, "deviceCredentials", `${DEVICE}__${driver.uid}`))).data().serial, 1);
+  });
+  it("grants device access immediately and preserves credential serials across removal and re-add", async () => {
+    const owner = await client("Owner"), driver = await client("Driver"), outsider = await client("Outsider");
+    await claim(owner);
+    await assert.rejects(invite(outsider, driver, "unauthorized", true));
+    await invite(owner, driver, "automatic-1", true);
+    await invite(owner, driver, "automatic-1", true);
+    const ref = doc(driver.db, "deviceDriverAccess", `${DEVICE}__${driver.uid}`);
+    const secret = doc(driver.db, "deviceCredentials", `${DEVICE}__${driver.uid}`);
+    const first = (await getDoc(ref)).data();
+    assert.equal(first.status, "ACTIVE");
+    assert.equal(first.revision, 2);
+    assert(first.acceptedAt.isEqual(first.requestedAt));
+    assert.equal((await getDoc(secret)).data().serial, 1);
+    await assert.rejects(transition(driver, driver, "DECLINED"));
+    await transition(owner, driver, "REMOVED");
+    await assert.rejects(getDoc(secret));
+    await invite(owner, driver, "automatic-2", true);
+    assert.equal((await getDoc(ref)).data().revision, 5);
+    assert.equal((await getDoc(secret)).data().serial, 4);
+    await transition(driver, driver, "LEFT");
+    await assert.rejects(getDoc(secret));
+  });
+  it("requires an active recipient with Driver capability before granting immediate access", async () => {
+    const owner = await client("Owner"), driver = await client("Trusted", "TRUSTED_CONTACT");
+    await claim(owner);
+    await assert.rejects(invite(owner, driver, "automatic", true));
+    await updateDoc(doc(driver.db, "users", driver.uid), { userRole: "BOTH", accountStatus: "DEACTIVATED" });
+    await assert.rejects(invite(owner, driver, "automatic", true));
+    await updateDoc(doc(driver.db, "users", driver.uid), { accountStatus: "ACTIVE" });
+    await invite(owner, driver, "automatic", true);
   });
   it("requires Driver capability and active account status on acceptance", async () => {
     const owner = await client("Owner"), driver = await client("Trusted", "TRUSTED_CONTACT"); await claim(owner); await invite(owner, driver);

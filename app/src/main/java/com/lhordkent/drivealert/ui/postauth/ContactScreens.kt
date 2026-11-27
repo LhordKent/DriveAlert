@@ -17,21 +17,27 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.lhordkent.drivealert.data.connection.ConnectionContactDetails
 import com.lhordkent.drivealert.postauth.ConnectedDriver
 import com.lhordkent.drivealert.postauth.ConnectionRequest
 import com.lhordkent.drivealert.postauth.ConnectionInviteUiState
@@ -44,6 +50,7 @@ import com.lhordkent.drivealert.ui.theme.Surface
 import com.lhordkent.drivealert.ui.theme.TextMuted
 import com.lhordkent.drivealert.ui.theme.TextPrimary
 import com.lhordkent.drivealert.ui.theme.TextSecondary
+import kotlinx.coroutines.CancellationException
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -53,41 +60,44 @@ internal val sharedAlertDateTimeFormatter: DateTimeFormatter
 @Composable
 fun DriverContactsScreen(
     contacts: List<Contact>,
-    outgoing: List<ConnectionRequest>,
     onInvite: () -> Unit,
-    onCancel: (String) -> Unit,
+    onSentRequests: () -> Unit,
     onRemove: (String) -> Unit,
+    details: Map<String, ConnectionContactDetails> = emptyMap(),
     isLoading: Boolean = false,
     actionInProgressIds: Set<String> = emptySet(),
     cloudErrorMessage: String? = null,
 ) {
     var pendingRemove by rememberSaveable { mutableStateOf<String?>(null) }
     CloudErrorMessage(cloudErrorMessage)
-    PrimaryButton("Invite a Trusted Contact", onInvite)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        PrimaryButton("Invite", onInvite, Modifier.weight(1f))
+        PrimaryButton("Sent requests", onSentRequests, Modifier.weight(1f))
+    }
     Spacer(Modifier.height(26.dp))
-    SectionTitle("Approved")
-    if (isLoading && contacts.isEmpty() && outgoing.isEmpty()) {
+    SectionTitle("Contacts")
+    if (isLoading && contacts.isEmpty()) {
         LoadingMessage("Loading trusted contacts…")
     } else if (contacts.isEmpty() && cloudErrorMessage == null) {
-        EmptyState("No approved contacts", "Invite someone you trust to receive future eligible Stage 3 transition or persistence records.")
+        EmptyState("No contacts yet", "Invite someone you trust to receive shared Stage 3 alerts.")
     } else {
         contacts.forEach { contact ->
-            ConnectionIdentityRow(contact.name, contact.email, "Approved") {
-                TextButton(onClick = { pendingRemove = contact.id }, enabled = contact.id !in actionInProgressIds) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ConnectionIdentity(contact.name, contact.email, details[contact.id], Modifier.weight(1f))
+                TextButton(
+                    onClick = { pendingRemove = contact.id },
+                    enabled = contact.id !in actionInProgressIds,
+                ) {
                     Text(if (contact.id in actionInProgressIds) "Removing…" else "Remove", color = DriveRed)
                 }
             }
+            HorizontalDivider(color = Border)
         }
     }
-    Spacer(Modifier.height(20.dp))
-    SectionTitle("Sent requests")
-    if (!isLoading && outgoing.isEmpty() && cloudErrorMessage == null) {
-        Text("No sent requests", style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(vertical = 16.dp))
-    } else outgoing.forEach { request ->
-        RequestRow(request, actionInProgress = request.id in actionInProgressIds, onCancel = { onCancel(request.id) })
-    }
-    Spacer(Modifier.height(20.dp))
-    Text("Expanded contact options are coming soon.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
     Spacer(Modifier.height(24.dp))
 
     pendingRemove?.let { id ->
@@ -102,10 +112,35 @@ fun DriverContactsScreen(
 }
 
 @Composable
+fun SentConnectionRequestsScreen(
+    outgoing: List<ConnectionRequest>,
+    onCancel: (String) -> Unit,
+    onBack: () -> Unit,
+    isLoading: Boolean,
+    actionInProgressIds: Set<String>,
+    cloudErrorMessage: String?,
+) {
+    ScrollableScreen("Sent requests", onBack) {
+        CloudErrorMessage(cloudErrorMessage)
+        when {
+            isLoading && outgoing.isEmpty() -> LoadingMessage("Loading sent requests…")
+            outgoing.isEmpty() && cloudErrorMessage == null -> EmptyState(
+                "No sent requests",
+                "Invitations waiting for a response will appear here.",
+            )
+            else -> outgoing.forEach { request ->
+                RequestRow(request, actionInProgress = request.id in actionInProgressIds, onCancel = { onCancel(request.id) })
+            }
+        }
+    }
+}
+
+@Composable
 fun TrustedDriversScreen(
     drivers: List<ConnectedDriver>,
     onDriverSelected: (String) -> Unit,
     onRemove: (String) -> Unit,
+    details: Map<String, ConnectionContactDetails> = emptyMap(),
     isLoading: Boolean = false,
     actionInProgressIds: Set<String> = emptySet(),
     cloudErrorMessage: String? = null,
@@ -124,32 +159,42 @@ fun TrustedDriversScreen(
         EmptyState("No connected Drivers", "Accept a Driver's request to begin reviewing shared Stage 3 transition or persistence records.")
     } else drivers.forEach { driver ->
         Column(
-            modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) { onDriverSelected(driver.id) }.padding(vertical = 15.dp),
+            Modifier.fillMaxWidth()
+                .clickable(role = Role.Button) { onDriverSelected(driver.id) }
+                .padding(vertical = 14.dp),
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
-                    Text(driver.name, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                    Text(driver.email, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                }
-                StatusPill(if (driver.sharedRecordsLoading) "Loading…" else "${driver.sharedRecords.size} shared", StatusTone.INFO)
-                if (driver.unreadRecordCount > 0) {
-                    Spacer(Modifier.height(4.dp))
-                    StatusPill("${driver.unreadRecordCount} new", StatusTone.WARNING)
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (driver.sharedRecordsLoading) "Loading shared records…" else driver.sharedRecords.maxByOrNull { it.occurredAt }?.let { "Latest ${it.occurredAt.format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))}" } ?: "No shared records yet",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted,
-                )
-                TextButton(onClick = { pendingRemove = driver.connectionId }, enabled = driver.connectionId !in actionInProgressIds) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ConnectionIdentity(driver.name, driver.email, details[driver.connectionId], Modifier.weight(1f))
+                TextButton(
+                    onClick = { pendingRemove = driver.connectionId },
+                    enabled = driver.connectionId !in actionInProgressIds,
+                ) {
                     Text(if (driver.connectionId in actionInProgressIds) "Disconnecting…" else "Disconnect", color = DriveRed)
                 }
             }
-            HorizontalDivider(color = Border)
+            Spacer(Modifier.height(8.dp))
+            val recordCount = if (driver.sharedRecordsLoading) {
+                "Loading shared records…"
+            } else {
+                "${driver.sharedRecords.size} shared"
+            }
+            val unread = if (driver.unreadRecordCount > 0) " · ${driver.unreadRecordCount} new" else ""
+            Text(recordCount + unread, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            if (!driver.sharedRecordsLoading) {
+                driver.sharedRecords.maxByOrNull { it.occurredAt }?.let { latest ->
+                    Text(
+                        "Latest ${latest.occurredAt.format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                    )
+                }
+            }
         }
+        HorizontalDivider(color = Border)
     }
     Spacer(Modifier.height(24.dp))
 
@@ -240,35 +285,63 @@ private fun RequestRow(
 }
 
 @Composable
-private fun ConnectionIdentityRow(name: String, email: String, status: String, action: @Composable () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(name, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-            if (email.isNotBlank()) Text(email, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            Spacer(Modifier.height(6.dp))
-            StatusPill(status, StatusTone.SUCCESS)
-        }
-        action()
+private fun ConnectionIdentity(
+    name: String,
+    email: String,
+    details: ConnectionContactDetails?,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(name, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Text(details?.email ?: email.ifBlank { "Email unavailable" }, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        Text(details?.phoneNumber ?: "Phone number unavailable", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
     }
-    HorizontalDivider(color = Border)
+}
+
+@Composable
+internal fun <T> rememberConnectionDetails(
+    userId: String?,
+    connectionIds: List<String>,
+    load: suspend (String, List<String>) -> Map<String, T>,
+    refreshKey: Int = 0,
+): Map<String, T> {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var details by remember(userId, connectionIds) { mutableStateOf(emptyMap<String, T>()) }
+    LaunchedEffect(lifecycle, userId, connectionIds, refreshKey) {
+        if (userId == null || connectionIds.isEmpty()) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            details = try {
+                load(userId, connectionIds)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                emptyMap()
+            }
+        }
+    }
+    return details
 }
 
 @Composable
 fun InviteConnectionScreen(
     inviteState: ConnectionInviteUiState,
     onLookup: (String) -> Unit,
+    onLookupEmail: (String) -> Unit,
     onSend: () -> Unit,
     onClear: () -> Unit,
     onBack: () -> Unit,
     senderName: String = "",
     senderEmail: String = "",
 ) {
-    var code by rememberSaveable { mutableStateOf("") }
+    var useEmail by rememberSaveable { mutableStateOf(true) }
+    var input by rememberSaveable { mutableStateOf("") }
     val focus = LocalFocusManager.current
+    val match = inviteState.emailMatch
+    val targetName = match?.displayName ?: inviteState.targetDisplayName
+    val canSearch = input.isNotBlank() && !inviteState.isLookingUp && !inviteState.isSending
+    DisposableEffect(Unit) {
+        onDispose { onClear() }
+    }
     LaunchedEffect(inviteState.requestSent) {
         if (inviteState.requestSent) {
             onClear()
@@ -276,35 +349,38 @@ fun InviteConnectionScreen(
         }
     }
     fun lookup() {
+        if (!canSearch) return
         focus.clearFocus()
-        onLookup(code)
+        if (useEmail) onLookupEmail(input) else onLookup(input)
     }
     ScrollableScreen(
         title = "Invite a Trusted Contact",
         onBack = onBack,
     ) {
         Text(
-            "Enter the connection code from your Trusted Contact’s DriveAlert Account screen. They must accept before future eligible Stage 3 records can be shared.",
+            if (useEmail) "Enter the email address your Trusted Contact uses for DriveAlert."
+            else "Enter the connection code from your Trusted Contact’s DriveAlert Account screen.",
             style = MaterialTheme.typography.bodyLarge,
             color = TextSecondary,
         )
         Spacer(Modifier.height(22.dp))
         OutlinedTextField(
-            value = code,
-            onValueChange = { code = it.uppercase(); onClear() },
-            label = { Text("Connection code") },
-            placeholder = { Text("DA-XXXXX-XXXXX-XXXXX-XXXXX-XXXXXX") },
+            value = input,
+            onValueChange = { input = if (useEmail) it else it.uppercase(); onClear() },
+            label = { Text(if (useEmail) "Email address" else "Connection code") },
+            placeholder = if (useEmail) null else { { Text("DA-XXXXX-XXXXX-XXXXX-XXXXX-XXXXXX") } },
             isError = inviteState.errorMessage != null,
             supportingText = inviteState.errorMessage?.let { message -> { Text(message) } },
             singleLine = true,
-            enabled = !inviteState.isLookingUp && !inviteState.isSending,
+            enabled = !inviteState.isSending,
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Ascii,
-                capitalization = KeyboardCapitalization.Characters,
+                keyboardType = if (useEmail) KeyboardType.Email else KeyboardType.Ascii,
+                capitalization = if (useEmail) KeyboardCapitalization.None else KeyboardCapitalization.Characters,
+                autoCorrect = false,
                 imeAction = ImeAction.Search,
             ),
             keyboardActions = KeyboardActions(onSearch = { lookup() }),
-            modifier = Modifier.fillMaxWidth().testTag(PostAuthTestTags.INVITE_CODE),
+            modifier = Modifier.fillMaxWidth().testTag(if (useEmail) PostAuthTestTags.INVITE_EMAIL else PostAuthTestTags.INVITE_CODE),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Surface,
                 unfocusedContainerColor = Surface,
@@ -315,23 +391,27 @@ fun InviteConnectionScreen(
             ),
         )
         Spacer(Modifier.height(20.dp))
-        if (inviteState.targetUserId == null) {
+        if (targetName == null) {
             SecondaryButton(
-                text = if (inviteState.isLookingUp) "Checking code…" else "Find account",
+                text = when {
+                    inviteState.isLookingUp -> "Searching…"
+                    useEmail -> "Search"
+                    else -> "Find account"
+                },
                 onClick = ::lookup,
-                enabled = code.isNotBlank() && !inviteState.isLookingUp,
+                enabled = canSearch,
             )
         } else {
             GroupSurface {
-                Text("Account found", style = MaterialTheme.typography.labelLarge, color = TextMuted)
-                Spacer(Modifier.height(6.dp))
-                Text(inviteState.targetDisplayName.orEmpty(), style = MaterialTheme.typography.titleLarge, color = TextPrimary)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "This person will be invited as your Trusted Contact.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
-                )
+                if (match == null) {
+                    Text("Account found", style = MaterialTheme.typography.labelLarge, color = TextMuted)
+                    Spacer(Modifier.height(6.dp))
+                }
+                Text(targetName, style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                match?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it.email, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                }
             }
             Spacer(Modifier.height(12.dp))
             Text(
@@ -342,12 +422,22 @@ fun InviteConnectionScreen(
             )
             Spacer(Modifier.height(16.dp))
             PrimaryButton(
-                text = if (inviteState.isSending) "Sending request…" else "Send connection request",
+                text = when {
+                    inviteState.isSending -> "Sending invite…"
+                    useEmail -> "Send invite"
+                    else -> "Send connection request"
+                },
                 onClick = onSend,
                 enabled = !inviteState.isSending,
             )
         }
         Spacer(Modifier.height(12.dp))
+        TextButton(
+            onClick = { focus.clearFocus(); useEmail = !useEmail; input = ""; onClear() },
+            enabled = !inviteState.isSending,
+        ) {
+            Text(if (useEmail) "Use a connection code" else "Search by email")
+        }
         SecondaryButton("Cancel", { onClear(); onBack() })
     }
 }

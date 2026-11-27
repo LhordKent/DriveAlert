@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore'
 import { firestore } from '../firebase/client'
 import { generateConnectionCode } from '../lib/connectionCode'
+import { requiredPhoneNumberSchema } from '../lib/phoneNumber'
 import { fullName, parseUserProfile, PortalError, type UserProfile } from '../models/domain'
 import type { RegistrationInput } from './authRepository'
 import { toPortalError } from '../lib/errors'
@@ -46,6 +47,8 @@ export const profileRepository = {
             connectionCode,
           }
           if (input.middleName?.trim()) profile.middleName = input.middleName.trim()
+          const suffix = input.suffix?.trim()
+          if (suffix) profile.suffix = suffix
           if (input.phoneNumber?.trim()) profile.phoneNumber = input.phoneNumber.trim()
 
           transaction.set(profileRef, profile)
@@ -55,6 +58,7 @@ export const profileRepository = {
               firstName: input.firstName.trim(),
               middleName: input.middleName?.trim() || null,
               lastName: input.lastName.trim(),
+              suffix,
             }),
             createdAt: serverTimestamp(),
             active: true,
@@ -70,6 +74,9 @@ export const profileRepository = {
   },
 
   async update(uid: string, input: { firstName: string; middleName: string; lastName: string; phoneNumber: string }): Promise<void> {
+    const phoneNumber = requiredPhoneNumberSchema.safeParse(input.phoneNumber)
+    if (!phoneNumber.success) throw new PortalError('invalid-data', phoneNumber.error.issues[0].message)
+
     try {
       await runTransaction(firestore, async (transaction) => {
         const profileRef = doc(firestore, 'users', uid)
@@ -80,15 +87,14 @@ export const profileRepository = {
         const firstName = input.firstName.trim()
         const middleName = input.middleName.trim()
         const lastName = input.lastName.trim()
-        const phoneNumber = input.phoneNumber.trim()
         if (!firstName || !lastName) throw new PortalError('invalid-data', 'First name and last name are required.')
 
         const codeRef = profile.connectionCode ? doc(firestore, 'connectionCodes', profile.connectionCode) : null
         const codeSnapshot = codeRef ? await transaction.get(codeRef) : null
 
-        transaction.update(profileRef, { firstName, middleName, lastName, phoneNumber })
+        transaction.update(profileRef, { firstName, middleName, lastName, phoneNumber: phoneNumber.data })
         if (codeRef && codeSnapshot?.exists()) {
-          transaction.update(codeRef, { displayName: fullName({ firstName, middleName, lastName }) })
+          transaction.update(codeRef, { displayName: fullName({ firstName, middleName, lastName, suffix: profile.suffix }) })
         }
       })
     } catch (error) {

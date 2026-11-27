@@ -121,5 +121,6 @@ test.describe('sign up in Chrome, finish in Brave', () => {
 
     const [profile] = await storedProfiles()
     expect(profile).toMatchObject({ firstName: 'Mara', lastName: 'Santos', phoneNumber: '09000000000' })
+    expect(profile).not.toHaveProperty('suffix')
   })
 })

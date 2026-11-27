@@ -46,10 +46,13 @@ fun SavedCameraConnectionPanel(vision: DriverVisionUiState, onDisconnect: () -> 
             Text("Use this if the camera has already returned to Bluetooth setup.", color = TextMuted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
         }
     }
-    if (confirmReturn) ConfirmDialog("Return camera to Bluetooth setup?",
-        "This stops monitoring and asks the camera to restart into Bluetooth setup. Saved Wi-Fi details are kept.",
-        "Return to Bluetooth", onConfirm = { confirmReturn = false; if (connected) onDisconnect() else onReturnToBle() },
-        onDismiss = { confirmReturn = false })
+    if (confirmReturn) ConfirmDialog(
+        title = if (connected) "Disconnect camera?" else "Return camera to Bluetooth setup?",
+        body = "This stops monitoring and asks the camera to restart into Bluetooth setup. Saved Wi-Fi details are kept.",
+        confirmLabel = if (connected) "Disconnect" else "Return to Bluetooth",
+        onConfirm = { confirmReturn = false; if (connected) onDisconnect() else onReturnToBle() },
+        onDismiss = { confirmReturn = false },
+    )
     if (confirmSearch) ConfirmDialog("Open Bluetooth setup?",
         "This stops monitoring and opens Bluetooth discovery. It does not restart the camera. The camera must already be in Bluetooth setup mode.",
         "Open Bluetooth setup", onConfirm = { confirmSearch = false; onOpenBleSetup() }, onDismiss = { confirmSearch = false })

@@ -46,12 +46,13 @@ class FirestoreUserProfileRepository(
             "deactivatedAt" to null,
         )
         profile.middleName?.takeIf(String::isNotBlank)?.let { values["middleName"] = it }
+        profile.suffix?.trim()?.takeIf(String::isNotBlank)?.let { values["suffix"] = it }
         profile.phoneNumber?.takeIf(String::isNotBlank)?.let { values["phoneNumber"] = it }
         firestore.runTransaction { transaction ->
             val reference = users.document(profile.uid)
             if (!transaction.get(reference).exists()) transaction.set(reference, values)
         }.await()
-        ensureProfile(profile.uid, profile.firstName + " " + profile.lastName, profile.email)
+        ensureProfile(profile.uid, formatProfileName(profile.firstName, profile.middleName, profile.lastName, profile.suffix), profile.email)
     }
 
     override suspend fun ensureProfile(uid: String, displayName: String, email: String): String {
@@ -151,7 +152,7 @@ class FirestoreUserProfileRepository(
                     firstName = firstName,
                     middleName = middleName,
                     lastName = lastName,
-                ).fullName)
+                ).fullName(userSnapshot.getString("suffix")))
             }
         }.await()
     }
@@ -168,12 +169,11 @@ class FirestoreUserProfileRepository(
         registeredAtEpochMillis = getTimestamp("registeredAt")?.toEpochMillis(),
         deactivatedAtEpochMillis = getTimestamp("deactivatedAt")?.toEpochMillis(),
         connectionCode = getString("connectionCode").orEmpty(),
+        suffix = getString("suffix"),
     )
 
     private fun DocumentSnapshot.toDisplayName(): String =
-        listOf(getString("firstName").orEmpty(), getString("middleName").orEmpty(), getString("lastName").orEmpty())
-            .filter(String::isNotBlank)
-            .joinToString(" ")
+        formatProfileName(getString("firstName").orEmpty(), getString("middleName"), getString("lastName").orEmpty(), getString("suffix"))
 
     private fun Timestamp.toEpochMillis(): Long = seconds * 1_000L + nanoseconds / 1_000_000L
 

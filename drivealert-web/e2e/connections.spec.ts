@@ -25,6 +25,14 @@ async function signIn(page: import('@playwright/test').Page, email: string, pass
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 }
 
+test('Settings has no email discovery switch', async ({ page }) => {
+  const contact = await createEmulatorUser('Trusted', 'TRUSTED_CONTACT', TRUSTED_CODE)
+  await signIn(page, contact.email, contact.password)
+  await page.goto('/settings')
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByText('Find me by email')).toHaveCount(0)
+})
+
 test('redirects the old invite URL and hides previous contact-sent requests', async ({ page }) => {
   const trusted = await createEmulatorUser('Trusted', 'TRUSTED_CONTACT', TRUSTED_CODE)
   const driver = await createEmulatorUser('Driver', 'DRIVER', DRIVER_CODE)
@@ -48,6 +56,18 @@ test('redirects the old invite URL and hides previous contact-sent requests', as
 test('accepts a Driver, shows read-only alert rows, then disconnects', async ({ page }) => {
   const trusted = await createEmulatorUser('Trusted', 'TRUSTED_CONTACT', TRUSTED_CODE)
   const driver = await createEmulatorUser('Driver', 'DRIVER', DRIVER_CODE)
+  const longEmail = `${'long-name'.repeat(7)}@example.test`
+  const phoneNumber = '09123456789'
+  await page.route('**/v1/connection-contact-details', async (route) => {
+    const headers = { 'access-control-allow-origin': 'http://127.0.0.1:4173', 'access-control-allow-headers': 'Authorization, Content-Type', 'access-control-allow-methods': 'POST' }
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers })
+      return
+    }
+    expect(route.request().postDataJSON()).toEqual({ connectionIds: [relationshipId(driver, trusted)] })
+    expect(route.request().headers().authorization?.startsWith('Bearer ')).toBe(true)
+    await route.fulfill({ headers, json: { details: [{ connectionId: relationshipId(driver, trusted), email: longEmail, phoneNumber }] } })
+  })
   await requestFromDriver(driver, trusted)
   await signIn(page, trusted.email, trusted.password)
   await page.goto('/requests')
@@ -58,6 +78,13 @@ test('accepts a Driver, shows read-only alert rows, then disconnects', async ({ 
   await addStageRecord(driver, approvedAt)
   await page.goto('/drivers')
   await expect(page.getByText(driver.name)).toBeVisible()
+  for (const viewport of [{ width: 360, height: 844 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport)
+    await expect(page.getByText(longEmail)).toBeVisible()
+    await expect(page.getByText(phoneNumber)).toBeVisible()
+    await expect(page.getByText('Approved', { exact: true })).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  }
   await page.getByRole('link', { name: 'View records' }).click()
   const alerts = page.getByRole('list', { name: 'Shared alerts' })
   await expect(alerts.getByRole('link')).toHaveCount(0)
@@ -75,6 +102,7 @@ test('accepts a Driver, shows read-only alert rows, then disconnects', async ({ 
   await expect(page.getByRole('alertdialog')).toBeVisible()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Disconnect', exact: true }).click()
   await expect(page.getByText('No connected Drivers')).toBeVisible()
+  await expect(page.getByText(phoneNumber)).toHaveCount(0)
   // The list updates optimistically; verify the revocation reached the server before reloading.
   await expect.poll(async () => {
     const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'

@@ -15,6 +15,7 @@ data class SignUpInput(
     val email: String,
     val password: String,
     val confirmPassword: String,
+    val suffix: String = "",
 )
 
 data class AuthCallbacks(
@@ -49,8 +50,15 @@ data class AuthSessionState(
 )
 
 object AuthValidation {
+    const val SIGN_UP_PASSWORD_REQUIREMENTS =
+        "Use at least 8 characters, including an uppercase letter, a lowercase letter, and a special character."
+
     private val emailPattern = Regex("^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$")
     private val phonePattern = Regex("^[0-9]{11}$")
+    private val nameNumberPattern = Regex("\\p{N}")
+    private const val firebaseSpecialCharacters = "^$*.[]{}()?\"!@#%&/\\,><':;|_~`-"
+
+    fun removeNameNumbers(value: String): String = value.replace(nameNumberPattern, "")
 
     fun requiredError(value: String, fieldName: String): String? =
         if (value.isBlank()) "$fieldName is required" else null
@@ -66,7 +74,10 @@ object AuthValidation {
 
     fun signUpPasswordError(value: String): String? = when {
         value.isBlank() -> "Password is required"
-        value.length < 8 -> "Use at least 8 characters"
+        value.length < 8 ||
+            value.none { it in 'A'..'Z' } ||
+            value.none { it in 'a'..'z' } ||
+            value.none { it in firebaseSpecialCharacters } -> SIGN_UP_PASSWORD_REQUIREMENTS
         else -> null
     }
 

@@ -12,12 +12,15 @@ import {
 } from 'firebase/auth'
 import { auth } from '../firebase/client'
 import { profileRepository } from './profileRepository'
-import { registrationPhoneSchema } from '../lib/phoneNumber'
+import { requiredPhoneNumberSchema } from '../lib/phoneNumber'
+import { newPasswordSchema } from '../lib/password'
+import { fullName, removeNameNumbers } from '../models/domain'
 
 export interface RegistrationInput {
   firstName: string
   middleName?: string
   lastName: string
+  suffix?: string
   phoneNumber?: string
   email: string
   password: string
@@ -72,16 +75,21 @@ export const authRepository = {
     return signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password)
   },
   async register(input: RegistrationInput & { phoneNumber: string }) {
-    const phone = registrationPhoneSchema.safeParse(input.phoneNumber)
+    if ([input.firstName, input.middleName ?? '', input.lastName].some((name) => name !== removeNameNumbers(name))) {
+      throw new Error('Names cannot contain numbers.')
+    }
+    const phone = requiredPhoneNumberSchema.safeParse(input.phoneNumber)
     if (!phone.success) throw new Error(phone.error.issues[0].message)
+    const password = newPasswordSchema.safeParse(input.password)
+    if (!password.success) throw new Error(password.error.issues[0].message)
     const credential = await createUserWithEmailAndPassword(auth, input.email.trim().toLowerCase(), input.password)
     // Persist profile details only, never passwords.
     const { firstName, middleName, lastName, email } = input
+    const suffix = input.suffix?.trim() || undefined
     const phoneNumber = phone.data
     localStorage.setItem('drivealert.pending-registration.' + credential.user.uid,
-      JSON.stringify({ firstName, middleName, lastName, phoneNumber, email }))
-    const name = [input.firstName, input.middleName, input.lastName].filter(Boolean).join(' ')
-    await updateProfile(credential.user, { displayName: name })
+      JSON.stringify({ firstName, middleName, lastName, suffix, phoneNumber, email }))
+    await updateProfile(credential.user, { displayName: fullName({ firstName, middleName, lastName, suffix }) })
     await sendEmailVerification(credential.user)
     lastEmailSentAt = Date.now()
     return credential.user

@@ -18,6 +18,7 @@ import com.google.firebase.firestore.PersistentCacheSettings
 import com.lhordkent.drivealert.data.profile.FirestoreUserProfileRepository
 import com.lhordkent.drivealert.data.profile.UserProfileRepository
 import com.lhordkent.drivealert.data.connection.FirestoreTrustedContactRepository
+import com.lhordkent.drivealert.data.connection.CloudflareTrustedContactEmailDirectory
 import com.lhordkent.drivealert.data.connection.TrustedContactRepository
 import com.lhordkent.drivealert.data.sync.FirestoreStageSyncRemoteDataSource
 import com.lhordkent.drivealert.data.sync.RoomStageSyncRepository
@@ -93,6 +94,7 @@ class AppContainer(private val application: Application) {
         com.lhordkent.drivealert.data.device.DeviceAccessRepository(firestore, database.deviceAccessDao(), deviceCredentialStore)
     }
     val userProfileRepository: UserProfileRepository by lazy { FirestoreUserProfileRepository(firestore) }
+    val trustedContactEmailDirectory by lazy { CloudflareTrustedContactEmailDirectory() }
     val trustedContactRepository: TrustedContactRepository by lazy {
         FirestoreTrustedContactRepository(
             firestore = firestore,

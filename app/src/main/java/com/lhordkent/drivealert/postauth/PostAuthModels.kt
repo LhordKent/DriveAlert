@@ -1,5 +1,7 @@
 package com.lhordkent.drivealert.postauth
 
+import com.lhordkent.drivealert.data.connection.TrustedContactEmailMatch
+
 import java.time.LocalDateTime
 import com.lhordkent.drivealert.data.profile.UserRole
 
@@ -193,6 +195,7 @@ data class ConnectionInviteUiState(
     val isSending: Boolean = false,
     val errorMessage: String? = null,
     val requestSent: Boolean = false,
+    val emailMatch: TrustedContactEmailMatch? = null,
 )
 
 data class HistoryRetentionPreview(val days: Int?, val affectedRecords: Int)
@@ -208,6 +211,7 @@ data class PostAuthUiState(
     val profileFirstName: String = "",
     val profileMiddleName: String = "",
     val profileLastName: String = "",
+    val profileSuffix: String? = null,
     val profilePhoneNumber: String = "",
     val connectionCode: String = "",
     val profileErrorMessage: String? = null,

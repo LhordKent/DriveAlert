@@ -41,7 +41,8 @@ class CameraConnectionRecoveryScreenTest {
         capture("recovery-large")
         compose.onNodeWithText("Disconnect").performClick()
         assertEquals(0, calls)
-        compose.onNodeWithText("Return to Bluetooth").performClick()
+        compose.onNodeWithText("Disconnect camera?").assertIsDisplayed()
+        compose.onNode(hasText("Disconnect") and hasAnyAncestor(isDialog())).performClick()
         assertEquals(1, calls)
     }
     @Test fun savedCameraShowsBleSetupForEveryDisconnectedState() {

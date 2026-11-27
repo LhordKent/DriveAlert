@@ -3,9 +3,11 @@ export interface Env {
   FIREBASE_PROJECT_ID: string
   FIREBASE_CLIENT_EMAIL: string
   FIREBASE_PRIVATE_KEY: string
+  FIREBASE_LOOKUP_CLIENT_EMAIL?: string
+  FIREBASE_LOOKUP_PRIVATE_KEY?: string
 }
 
-export interface AuthenticatedUser { uid: string }
+export interface AuthenticatedUser { uid: string; email?: string }
 
 export interface DispatchRequest {
   dispatchGroupId: string

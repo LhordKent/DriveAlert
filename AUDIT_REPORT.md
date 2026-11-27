@@ -1,6 +1,63 @@
 # DriveAlert System Audit — 2026-11-11
 
-## Current status (plain English) - last updated 2026-11-25
+## Current status (plain English) - last updated 2026-11-27
+
+### 2026-11-27 — Published sign-up and invitation-name updates
+- The website, Firestore rules, and invitation Worker are live. Verified the served web assets against the tested build, read back the active rules, and confirmed the new Worker version serves traffic. The live form passed checks at desktop and phone widths without creating accounts. The live Firebase policy passed the password boundary and special-character checks.
+- Release tests passed on the signed APK and local Firebase. All 10 Android, six browser, 37 Firestore rules, and 20 Worker checks passed. Tests covered email verification and profile edits with and without a suffix, sign-in with an older password, and replacing it through the reset email.
+- The signed Android installer is `output/DriveAlert-2026-11-27-signup-suffix-and-password.apk`. Its signing certificate matches the previous installer. No physical phone was connected for installation.
+
+### 2026-11-27 — Stronger passwords for sign-ups and resets
+- Live Firebase Authentication now requires at least eight characters with an uppercase letter, a lowercase letter, and a special character. A digit is optional. Existing passwords remain valid for sign-in.
+- Read back the live settings and checked valid and invalid samples through the Firebase SDK without creating or changing an account. Android and web sign-up now explain and check the same requirements before submission. Both builds passed, along with 345 Android unit tests, nine Android emulator tests, 69 web unit and component tests, and three browser tests.
+
+### 2026-11-27 — Optional suffix on Android and web sign-up
+- **Suffix (optional)** follows Last name. First, middle, and last name fields remove numbers during typing or pasting. The suffix allows numbers, trims surrounding spaces, and is saved with the profile after email verification if filled in. Full names and new invitations include it, and editing other profile details preserves it.
+- Passed 345 Android unit tests, nine Android emulator sign-up and authentication checks, 68 web unit and component tests, five browser tests, 37 Firestore rules tests, and 20 Worker tests. The browser sign-up test verified the name after email verification, sign-in, and a profile edit. The Android and web builds passed.
+- The Firebase rules, website, and Worker are live. The Android installer is ready and physical-device installation is pending.
+
+### 2026-11-25 — Show additional driver names and phone numbers
+- The read-only Worker route checks device ownership and current membership, then returns the saved phone number. Android omits the Active · Demo subscription row label. Passed 345 Android unit tests and 20 Worker tests, including the Firebase emulator integration. Android UI tests compiled. The Android emulator lacked disk space, so the list was verified on the updated TECNO with an existing membership. Worker version `91473325-f0ae-4c50-8540-7e51d6306046` is live. Installed in place at 11:12 PM Manila with app data preserved.
+
+### 2026-11-25 — Fix BLE provisioning status text
+- Corrected a garbled ellipsis in the saved-network check message. Android build and unit tests passed. Installed in place on the TECNO at 11:00 PM Manila and verified the account, settings, and alert database.
+
+### 2026-11-25 — Match the Remove driver button to Search
+- Subscriptions & Drivers uses the same filled red button for Remove driver and Search. Removal still requires confirmation. Built the debug APK and passed Android unit tests. Included in the 11:00 PM Manila TECNO update.
+
+### 2026-11-25 — Remove ended device access from the lists
+- Pending and active entries are shown. Removed drivers and other ended entries disappear from the primary driver list and the recipient’s shared devices. Firestore retains ended records so the camera can reject old credentials. Passed five emulator UI checks and Android unit tests. Installed on the TECNO with account, settings, and alert database preserved.
+- Published D1 migration 0003, the Worker, and Firebase Hosting. Verified the web assets, a signed-in device lookup, and a Trusted Contact match without sending an invitation.
+
+### 2026-11-25 — Immediate additional-driver access
+- Add driver grants access in one owner-only demo transaction. Existing pending grants can be activated by the primary driver without a second demo event. The first authenticated Bluetooth session presents a one-time notice.
+- Passed 345 Android unit tests, 11 emulator UI and storage tests, 37 Firestore rules tests, and 19 Worker tests. Candidate APK is F:/DriveAlert-direct-device-access-2026-11-25/android/app/outputs/apk/debug/app-debug.apk. Published the Firestore rules and verified their live source. Installed the matching APK on the TECNO at 10:23 PM Manila and confirmed the original account, settings, and alert database. Physical Bluetooth verification is pending.
+
+### 2026-11-25 — Email-first additional-driver invitations
+- Removed the email discovery switch in the updated Android and web clients. Exact-email lookup finds active, verified recipients eligible for the invitation. The primary driver’s device invitation starts with email, keeps the connection-code option, and shows the name and email before Send invite. Device access starts after the recipient accepts. The registered-device warning points to Settings and Subscriptions & Drivers.
+- Passed 345 Android unit tests, four Android emulator UI tests, 65 web unit/component tests, five browser tests, 19 Worker tests and 35 Firestore emulator tests. The Worker dry-run and web production build passed. Signed Android candidate is F:/DriveAlert-device-invite-release-2026-11-25/android/app/outputs/apk/debug/app-debug.apk. Installed on the TECNO in place at 10:09 PM Manila. Verified the installed APK, original installation, saved account, settings, and alert database, and reopened DriveAlert. D1 migration 0003, the Worker, and the website are now in production.
+
+### 2026-11-25 — Camera disconnect wording
+- The connected camera confirmation now says **Disconnect camera?** and uses **Disconnect** for the action. All three camera connection emulator tests passed. Installed on the TECNO as an in-place update and verified the original package identity, database, and preferences directories.
+
+### 2026-11-25 — Connected Drivers row alignment
+- Centered **Disconnect** vertically beside the driver’s name, email, and phone, with the alert summary below. Passed 345 Android unit tests and three emulator tests covering alignment, confirmation and cancel, opening records, and relationship revocation. Installed in place on the TECNO and verified the signed-in account, settings, and alert database.
+
+### 2026-11-25 — Contacts row alignment
+- Moved **Remove** beside the three-line contact details and centered it vertically. All 345 Android unit tests passed. Installed on the TECNO with the account, settings, and alert database intact. Verified both rows and opened and canceled the removal confirmation.
+
+### 2026-11-25 — Contacts and Connected Drivers
+- Android shows equal **Invite** and **Sent requests** buttons and a dedicated pending-request screen. Both Android views and the web Connected Drivers list show name, email, and stored phone for approved peers. The Worker checks the approval and owner for each lookup. Pending and disconnected accounts cannot receive the number.
+- Passed 345 Android unit tests, four Android emulator UI tests, 65 web unit/component tests, five browser tests, and 18 Worker tests including Firebase emulator access checks. Published the Worker and website and verified an existing approved driver’s details live. Installed the Android update on the TECNO in place and verified the signed-in account, settings, and alert database. The Huawei was unavailable.
+
+### 2026-11-25 — Required phone numbers and simpler Account profile
+- Android and web signup and profile edits in the updated source require exactly 11 digits with any prefix. The phone field no longer says optional, and the web Account page omits User role and Account status. Firebase Hosting now serves the new web build. Verified the live signup assets and signed-in Account page after deployment.
+- Passed 345 Android unit tests, 65 web unit and component tests, web typecheck, lint and production build, and three browser tests with local Firebase emulators. The browser tests covered blank signup, legacy-profile editing, malformed numbers, and saving a valid number. The Android update was installed in place on the TECNO and the account, settings, and alert database were verified. The Huawei was unavailable.
+
+### 2026-11-25 — Trusted Contact lookup by email
+- The Android Driver can search for a Trusted Contact by exact email, see the name and verified email, and send a separate in-app invitation. **Find me by email** is off by default and available in Trusted Contact Settings on Android and web. The connection code option is still available.
+- The Worker checks the account roles and contact consent, limits repeated searches, and rechecks the short-lived match before sending. The invite uses the Driver's Firebase token and existing Firestore rules.
+- Passed 345 Android unit tests, three Android emulator tests, 65 web unit and component tests, a browser opt-in/out test, 35 Firestore rules tests, and 16 Worker tests including a Firebase emulator integration test. The Android emulator used the real HTTP client, local Worker handler, and Firebase emulators to look up, send, and accept. Deployed the dedicated read-only Firebase Auth credential, D1 migration, Worker, Firestore rules, and website on 2026-11-25. Confirmed the opt-in setting was off in the signed-in live website, and verified that the in-place TECNO update retained the account, app settings, and alert database. Full lookup and invitation verification used emulators. The Huawei was unavailable for this rollout.
 
 ### 2026-11-25 — Conditional hotspot prompt after Bluetooth setup
 - Restored the **Turn on your hotspot** popup after Bluetooth setup completes, when Android reports the tethered hotspot is off. Confirmed on or unknown states keep the popup hidden. Cancel allows another Wi-Fi network.

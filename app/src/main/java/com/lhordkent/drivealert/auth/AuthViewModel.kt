@@ -16,6 +16,7 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.lhordkent.drivealert.data.profile.UserProfileRepository
+import com.lhordkent.drivealert.data.profile.formatProfileName
 import com.lhordkent.drivealert.notification.TrustedContactDeviceRegistrar
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -67,7 +68,15 @@ class AuthViewModel(
 
     private fun signUp(input: SignUpInput) {
         if (state.isLoading) return
+        if (listOf(input.firstName, input.middleName, input.lastName).any { it != AuthValidation.removeNameNumbers(it) }) {
+            state = AuthOperationState(errorMessage = "Names cannot contain numbers.")
+            return
+        }
         AuthValidation.phoneError(input.phoneNumber)?.let {
+            state = AuthOperationState(errorMessage = it)
+            return
+        }
+        AuthValidation.signUpPasswordError(input.password)?.let {
             state = AuthOperationState(errorMessage = it)
             return
         }
@@ -79,8 +88,7 @@ class AuthViewModel(
                 val user = auth.createUserWithEmailAndPassword(input.email.trim(), input.password).await().user
                     ?: error("Account creation failed")
                 pendingRegistrationStore?.save(user.uid, input)
-                val displayName = listOf(input.firstName, input.middleName, input.lastName)
-                    .filter(String::isNotBlank).joinToString(" ")
+                val displayName = formatProfileName(input.firstName, input.middleName, input.lastName, input.suffix)
                 user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(displayName).build()).await()
                 user.sendEmailVerification().await()
                 lastEmailSentAt = android.os.SystemClock.elapsedRealtime()

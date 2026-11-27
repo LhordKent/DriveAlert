@@ -25,6 +25,7 @@ export const userProfileSchema = z.object({
   firstName: optionalText,
   middleName: z.string().nullable().optional(),
   lastName: optionalText,
+  suffix: z.string().optional(),
   email: optionalText,
   phoneNumber: z.string().nullable().optional(),
   userRole: userRoleSchema.nullable().optional(),
@@ -119,8 +120,12 @@ export function parseStageSyncRecord(data: unknown, documentId: string): StageSy
   return { ...parsed, recordType: normalizeRecordType(parsed.recordType) }
 }
 
-export function fullName(profile: Pick<UserProfile, 'firstName' | 'middleName' | 'lastName'>): string {
-  return [profile.firstName, profile.middleName, profile.lastName].filter(Boolean).join(' ').trim()
+export function fullName(profile: Pick<UserProfile, 'firstName' | 'middleName' | 'lastName' | 'suffix'>): string {
+  return [profile.firstName, profile.middleName, profile.lastName, profile.suffix?.trim()].filter(Boolean).join(' ').trim()
+}
+
+export function removeNameNumbers(value: string): string {
+  return value.replace(/\p{N}/gu, '')
 }
 
 export function trustedRoleAllowed(role: UserRole | null | undefined): boolean {

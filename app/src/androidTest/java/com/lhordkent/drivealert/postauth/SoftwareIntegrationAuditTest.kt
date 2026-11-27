@@ -20,6 +20,7 @@ import com.lhordkent.drivealert.DriveAlertApplication
 import com.lhordkent.drivealert.auth.*
 import com.lhordkent.drivealert.data.connection.*
 import com.lhordkent.drivealert.data.local.entity.*
+import com.lhordkent.drivealert.data.profile.FirestoreUserProfileRepository
 import com.lhordkent.drivealert.data.profile.UserRole
 import com.lhordkent.drivealert.data.repository.*
 import com.lhordkent.drivealert.data.sync.*
@@ -94,10 +95,14 @@ class SoftwareIntegrationAuditTest {
             .put("driverUid", driverUid).put("contactUid", contactUid)
             .put("driverEmail", driverEmail).put("contactEmail", contactEmail).put("password", password)
             .put("driverCode", driverCode).put("contactCode", contactCode)
+        val emailWorkerUrl = InstrumentationRegistry.getArguments().getString("emailLookupWorkerUrl")
+        val emailDirectory = emailWorkerUrl?.let { CloudflareTrustedContactEmailDirectory(driverAuth, it) }
         compose.runOnIdle {
             driverVm = PostAuthViewModel(container.alertRepository, container.monitoringSessionRepository,
+                userProfileRepository = if (emailDirectory != null) FirestoreUserProfileRepository(driverCloud) else null,
                 trustedContactRepository = driverConnections, stageSyncRepository = container.stageSyncRepository,
-                initialState = PostAuthUiState(userRole=UserRole.DRIVER, isProfileLoading=false, driverSetupComplete=true))
+                initialState = PostAuthUiState(userRole=UserRole.DRIVER, isProfileLoading=false, driverSetupComplete=true),
+                trustedContactEmailDirectory = emailDirectory)
             contactVm = PostAuthViewModel(trustedContactRepository = contactConnections,
                 sharedStage3Repository = FirestoreSharedStage3Repository(contactCloud),
                 initialState = PostAuthUiState(
@@ -106,6 +111,7 @@ class SoftwareIntegrationAuditTest {
                     isProfileLoading = false,
                 ))
             driverVm.bindLocalData(driverUid)
+            if (emailDirectory != null) driverVm.bindCloudProfile(driverUid, "Integration Driver", driverEmail)
             driverVm.setAccountEmail(driverEmail)
             driverVm.setProfileDisplayName("Integration Driver")
             driverVm.bindConnections(driverUid)
@@ -124,6 +130,7 @@ class SoftwareIntegrationAuditTest {
                                 if(contact) contactEmail else driverEmail), entry=AuthenticationEntry.RESTORED),
                         postAuthState=vm.state,
                         onLookupConnectionCode=driverVm::lookupConnectionCode,
+                        onLookupConnectionEmail=driverVm::lookupConnectionEmail,
                         onSendTrustedContactRequest=driverVm::sendTrustedContactRequest,
                         onClearConnectionInvite=driverVm::clearConnectionInvite,
                         onAcceptTrustedIncomingRequest=contactVm::acceptTrustedIncomingRequest,
@@ -357,6 +364,37 @@ class SoftwareIntegrationAuditTest {
         recordPassed()
     }
 
+    @Test fun it15_emailSearchAndInviteRunThroughTheRealAndroidClient() = runBlocking {
+        Assume.assumeTrue("Requires a local email lookup Worker",
+            InstrumentationRegistry.getArguments().getString("emailLookupWorkerUrl") != null)
+        waitForNode(hasText("Driver Home"))
+        compose.onNodeWithText("Contacts", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Invite a Trusted Contact").performScrollTo().performClick()
+        val email = fixture.getString("contactEmail")
+        compose.onNodeWithTag(PostAuthTestTags.INVITE_EMAIL).performTextReplacement(email.uppercase())
+        compose.onNodeWithText("Search").performScrollTo().performClick()
+        waitForNode(hasText("No discoverable Trusted Contact found for this email."))
+        compose.onNodeWithText("Send invite").assertDoesNotExist()
+
+        compose.onNodeWithText("Search").performScrollTo().performClick()
+        waitForNode(hasText("Integration Contact"))
+        compose.onNodeWithText("Integration Contact").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(email).assertIsDisplayed()
+        val relationship = driverCloud.collection("trustedContactConnections").document(connectionId())
+        assertFalse(relationship.get(Source.SERVER).await().exists())
+
+        compose.onNodeWithText("Send invite").performScrollTo().performClick()
+        compose.waitUntil(20_000) { contactVm.state.trustedIncomingRequests.any { it.id == connectionId() } }
+        assertEquals("PENDING", relationship.get(Source.SERVER).await().getString("status"))
+        compose.runOnIdle { selectedContact.value = true }
+        waitForNode(hasText("Connected Drivers"))
+        compose.onNodeWithText("Requests", substring = true, useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Accept").performScrollTo().performClick()
+        compose.waitUntil(20_000) { driverVm.state.approvedContacts.isNotEmpty() }
+        assertEquals("APPROVED", relationship.get(Source.SERVER).await().getString("status"))
+        recordPassed()
+    }
+
     private suspend fun inviteFromDriverScreen() {
         openDriverInvitation(fixture.getString("contactCode"))
         waitForNode(hasText("Account found"))
@@ -390,6 +428,9 @@ class SoftwareIntegrationAuditTest {
     }
 
     private fun enterInvitationCode(code: String) {
+        compose.onAllNodesWithText("Use a connection code").fetchSemanticsNodes().firstOrNull()?.let {
+            compose.onNodeWithText("Use a connection code").performScrollTo().performClick()
+        }
         compose.onNodeWithTag(PostAuthTestTags.INVITE_CODE).performTextReplacement(code)
         compose.onNodeWithText("Find account").performScrollTo().performClick()
     }

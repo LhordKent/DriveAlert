@@ -23,9 +23,10 @@ data class UserProfile(
     val registeredAtEpochMillis: Long?,
     val deactivatedAtEpochMillis: Long?,
     val connectionCode: String,
+    val suffix: String? = null,
 ) {
     val fullName: String
-        get() = listOf(firstName, middleName.orEmpty(), lastName).filter(String::isNotBlank).joinToString(" ")
+        get() = formatProfileName(firstName, middleName, lastName, suffix)
 }
 
 data class NewUserProfile(
@@ -35,6 +36,7 @@ data class NewUserProfile(
     val lastName: String,
     val email: String,
     val phoneNumber: String?,
+    val suffix: String? = null,
 )
 
 data class UserProfileUpdate(
@@ -43,6 +45,8 @@ data class UserProfileUpdate(
     val lastName: String,
     val phoneNumber: String?,
 ) {
-    val fullName: String
-        get() = listOf(firstName, middleName.orEmpty(), lastName).filter(String::isNotBlank).joinToString(" ")
+    fun fullName(suffix: String?): String = formatProfileName(firstName, middleName, lastName, suffix)
 }
+
+internal fun formatProfileName(firstName: String, middleName: String?, lastName: String, suffix: String?): String =
+    listOfNotNull(firstName, middleName, lastName, suffix?.trim()).filter(String::isNotBlank).joinToString(" ")
